@@ -1,0 +1,158 @@
+# ─────────────────────────────────────────────────────────────
+# Markdown: nothing but README.md is published.
+# Planning docs (MasterPlan.md, FableTasks.md, AGENTS.md, docs/**)
+# stay local by owner decision. See AGENTS.md section 4.1.
+# ─────────────────────────────────────────────────────────────
+*.md
+!README.md
+!**/README.md
+
+# ─────────────────────────────────────────────────────────────
+# Dependencies
+# ─────────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+jspm_packages/
+bower_components/
+web_modules/
+
+# ─────────────────────────────────────────────────────────────
+# Build output
+# ─────────────────────────────────────────────────────────────
+dist/
+dist-ssr/
+build/
+out/
+.output/
+.vite/
+.turbo/
+.next/
+.nuxt/
+.svelte-kit/
+*.tsbuildinfo
+.tscache/
+
+# Packaged extension artifacts
+*.crx
+*.pem
+*.zip
+*.xpi
+release/
+web-ext-artifacts/
+
+# ─────────────────────────────────────────────────────────────
+# Environment & secrets — never commit these
+# ─────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.local
+secrets.json
+credentials.json
+*.key
+*.p12
+*.pfx
+.npmrc
+.netrc
+
+# ─────────────────────────────────────────────────────────────
+# Test, coverage & reports
+# ─────────────────────────────────────────────────────────────
+coverage/
+*.lcov
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+.vitest/
+__snapshots__/*.snap.new
+
+# ─────────────────────────────────────────────────────────────
+# Caches & logs
+# ─────────────────────────────────────────────────────────────
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.prettiercache
+.size-limit.json
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# ─────────────────────────────────────────────────────────────
+# Editors & IDEs
+# ─────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+.history/
+.cursor/
+.claude/
+.aider*
+.continue/
+
+# ─────────────────────────────────────────────────────────────
+# OS junk
+# ─────────────────────────────────────────────────────────────
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
+# macOS
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
+
+# ─────────────────────────────────────────────────────────────
+# Project-local scratch (owner's working material, never pushed)
+# ─────────────────────────────────────────────────────────────
+scratch/
+tmp/
+temp/
+.tmp/
+screenshots/
+field-notes/
+wallpapers/
+exports/
+*.bak
+*.orig
+*.rej
+*.patch.local
