@@ -1,0 +1,101 @@
+/*
+ * Deck's single stylesheet entry.
+ *
+ * Order matters: Tailwind first, then the design tokens it maps onto, then the
+ * font, then base rules. Tailwind 4 is configured here in CSS - there is no
+ * tailwind.config.js and no PostCSS pipeline.
+ */
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* Tailwind 4 scans for utilities from here; the extension source is one tree. */
+@source '../';
+
+/*
+ * Inter, self-hosted. AGENTS.md section 3.2: no network requests, ever - not
+ * for fonts. See ../assets/fonts/PROVENANCE.txt for where this file came from.
+ * The unicode-range is the upstream latin subset, copied verbatim.
+ */
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../assets/fonts/inter-latin-variable.woff2') format('woff2');
+  unicode-range:
+    u+0000-00ff, u+0131, u+0152-0153, u+02bb-02bc, u+02c6, u+02da, u+02dc,
+    u+0304, u+0308, u+0329, u+2000-206f, u+20ac, u+2122, u+2191, u+2193, u+2212,
+    u+2215, u+feff, u+fffd;
+}
+
+/* Expose the tokens to Tailwind's utility generator. */
+@theme inline {
+  --font-sans: var(--deck-font-ui);
+  --color-canvas: var(--deck-color-canvas);
+  --color-canvas-raised: var(--deck-color-canvas-raised);
+  --color-ink: var(--deck-color-text);
+  --color-ink-muted: var(--deck-color-text-muted);
+  --color-glass: var(--deck-color-glass);
+  --color-hairline: var(--deck-color-hairline);
+  --color-focus: var(--deck-color-focus);
+  --radius-panel: var(--deck-radius-panel);
+  --radius-tile: var(--deck-radius-tile);
+}
+
+@layer base {
+  html,
+  body {
+    block-size: 100%;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--deck-font-ui);
+
+    /*
+     * The Night background is painted by the stylesheet, not by script, so the
+     * first frame is already correct (rubric P1: never a blank frame).
+     */
+    background-color: var(--deck-color-canvas);
+    background-image: var(--deck-gradient-canvas);
+    background-attachment: fixed;
+    color: var(--deck-color-text);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizelegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--deck-color-focus);
+    outline-offset: 2px;
+  }
+
+  /* AGENTS.md section 6: motion is always opt-out-able. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+}
+
+@layer components {
+  /*
+   * The calm layer's shell. P1.S1 ships it empty on purpose: the clock, the
+   * greeting and The Line arrive in P1.S3, pins in P1.S4.
+   */
+  .deck-surface {
+    display: grid;
+    place-items: center;
+    min-block-size: 100dvb;
+    inline-size: 100%;
+    padding-inline: var(--deck-space-3);
+    padding-block: var(--deck-space-4);
+  }
+
+  .deck-surface__column {
+    inline-size: min(100%, var(--deck-surface-column));
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "page": {
+    "id": "pg_work01",
+    "title": "Work",
+    "order": "a0",
+    "createdAt": 1757000000000,
+    "updatedAt": 1757000000000,
+    "deletedAt": null
+  },
+  "deck": {
+    "id": "dk_inbox1",
+    "pageId": "pg_work01",
+    "title": "Inbox",
+    "kind": "inbox",
+    "order": "a0",
+    "color": "accent-blue",
+    "isCollapsed": false,
+    "createdAt": 1757000000000,
+    "updatedAt": 1757000000000,
+    "deletedAt": null
+  },
+  "sessionDeck": {
+    "id": "dk_sess01",
+    "pageId": "pg_work01",
+    "title": "Tue 8 Sep, 14:02 - 17 tabs",
+    "kind": "session",
+    "order": "a1",
+    "color": null,
+    "isCollapsed": true,
+    "note": "Reading list from the release triage.",
+    "expiresAt": 1759592000000,
+    "createdAt": 1757000000000,
+    "updatedAt": 1757000000000,
+    "deletedAt": null
+  },
+  "card": {
+    "id": "cd_00001a",
+    "deckId": "dk_inbox1",
+    "url": "https://developer.chrome.com/docs/extensions/reference/api/favicon",
+    "title": "chrome.favicon",
+    "hostname": "developer.chrome.com",
+    "order": "a0",
+    "pinned": true,
+    "done": false,
+    "note": "Check the `_favicon/` size parameter.",
+    "lastOpenedAt": null,
+    "createdAt": 1757000000000,
+    "updatedAt": 1757000000000,
+    "deletedAt": null
+  },
+  "minimalCard": {
+    "id": "cd_00002b",
+    "deckId": "dk_inbox1",
+    "url": "chrome://extensions/shortcuts",
+    "title": "extensions",
+    "hostname": "extensions",
+    "order": "a0V",
+    "pinned": false,
+    "lastOpenedAt": 1757000900000,
+    "createdAt": 1757000000000,
+    "updatedAt": 1757000000000,
+    "deletedAt": null
+  },
+  "settings": {
+    "theme": "night",
+    "ownerName": "Kasra",
+    "showSeconds": false,
+    "isBlurred": false,
+    "canSpaceOpenDrawer": true,
+    "wallpaper": { "kind": "none" },
+    "wallpaperDim": 0,
+    "wallpaperGradient": null,
+    "customCss": ""
+  },
+  "op": {
+    "id": "op_00001a",
+    "ts": 1757000000000,
+    "kind": "upsert",
+    "clientId": "cl_desk01",
+    "entity": "card",
+    "entityId": "cd_00001a",
+    "payload": {
+      "id": "cd_00001a",
+      "deckId": "dk_inbox1",
+      "url": "https://developer.chrome.com/docs/extensions/reference/api/favicon",
+      "title": "chrome.favicon",
+      "hostname": "developer.chrome.com",
+      "order": "a0",
+      "pinned": true,
+      "done": false,
+      "lastOpenedAt": null,
+      "createdAt": 1757000000000,
+      "updatedAt": 1757000000000,
+      "deletedAt": null
+    }
+  },
+  "deleteOp": {
+    "id": "op_00002b",
+    "ts": 1757000100000,
+    "kind": "delete",
+    "clientId": "cl_desk01",
+    "entity": "deck",
+    "entityId": "dk_sess01",
+    "payload": null
+  },
+  "snapshot": {
+    "id": "sn_00001a",
+    "ts": 1757000200000,
+    "schemaVersion": 1,
+    "blob": "{\"pages\":[],\"decks\":[],\"cards\":[]}"
+  }
+}

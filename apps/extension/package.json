@@ -1,0 +1,27 @@
+{
+  "name": "deck-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "size": "size-limit"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "2.7.1",
+    "@size-limit/file": "13.0.3",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/chrome": "0.2.9",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "size-limit": "13.0.3",
+    "tailwindcss": "4.3.3",
+    "vite": "8.2.2"
+  }
+}
