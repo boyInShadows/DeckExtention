@@ -178,4 +178,124 @@
   .deck-result small {
     color: var(--deck-color-text-muted);
   }
+
+  .deck-pins {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: var(--deck-pin-gap);
+    min-block-size: 5.5rem;
+    margin-block-start: var(--deck-space-3);
+  }
+
+  .deck-pin,
+  .deck-pin-add {
+    inline-size: var(--deck-pin-size);
+  }
+
+  .deck-pin {
+    display: grid;
+    gap: var(--deck-space-1);
+    color: inherit;
+    text-decoration: none;
+    touch-action: none;
+    transition:
+      transform var(--deck-motion-hover) var(--deck-ease-hover),
+      filter var(--deck-motion-hover) var(--deck-ease-hover);
+  }
+
+  .deck-pin:hover {
+    transform: scale(1.04);
+  }
+
+  .deck-pin[data-dragging] {
+    z-index: 2;
+    filter: drop-shadow(0 1rem 1rem var(--deck-color-shadow));
+  }
+
+  .deck-pin__tile,
+  .deck-pin-add {
+    display: grid;
+    place-items: center;
+    block-size: var(--deck-pin-size);
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-tile);
+    background: var(--deck-color-glass);
+    backdrop-filter: blur(1.5rem);
+  }
+
+  .deck-pin__tile img {
+    block-size: 2rem;
+    inline-size: 2rem;
+  }
+
+  .deck-pin__emoji {
+    font-size: 2rem;
+  }
+
+  .deck-pin__label {
+    overflow: hidden;
+    font-size: 0.75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .deck-pin-add {
+    border-style: dashed;
+    color: var(--deck-color-text-muted);
+    cursor: pointer;
+    font-size: 1.5rem;
+    transition: transform var(--deck-motion-hover) var(--deck-ease-hover);
+  }
+
+  .deck-pin-add:hover {
+    transform: scale(1.04);
+  }
+
+  .deck-pin-add-form {
+    display: grid;
+    inline-size: 12rem;
+    gap: var(--deck-space-1);
+  }
+
+  .deck-pin-url-input {
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+    padding: var(--deck-space-1);
+    background: var(--deck-color-glass);
+    color: inherit;
+  }
+
+  .deck-pin-add-form [role='alert'] {
+    color: var(--deck-color-danger);
+    font-size: 0.75rem;
+  }
+
+  .deck-pin-menu {
+    position: absolute;
+    inset-block-start: 100%;
+    inset-inline-end: 0;
+    z-index: 3;
+    display: grid;
+    min-inline-size: 11rem;
+    overflow: hidden;
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-canvas-raised);
+    box-shadow: 0 1rem 2rem var(--deck-color-shadow);
+  }
+
+  .deck-pin-menu button {
+    border: 0;
+    padding: var(--deck-space-1) var(--deck-space-2);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: start;
+  }
+
+  .deck-pin-menu button:hover {
+    background: var(--deck-color-glass);
+  }
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { strings } from '../i18n/strings';
 import type { SurfaceData } from './bootstrap';
+import { Pins } from './Pins';
 import { greetingForHour, searchCards } from './surfaceModel';
 
 const CLOCK_UPDATE_MS = 1_000;
@@ -13,10 +14,9 @@ export interface SurfaceProps {
 export function Surface({ initialData }: SurfaceProps) {
   const [now, setNow] = useState(() => new Date());
   const [query, setQuery] = useState('');
+  const [cards, setCards] = useState(initialData.cards);
   const lineRef = useRef<HTMLInputElement>(null);
-  const activeCards = initialData.cards.filter(
-    (card) => card.deletedAt === null,
-  );
+  const activeCards = cards.filter((card) => card.deletedAt === null);
   const results = useMemo(
     () => searchCards(activeCards, query),
     [activeCards, query],
@@ -109,6 +109,12 @@ export function Surface({ initialData }: SurfaceProps) {
             {strings.exampleHint}
           </p>
         )}
+        <Pins
+          cards={cards}
+          defaultDeckId={initialData.defaultDeckId}
+          repository={initialData.repository}
+          onCardsChange={setCards}
+        />
       </div>
     </main>
   );

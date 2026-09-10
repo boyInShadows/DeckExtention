@@ -1,7 +1,7 @@
 import { SETTINGS_DEFAULTS, type Card, type Settings } from 'deck-schema';
 
-import { DeckRepository } from '../storage';
 import { strings } from '../i18n/strings';
+import { DeckRepository } from '../storage';
 
 const EXAMPLE_PAGE_ID = 'page_examples';
 const EXAMPLE_DECK_ID = 'deck_examples';
@@ -22,6 +22,7 @@ const EXAMPLES = [
 
 export interface SurfaceData {
   cards: Card[];
+  defaultDeckId: string;
   settings: Settings;
   repository: DeckRepository;
 }
@@ -30,8 +31,18 @@ export async function hydrateSurface(): Promise<SurfaceData> {
   const repository = new DeckRepository();
   const existingCards = await repository.listCards();
   const settings = await repository.getSettings();
-  if (existingCards.length > 0)
-    return { cards: existingCards, settings, repository };
+  if (existingCards.length > 0) {
+    const decks = await repository.listDecks();
+    const defaultDeck = decks.find((item) => item.deletedAt === null);
+    if (!defaultDeck)
+      throw new Error('Deck: cards exist without an active deck.');
+    return {
+      cards: existingCards,
+      defaultDeckId: defaultDeck.id,
+      settings,
+      repository,
+    };
+  }
 
   await repository.upsertPage({
     id: EXAMPLE_PAGE_ID,
@@ -71,5 +82,10 @@ export async function hydrateSurface(): Promise<SurfaceData> {
       });
     }),
   );
-  return { cards, settings: { ...SETTINGS_DEFAULTS, ...settings }, repository };
+  return {
+    cards,
+    defaultDeckId: EXAMPLE_DECK_ID,
+    settings: { ...SETTINGS_DEFAULTS, ...settings },
+    repository,
+  };
 }

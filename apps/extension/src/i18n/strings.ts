@@ -15,4 +15,13 @@ export const strings = {
     'Web Standards',
     'TypeScript',
   ],
+  pinsLabel: 'Pins',
+  addPin: 'Add pin',
+  pinUrlPlaceholder: 'Paste a URL',
+  invalidUrl: 'Enter a valid http or https URL.',
+  renamePin: 'Rename pin',
+  changePinIcon: 'Use an emoji icon',
+  unpin: 'Unpin',
+  renamePinPrompt: 'Pin label',
+  iconPrompt: 'Emoji (leave empty for favicon)',
 } as const;

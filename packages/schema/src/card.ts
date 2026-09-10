@@ -27,6 +27,10 @@ export const CardSchema = z.strictObject({
   order: OrderKeySchema,
   /** Mirrored onto the surface's Pins strip. */
   pinned: z.boolean(),
+  /** Surface-only label override; the saved-card title stays intact. */
+  pinLabel: TitleSchema.optional(),
+  /** Optional emoji used instead of the favicon tile. */
+  pinIcon: z.string().max(16).optional(),
   /** Present only once the card has been used as a task. */
   done: z.boolean().optional(),
   note: NoteSchema.optional(),
