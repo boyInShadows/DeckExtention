@@ -3,6 +3,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useRef,
   useState,
   type CSSProperties,
 } from 'react';
@@ -15,7 +16,10 @@ import { Pins } from './Pins';
 import { greetingForHour } from './surfaceModel';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
+const loadDrawer = () => import('../drawer/drawer');
+const Drawer = lazy(loadDrawer);
 const CLOCK_UPDATE_MS = 1_000;
+const DRAWER_EXIT_MS = 320;
 const BRIGHT_WALLPAPER_THRESHOLD = 0.18;
 
 export interface SurfaceProps {
@@ -27,11 +31,41 @@ export function Surface({ initialData }: SurfaceProps) {
   const [cards, setCards] = useState(initialData.cards);
   const [settings, setSettings] = useState(initialData.settings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isDrawerMounted, setIsDrawerMounted] = useState(false);
   const [loadedWallpaper, setLoadedWallpaper] = useState<{
     key: string;
     url: string;
   } | null>(null);
   const [error, setError] = useState('');
+  const drawerExitTimer = useRef<number | null>(null);
+
+  const openDrawer = useCallback(() => {
+    if (drawerExitTimer.current !== null) {
+      window.clearTimeout(drawerExitTimer.current);
+      drawerExitTimer.current = null;
+    }
+    setIsSettingsOpen(false);
+    setIsDrawerMounted(true);
+    window.requestAnimationFrame(() => setIsDrawerOpen(true));
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    setIsDrawerOpen(false);
+    drawerExitTimer.current = window.setTimeout(() => {
+      setIsDrawerMounted(false);
+      drawerExitTimer.current = null;
+    }, DRAWER_EXIT_MS);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (drawerExitTimer.current !== null) {
+        window.clearTimeout(drawerExitTimer.current);
+      }
+    },
+    [],
+  );
 
   const saveSettings = useCallback(
     async (next: typeof settings) => {
@@ -49,6 +83,64 @@ export function Surface({ initialData }: SurfaceProps) {
     },
     [initialData.repository],
   );
+
+  useEffect(() => {
+    let idle: number | null = null;
+    const frame = window.requestAnimationFrame(() => {
+      idle = window.requestIdleCallback(() => {
+        void loadDrawer().catch((loadError: unknown) => {
+          const detail =
+            loadError instanceof Error ? loadError.message : String(loadError);
+          setError(`${strings.updateFailed} ${detail}`);
+        });
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (idle !== null) window.cancelIdleCallback(idle);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isDrawerOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      const isInput =
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement;
+      if (event.key === 'Escape' && !isInput) closeDrawer();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [closeDrawer, isDrawerOpen]);
+
+  useEffect(() => {
+    const toggleDrawer = () => {
+      if (isDrawerOpen) closeDrawer();
+      else openDrawer();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key.toLocaleLowerCase() === 'j') {
+        event.preventDefault();
+        toggleDrawer();
+      }
+    };
+    const onMessage = (message: unknown) => {
+      if (
+        typeof message === 'object' &&
+        message !== null &&
+        'type' in message &&
+        message.type === 'deck:toggle-drawer'
+      ) {
+        toggleDrawer();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    chrome.runtime.onMessage.addListener(onMessage);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      chrome.runtime.onMessage.removeListener(onMessage);
+    };
+  }, [closeDrawer, isDrawerOpen, openDrawer]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -142,6 +234,7 @@ export function Surface({ initialData }: SurfaceProps) {
         (settings.wallpaperLuminance ?? 0) > BRIGHT_WALLPAPER_THRESHOLD ||
         undefined
       }
+      data-drawer-open={isDrawerMounted || undefined}
     >
       <div
         data-deck="wallpaper"
@@ -168,6 +261,8 @@ export function Surface({ initialData }: SurfaceProps) {
           openSettings={() => setIsSettingsOpen(true)}
           saveSettings={saveSettings}
           notify={setError}
+          canSpaceOpenDrawer={settings.canSpaceOpenDrawer}
+          openDrawer={openDrawer}
         />
         <Pins
           cards={cards}
@@ -196,6 +291,15 @@ export function Surface({ initialData }: SurfaceProps) {
           ⚙
         </button>
       </nav>
+      <button
+        type="button"
+        data-deck="drawer-handle"
+        className="deck-drawer-handle"
+        onClick={openDrawer}
+        aria-label={strings.openDrawer}
+      >
+        {strings.drawerHandle}
+      </button>
       {error ? (
         <p data-deck="error" className="deck-error" role="alert">
           {error}
@@ -208,6 +312,16 @@ export function Surface({ initialData }: SurfaceProps) {
             repository={initialData.repository}
             onChange={saveSettings}
             onClose={() => setIsSettingsOpen(false)}
+          />
+        ) : null}
+      </Suspense>
+      <Suspense fallback={null}>
+        {isDrawerMounted ? (
+          <Drawer
+            data={initialData}
+            isOpen={isDrawerOpen}
+            onClose={closeDrawer}
+            onError={setError}
           />
         ) : null}
       </Suspense>

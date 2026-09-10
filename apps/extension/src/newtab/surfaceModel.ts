@@ -13,6 +13,14 @@ export function greetingForHour(hour: number): string {
   return strings.greetingEvening;
 }
 
+export function shouldSpaceOpenDrawer(
+  key: string,
+  value: string,
+  isEnabled: boolean,
+): boolean {
+  return isEnabled && key === ' ' && value.length === 0;
+}
+
 export function searchCards<T extends SearchableCard>(
   cards: T[],
   query: string,

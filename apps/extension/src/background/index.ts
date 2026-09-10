@@ -36,3 +36,18 @@ async function runBackupMaintenance(): Promise<void> {
 // which AGENTS.md section 3.1 forbids.
 void runBackupMaintenance();
 chrome.runtime.onStartup.addListener(() => void runBackupMaintenance());
+
+chrome.commands.onCommand.addListener((command) => {
+  if (command !== 'toggle-drawer') return;
+  void chrome.runtime
+    .sendMessage({ type: 'deck:toggle-drawer' })
+    .catch(async (messageError: unknown) => {
+      const message =
+        messageError instanceof Error
+          ? messageError.message
+          : String(messageError);
+      await chrome.storage.local.set({
+        drawerCommandError: { message, occurredAt: Date.now() },
+      });
+    });
+});

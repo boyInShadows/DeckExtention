@@ -72,4 +72,13 @@ export const strings = {
   drawerRequired: 'This action becomes available with the drawer.',
   stashComing: 'Stash arrives with sessions in Phase 3.',
   searchEngine: 'Search URL template',
+  drawer: 'Deck drawer',
+  openDrawer: 'Open Deck drawer',
+  closeDrawer: 'Close Deck drawer',
+  inbox: 'Inbox',
+  pages: 'Pages',
+  addPage: 'Add page',
+  newPage: 'New page',
+  renamePagePrompt: 'Page name',
+  drawerHandle: '⌃ Deck',
 } as const;

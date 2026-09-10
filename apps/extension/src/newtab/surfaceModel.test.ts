@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { greetingForHour, searchCards } from './surfaceModel';
+import {
+  greetingForHour,
+  searchCards,
+  shouldSpaceOpenDrawer,
+} from './surfaceModel';
 
 const cards = [
   {
@@ -46,5 +50,13 @@ describe('surface model', () => {
   it('uses contiguous exact matching when a query starts with a quote', () => {
     expect(searchCards(cards, '"script hand')).toEqual([cards[0]]);
     expect(searchCards(cards, '"hand type')).toEqual([]);
+  });
+
+  it('opens the drawer only for Space on a truly empty enabled Line', () => {
+    expect(shouldSpaceOpenDrawer(' ', '', true)).toBe(true);
+    expect(shouldSpaceOpenDrawer(' ', 'query', true)).toBe(false);
+    expect(shouldSpaceOpenDrawer(' ', ' ', true)).toBe(false);
+    expect(shouldSpaceOpenDrawer(' ', '', false)).toBe(false);
+    expect(shouldSpaceOpenDrawer('Enter', '', true)).toBe(false);
   });
 });

@@ -10,7 +10,7 @@ import {
 import { strings } from '../i18n/strings';
 import type { SurfaceData } from './bootstrap';
 import { LINE_ACTIONS } from './lineActionCatalog';
-import { searchCards } from './surfaceModel';
+import { searchCards, shouldSpaceOpenDrawer } from './surfaceModel';
 
 interface LineProps {
   cards: Card[];
@@ -19,6 +19,8 @@ interface LineProps {
   openSettings: () => void;
   saveSettings: (settings: Settings) => Promise<void>;
   notify: (message: string) => void;
+  canSpaceOpenDrawer: boolean;
+  openDrawer: () => void;
 }
 
 export function Line(props: LineProps) {
@@ -97,6 +99,11 @@ export function Line(props: LineProps) {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (shouldSpaceOpenDrawer(event.key, query, props.canSpaceOpenDrawer)) {
+      event.preventDefault();
+      props.openDrawer();
+      return;
+    }
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       setSelected(itemCount ? (activeIndex + 1) % itemCount : 0);
