@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { Surface } from './Surface';
+import { hydrateSurface } from './bootstrap';
 
 const container = document.getElementById('deck-root');
 
@@ -13,8 +14,12 @@ if (!container) {
   throw new Error('Deck: #deck-root is missing from the new tab document.');
 }
 
+const surfaceData = await hydrateSurface();
+
+document.documentElement.dataset.theme = surfaceData.settings.theme;
+
 createRoot(container).render(
   <StrictMode>
-    <Surface />
+    <Surface initialData={surfaceData} />
   </StrictMode>,
 );

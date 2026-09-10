@@ -32,6 +32,7 @@
   --deck-color-hairline: rgb(255 255 255 / 12%);
   --deck-color-scrim: rgb(9 11 15 / 45%);
   --deck-color-focus: #7aa2f7;
+  --deck-color-shadow: rgb(0 0 0 / 24%);
 }
 
 [data-theme='day'] {
@@ -53,6 +54,7 @@
   --deck-color-hairline: rgb(0 0 0 / 12%);
   --deck-color-scrim: rgb(255 255 255 / 45%);
   --deck-color-focus: #2f5bd8;
+  --deck-color-shadow: rgb(20 22 28 / 14%);
 }
 
 @media (prefers-color-scheme: light) {
@@ -75,6 +77,7 @@
     --deck-color-hairline: rgb(0 0 0 / 12%);
     --deck-color-scrim: rgb(255 255 255 / 45%);
     --deck-color-focus: #2f5bd8;
+    --deck-color-shadow: rgb(20 22 28 / 14%);
   }
 }
 
@@ -103,4 +106,7 @@
 
   /* The Line and the surface column are one width (MasterPlan section 3.1). */
   --deck-surface-column: 40rem;
+  --deck-clock-size: 4rem;
+  --deck-clock-width: 8ch;
+  --deck-line-height: 3.5rem;
 }

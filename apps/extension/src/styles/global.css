@@ -97,5 +97,85 @@
 
   .deck-surface__column {
     inline-size: min(100%, var(--deck-surface-column));
+    text-align: center;
+  }
+
+  .deck-clock {
+    display: block;
+    inline-size: var(--deck-clock-width);
+    margin-inline: auto;
+    font-size: var(--deck-clock-size);
+    font-variant-numeric: tabular-nums;
+    font-weight: 450;
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+
+  .deck-greeting {
+    margin-block: var(--deck-space-2) var(--deck-space-3);
+    color: var(--deck-color-text-muted);
+  }
+
+  .deck-line {
+    block-size: var(--deck-line-height);
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-glass);
+    box-shadow: 0 0.5rem 2rem var(--deck-color-shadow);
+    backdrop-filter: blur(1.5rem);
+  }
+
+  .deck-line input {
+    block-size: 100%;
+    inline-size: 100%;
+    border: 0;
+    padding-inline: var(--deck-space-2);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+
+  .deck-line input::placeholder,
+  .deck-example-hint,
+  .deck-results p {
+    color: var(--deck-color-text-muted);
+  }
+
+  .deck-line input:focus {
+    outline: 0;
+  }
+
+  .deck-example-hint {
+    margin-block-start: var(--deck-space-1);
+    font-size: 0.75rem;
+  }
+
+  .deck-results {
+    overflow: hidden;
+    margin-block-start: var(--deck-space-1);
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-canvas-raised);
+    text-align: start;
+  }
+
+  .deck-result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-block-size: 2.75rem;
+    padding-inline: var(--deck-space-2);
+    color: inherit;
+    text-decoration: none;
+    transition: background-color var(--deck-motion-hover) var(--deck-ease-hover);
+  }
+
+  .deck-result:hover,
+  .deck-result:focus-visible {
+    background: var(--deck-color-glass);
+  }
+
+  .deck-result small {
+    color: var(--deck-color-text-muted);
   }
 }
