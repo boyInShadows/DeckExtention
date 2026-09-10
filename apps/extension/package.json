@@ -9,6 +9,8 @@
     "size": "size-limit"
   },
   "dependencies": {
+    "@preact/compat": "^18.3.2",
+    "preact": "^10.29.8",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
