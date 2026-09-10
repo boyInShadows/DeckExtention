@@ -3,8 +3,6 @@ import {
   Suspense,
   useCallback,
   useEffect,
-  useMemo,
-  useRef,
   useState,
   type CSSProperties,
 } from 'react';
@@ -12,8 +10,9 @@ import {
 import { strings } from '../i18n/strings';
 import { blackScrimForWhiteText } from '../wallpaper/contrast';
 import type { SurfaceData } from './bootstrap';
+import { Line } from './Line';
 import { Pins } from './Pins';
-import { greetingForHour, searchCards } from './surfaceModel';
+import { greetingForHour } from './surfaceModel';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
 const CLOCK_UPDATE_MS = 1_000;
@@ -25,7 +24,6 @@ export interface SurfaceProps {
 
 export function Surface({ initialData }: SurfaceProps) {
   const [now, setNow] = useState(() => new Date());
-  const [query, setQuery] = useState('');
   const [cards, setCards] = useState(initialData.cards);
   const [settings, setSettings] = useState(initialData.settings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -34,12 +32,6 @@ export function Surface({ initialData }: SurfaceProps) {
     url: string;
   } | null>(null);
   const [error, setError] = useState('');
-  const lineRef = useRef<HTMLInputElement>(null);
-  const activeCards = cards.filter((card) => card.deletedAt === null);
-  const results = useMemo(
-    () => searchCards(activeCards, query),
-    [activeCards, query],
-  );
 
   const saveSettings = useCallback(
     async (next: typeof settings) => {
@@ -102,21 +94,6 @@ export function Surface({ initialData }: SurfaceProps) {
       const isInput =
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement;
-      if (
-        event.key === '/' &&
-        document.activeElement !== lineRef.current &&
-        !isInput
-      ) {
-        event.preventDefault();
-        lineRef.current?.focus();
-      }
-      if (
-        event.key === 'Escape' &&
-        document.activeElement === lineRef.current
-      ) {
-        setQuery('');
-        lineRef.current?.blur();
-      }
       if (event.key.toLocaleLowerCase() === 'b' && !isInput) {
         void saveSettings({ ...settings, isBlurred: !settings.isBlurred });
       }
@@ -173,44 +150,14 @@ export function Surface({ initialData }: SurfaceProps) {
             {greetingForHour(now.getHours())}, {settings.ownerName}
           </p>
         ) : null}
-        <div data-deck="line" className="deck-line">
-          <input
-            ref={lineRef}
-            value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            placeholder={strings.linePlaceholder}
-            aria-label={strings.linePlaceholder}
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </div>
-        {query ? (
-          <section
-            data-deck="line-results"
-            className="deck-results"
-            aria-live="polite"
-          >
-            {results.length > 0 ? (
-              results.map((card) => (
-                <a
-                  key={card.id}
-                  data-deck="card"
-                  href={card.url}
-                  className="deck-result"
-                >
-                  <span>{card.title}</span>
-                  <small>{card.hostname}</small>
-                </a>
-              ))
-            ) : (
-              <p>{strings.noResults}</p>
-            )}
-          </section>
-        ) : (
-          <p data-deck="example-hint" className="deck-example-hint">
-            {strings.exampleHint}
-          </p>
-        )}
+        <Line
+          cards={cards}
+          settings={settings}
+          repository={initialData.repository}
+          openSettings={() => setIsSettingsOpen(true)}
+          saveSettings={saveSettings}
+          notify={setError}
+        />
         <Pins
           cards={cards}
           defaultDeckId={initialData.defaultDeckId}

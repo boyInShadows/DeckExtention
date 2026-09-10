@@ -17,11 +17,33 @@ export function searchCards<T extends SearchableCard>(
   cards: T[],
   query: string,
 ): T[] {
-  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const normalized = query.trim().toLocaleLowerCase();
+  const isExact = normalized.startsWith('"');
+  const terms = normalized.replaceAll('"', '').split(/\s+/).filter(Boolean);
   if (terms.length === 0) return [];
-  return cards.filter((card) => {
-    const haystack =
-      `${card.title} ${card.hostname} ${card.note ?? ''}`.toLocaleLowerCase();
-    return terms.every((term) => haystack.includes(term));
-  });
+  return cards
+    .map((card) => {
+      const title = card.title.toLocaleLowerCase();
+      const haystack =
+        `${title} ${card.hostname} ${card.note ?? ''}`.toLocaleLowerCase();
+      if (!terms.every((term) => haystack.includes(term))) return null;
+      const score = isExact
+        ? haystack.includes(terms.join(' '))
+          ? 1
+          : 0
+        : terms.reduce(
+            (total, term) =>
+              total +
+              (title.startsWith(term) ? 100 : 0) +
+              (title.split(/\s+/).some((word) => word.startsWith(term))
+                ? 50
+                : 0) +
+              10,
+            0,
+          );
+      return score > 0 ? { card, score } : null;
+    })
+    .filter((result): result is { card: T; score: number } => result !== null)
+    .toSorted((a, b) => b.score - a.score)
+    .map(({ card }) => card);
 }

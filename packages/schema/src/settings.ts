@@ -34,6 +34,11 @@ export const SettingsSchema = z.strictObject({
   wallpaperGradient: z.string().max(1024).nullable(),
   wallpaperLuminance: z.number().min(0).max(1).nullable().optional(),
   customCss: z.string().max(CUSTOM_CSS_MAX_LENGTH),
+  searchUrlTemplate: z
+    .string()
+    .max(1024)
+    .includes('{query}')
+    .default('https://www.google.com/search?q={query}'),
 });
 
 /**
@@ -51,6 +56,7 @@ export const SETTINGS_DEFAULTS: Settings = Object.freeze({
   wallpaperGradient: null,
   wallpaperLuminance: null,
   customCss: '',
+  searchUrlTemplate: 'https://www.google.com/search?q={query}',
 } satisfies Settings);
 
 export type Theme = z.infer<typeof ThemeSchema>;

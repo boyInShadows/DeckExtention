@@ -261,6 +261,15 @@ export default function SettingsPanel({
       </SettingsGroup>
       <SettingsGroup title={strings.advanced}>
         <label>
+          {strings.searchEngine}
+          <input
+            value={settings.searchUrlTemplate}
+            onChange={(event) =>
+              void update({ searchUrlTemplate: event.currentTarget.value })
+            }
+          />
+        </label>
+        <label>
           {strings.customCss}
           <textarea
             value={settings.customCss}

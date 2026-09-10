@@ -29,4 +29,22 @@ describe('surface model', () => {
     expect(searchCards(cards, 'reference')).toEqual([cards[1]]);
     expect(cards).toEqual(before);
   });
+
+  it('prefix-boosts the intended card on a 300-card fixture', () => {
+    const fixture = Array.from({ length: 300 }, (_, index) => ({
+      id: `card_${index}`,
+      title: index < 10 ? `Target ${index} reference` : `Archive item ${index}`,
+      hostname: 'example.com',
+    }));
+    for (let index = 0; index < 10; index += 1) {
+      expect(searchCards(fixture, `target ${index}`)[0]?.id).toBe(
+        `card_${index}`,
+      );
+    }
+  });
+
+  it('uses contiguous exact matching when a query starts with a quote', () => {
+    expect(searchCards(cards, '"script hand')).toEqual([cards[0]]);
+    expect(searchCards(cards, '"hand type')).toEqual([]);
+  });
 });
