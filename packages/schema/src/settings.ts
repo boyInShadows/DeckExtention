@@ -32,6 +32,7 @@ export const SettingsSchema = z.strictObject({
   wallpaperDim: z.number().int().min(0).max(WALLPAPER_DIM_MAX),
   /** CSS-derived gradient painted before the image decodes. */
   wallpaperGradient: z.string().max(1024).nullable(),
+  wallpaperLuminance: z.number().min(0).max(1).nullable().optional(),
   customCss: z.string().max(CUSTOM_CSS_MAX_LENGTH),
 });
 
@@ -48,6 +49,7 @@ export const SETTINGS_DEFAULTS: Settings = Object.freeze({
   wallpaper: { kind: 'none' },
   wallpaperDim: 0,
   wallpaperGradient: null,
+  wallpaperLuminance: null,
   customCss: '',
 } satisfies Settings);
 

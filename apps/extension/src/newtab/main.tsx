@@ -17,6 +17,9 @@ if (!container) {
 const surfaceData = await hydrateSurface();
 
 document.documentElement.dataset.theme = surfaceData.settings.theme;
+if (surfaceData.settings.wallpaperGradient) {
+  document.body.style.backgroundImage = surfaceData.settings.wallpaperGradient;
+}
 
 createRoot(container).render(
   <StrictMode>

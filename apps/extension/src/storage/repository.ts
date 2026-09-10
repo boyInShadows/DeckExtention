@@ -25,6 +25,7 @@ import { parseDocument, type DeckDocument } from './document';
 
 const SETTINGS_KEY = 'settings';
 const CLIENT_ID_KEY = 'clientId';
+const WALLPAPER_BLOB_PREFIX = 'wallpaper:';
 const PURGE_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 
 type EntityRecord = Page | Deck | Card;
@@ -90,6 +91,26 @@ export class DeckRepository {
       );
     await transaction.done;
     return structuredClone(settings);
+  }
+
+  async getWallpaperBlob(key: string): Promise<Blob | null> {
+    const record = await (
+      await this.#database
+    ).get('meta', `${WALLPAPER_BLOB_PREFIX}${key}`);
+    if (!record) return null;
+    if (!(record.value instanceof Blob))
+      throw new Error('Stored wallpaper is not a Blob');
+    return record.value;
+  }
+
+  async setWallpaperBlob(key: string, blob: Blob): Promise<void> {
+    if (!(blob instanceof Blob)) throw new Error('Wallpaper must be a Blob');
+    await (
+      await this.#database
+    ).put('meta', {
+      key: `${WALLPAPER_BLOB_PREFIX}${key}`,
+      value: blob,
+    });
   }
 
   async upsertPage(value: Page): Promise<Page> {
