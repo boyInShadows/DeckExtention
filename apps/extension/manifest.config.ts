@@ -68,7 +68,7 @@ export default defineManifest({
   commands: {
     'quick-save': {
       suggested_key: { default: 'Ctrl+Shift+S', mac: 'Command+Shift+S' },
-      description: 'Save the current page to Deck’s Inbox',
+      description: "Save the current page to Deck's Inbox",
     },
     stash: {
       suggested_key: { default: 'Ctrl+Shift+D', mac: 'Command+Shift+D' },

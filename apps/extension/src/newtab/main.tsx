@@ -4,6 +4,8 @@ import { createRoot } from 'react-dom/client';
 import { Surface } from './Surface';
 import { hydrateSurface } from './bootstrap';
 
+performance.mark('deck-start');
+
 const container = document.getElementById('deck-root');
 
 /*

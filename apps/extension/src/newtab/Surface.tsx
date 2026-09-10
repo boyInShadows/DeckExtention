@@ -51,6 +51,17 @@ export function Surface({ initialData }: SurfaceProps) {
   );
 
   useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      document.documentElement.dataset.deckReady = 'true';
+      if (performance.getEntriesByName('deck-ready').length === 0) {
+        performance.mark('deck-ready');
+        performance.measure('deck-interactive', 'deck-start', 'deck-ready');
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
     const interval = window.setInterval(
       () => setNow(new Date()),
       CLOCK_UPDATE_MS,
