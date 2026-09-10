@@ -10,9 +10,12 @@
   },
   "dependencies": {
     "@preact/compat": "^18.3.2",
+    "deck-schema": "workspace:^",
+    "idb": "^8.0.3",
     "preact": "^10.29.8",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "2.7.1",
@@ -22,6 +25,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.1.1",
+    "fake-indexeddb": "^6.2.5",
     "size-limit": "13.0.3",
     "tailwindcss": "4.3.3",
     "vite": "8.2.2"

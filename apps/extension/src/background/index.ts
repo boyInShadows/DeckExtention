@@ -2,8 +2,7 @@
  * Deck's MV3 service worker.
  *
  * It exists in P1.S1 so the manifest is loadable and the three commands have a
- * home, and it does nothing else on purpose. What lands here later:
- *   P1.S2  the daily `chrome.alarms` snapshot and the oplog writer
+ * home. What lands here over time:
  *   P2.S4  the `quick-save` command, the "Save to Deck" context menus and the
  *          toast injected via `activeTab` at hotkey time only
  *   P3     `stash`
@@ -13,4 +12,27 @@
  * command to have no listener until the feature exists.
  */
 
-export {};
+import { BackupService, DeckRepository, openDeckDatabase } from '../storage';
+
+const BACKUP_ERROR_KEY = 'backupMaintenanceError';
+const repository = new DeckRepository();
+const backups = new BackupService(repository, openDeckDatabase());
+
+async function runBackupMaintenance(): Promise<void> {
+  try {
+    await backups.ensureDailySnapshot();
+    await chrome.storage.local.remove(BACKUP_ERROR_KEY);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await chrome.storage.local.set({
+      [BACKUP_ERROR_KEY]: { message, occurredAt: Date.now() },
+    });
+  }
+}
+
+// A service worker wakes at install and browser start. The 24-hour guard makes
+// repeated wakes cheap. This is opportunistic rather than an exact timer:
+// Chrome's exact daily alarm requires an `alarms` install-time permission,
+// which AGENTS.md section 3.1 forbids.
+void runBackupMaintenance();
+chrome.runtime.onStartup.addListener(() => void runBackupMaintenance());
