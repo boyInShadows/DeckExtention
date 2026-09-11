@@ -15,7 +15,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { Page } from 'deck-schema';
+import type { Card, Deck, Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -29,6 +29,7 @@ import {
   restoredScroll,
   selectedPageId,
 } from './drawerModel';
+import { DeckWorkspace } from './DeckWorkspace';
 
 function currentTimestamp(): number {
   return Date.now();
@@ -85,6 +86,8 @@ export default function Drawer({
   onError,
 }: DrawerProps) {
   const [pages, setPages] = useState(data.pages);
+  const [decks, setDecks] = useState<Deck[]>(data.decks);
+  const [cards, setCards] = useState<Card[]>(data.cards);
   const [isPagesLoaded, setIsPagesLoaded] = useState(false);
   const orderedPages = useMemo(() => activePages(pages), [pages]);
   const [selectedId, setSelectedId] = useState(() =>
@@ -108,10 +111,15 @@ export default function Drawer({
   };
 
   useEffect(() => {
-    void data.repository
-      .listPages()
-      .then((storedPages) => {
+    void Promise.all([
+      data.repository.listPages(),
+      data.repository.listDecks(),
+      data.repository.listCards(),
+    ])
+      .then(([storedPages, storedDecks, storedCards]) => {
         setPages(storedPages);
+        setDecks(storedDecks);
+        setCards(storedCards);
         setSelectedId(
           selectedPageId(storedPages, sessionStorage.getItem(DRAWER_PAGE_KEY)),
         );
@@ -270,6 +278,19 @@ export default function Drawer({
         </button>
       </aside>
       <div data-deck="drawer-content" className="deck-drawer__content" />
+      <DeckWorkspace
+        data={data}
+        pages={pages}
+        decks={decks}
+        cards={cards}
+        selectedPageId={
+          selectedId === INBOX_PAGE_ID ? (inbox?.pageId ?? null) : selectedId
+        }
+        selectedDeckKind={selectedId === INBOX_PAGE_ID ? 'inbox' : undefined}
+        onDecksChange={setDecks}
+        onCardsChange={setCards}
+        onError={onError}
+      />
     </section>
   );
 }
