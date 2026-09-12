@@ -1,0 +1,26 @@
+Inter - self-hosted, latin subset, variable weight axis
+=======================================================
+
+File      inter-latin-variable.woff2
+Source    npm @fontsource-variable/inter@5.3.0
+Path      files/inter-latin-wght-normal.woff2
+SHA-256   3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62
+Size      48,256 bytes
+Licence   SIL Open Font Licence 1.1 - see LICENSE-Inter.txt
+
+Why the file is committed
+-------------------------
+AGENTS.md section 3.2: Deck makes no network requests, ever - not for fonts.
+The font is fetched once at build-authoring time (this file records exactly
+what was fetched and from where) and is then served from the extension bundle.
+There is no Google Fonts link, no CDN and no runtime download.
+
+To reproduce
+------------
+  npm pack @fontsource-variable/inter@5.3.0
+  tar -xzf fontsource-variable-inter-5.3.0.tgz
+  cp package/files/inter-latin-wght-normal.woff2 \
+     apps/extension/src/assets/fonts/inter-latin-variable.woff2
+
+The unicode-range in global.css is copied verbatim from the package's wght.css
+latin block, so the subset the browser is told about matches the subset shipped.
