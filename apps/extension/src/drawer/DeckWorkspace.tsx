@@ -1,6 +1,13 @@
 import type { Card, Deck, Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
 import { useMemo, useState } from 'react';
+import {
+  SortableContext,
+  rectSortingStrategy,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 import { strings } from '../i18n/strings';
 import type { SurfaceData } from '../newtab/bootstrap';
@@ -10,8 +17,11 @@ import {
   parseCardUrl,
   replaceEntity,
 } from './workspaceModel';
+import { dragId } from './dragIdentity';
 
 const DECK_COLORS = ['slate', 'blue', 'green', 'amber', 'rose'] as const;
+const DROP_SETTLE_MS = 160;
+const DROP_SETTLE_EASING = 'var(--deck-ease-hover)';
 
 interface Props {
   cards: Card[];
@@ -62,15 +72,20 @@ export function DeckWorkspace(props: Props) {
   return (
     <main data-deck="decks" className="deck-workspace">
       <div className="deck-grid">
-        {visible.map((deck) => (
-          <DeckColumn
-            key={deck.id}
-            {...props}
-            deck={deck}
-            visibleCards={activeCards(props.cards, deck.id)}
-            onEditNote={setNoteEntity}
-          />
-        ))}
+        <SortableContext
+          items={visible.map(({ id }) => dragId('deck', id))}
+          strategy={rectSortingStrategy}
+        >
+          {visible.map((deck) => (
+            <DeckColumn
+              key={deck.id}
+              {...props}
+              deck={deck}
+              visibleCards={activeCards(props.cards, deck.id)}
+              onEditNote={setNoteEntity}
+            />
+          ))}
+        </SortableContext>
         <button
           type="button"
           className="deck-add"
@@ -107,6 +122,18 @@ function DeckColumn({
   visibleCards: Card[];
   onEditNote: (entity: Deck | Card) => void;
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+    isOver,
+  } = useSortable({
+    id: dragId('deck', deck.id),
+    transition: { duration: DROP_SETTLE_MS, easing: DROP_SETTLE_EASING },
+  });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [url, setUrl] = useState('');
@@ -151,11 +178,19 @@ function DeckColumn({
   };
   return (
     <section
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
       data-deck="deck"
       className="deck-column"
       data-color={deck.color ?? undefined}
+      data-dragging={isDragging || undefined}
+      data-drag-over={isOver || undefined}
+      {...attributes}
     >
-      <header className="deck-column__header">
+      <header className="deck-column__header" {...listeners}>
         <button
           type="button"
           aria-label={strings.collapseDeck}
@@ -203,14 +238,19 @@ function DeckColumn({
             </button>
           ) : null}
           <div className="deck-cards">
-            {visibleCards.map((card) => (
-              <CardRow
-                key={card.id}
-                card={card}
-                {...props}
-                onEditNote={onEditNote}
-              />
-            ))}
+            <SortableContext
+              items={visibleCards.map(({ id }) => dragId('card', id))}
+              strategy={verticalListSortingStrategy}
+            >
+              {visibleCards.map((card) => (
+                <CardRow
+                  key={card.id}
+                  card={card}
+                  {...props}
+                  onEditNote={onEditNote}
+                />
+              ))}
+            </SortableContext>
             {!visibleCards.length ? <p>{strings.emptyDeck}</p> : null}
           </div>
           <footer>
@@ -249,6 +289,18 @@ function CardRow({
   card: Card;
   onEditNote: (entity: Deck | Card) => void;
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+    isOver,
+  } = useSortable({
+    id: dragId('card', card.id),
+    transition: { duration: DROP_SETTLE_MS, easing: DROP_SETTLE_EASING },
+  });
   const update = async (change: Partial<Card>) => {
     try {
       props.onCardsChange(
@@ -275,9 +327,18 @@ function CardRow({
   };
   return (
     <article
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
       data-deck="card"
       className="deck-card"
       data-done={card.done || undefined}
+      data-dragging={isDragging || undefined}
+      data-drag-over={isOver || undefined}
+      {...attributes}
+      {...listeners}
     >
       <img
         src={`/_favicon/?pageUrl=${encodeURIComponent(card.url)}&size=32`}

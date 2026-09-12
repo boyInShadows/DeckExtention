@@ -12,7 +12,7 @@ export function activeDecks(
         deck.pageId === pageId &&
         (kind === undefined || deck.kind === kind),
     )
-    .toSorted((left, right) => left.order.localeCompare(right.order));
+    .toSorted((left, right) => compareOrder(left.order, right.order));
 }
 
 export function activeCards(cards: Card[], deckId: string): Card[] {
@@ -21,8 +21,13 @@ export function activeCards(cards: Card[], deckId: string): Card[] {
     .toSorted((left, right) => {
       const doneDifference =
         Number(Boolean(left.done)) - Number(Boolean(right.done));
-      return doneDifference || left.order.localeCompare(right.order);
+      return doneDifference || compareOrder(left.order, right.order);
     });
+}
+
+export function compareOrder(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
 }
 
 export function parseCardUrl(value: string): {

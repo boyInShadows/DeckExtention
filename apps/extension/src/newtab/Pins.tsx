@@ -1,25 +1,22 @@
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
+import { useDroppable } from '@dnd-kit/core';
 import {
   SortableContext,
-  arrayMove,
   horizontalListSortingStrategy,
-  sortableKeyboardCoordinates,
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { UrlSchema, type Card } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { strings } from '../i18n/strings';
+import { dragId, parseDragId } from '../drawer/dragIdentity';
+import { fractionalOrderForMove } from '../drawer/fractionalOrder';
+import { compareOrder } from '../drawer/workspaceModel';
+import {
+  WORKSPACE_DROP_EVENT,
+  type WorkspaceDropDetail,
+} from '../drawer/WorkspaceDnd';
 import type { SurfaceData } from './bootstrap';
 
 const MAX_PINS = 12;
@@ -51,7 +48,7 @@ function SortablePin({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: card.id });
+  } = useSortable({ id: dragId('pin', card.id) });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -97,17 +94,12 @@ export function Pins({
   const [urlInput, setUrlInput] = useState('');
   const [error, setError] = useState('');
   const [menuCard, setMenuCard] = useState<Card | null>(null);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
+  const { isOver, setNodeRef } = useDroppable({ id: dragId('pin', 'strip') });
   const pins = useMemo(
     () =>
       cards
         .filter((card) => card.pinned && card.deletedAt === null)
-        .toSorted((a, b) => a.order.localeCompare(b.order)),
+        .toSorted((a, b) => compareOrder(a.order, b.order)),
     [cards],
   );
 
@@ -115,6 +107,29 @@ export function Pins({
     const saved = await repository.upsertCard(card);
     onCardsChange(cards.map((item) => (item.id === saved.id ? saved : item)));
   };
+
+  useEffect(() => {
+    const onDrop = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
+      const { activeId, overId } = event.detail as WorkspaceDropDetail;
+      const active = parseDragId(activeId);
+      const over = parseDragId(overId);
+      if (active?.entity !== 'pin' || over?.entity !== 'pin') return;
+      const moved = pins.find(({ id }) => id === active.id);
+      if (!moved) return;
+      void saveCard({
+        ...moved,
+        order: fractionalOrderForMove(pins, active.id, over.id),
+        updatedAt: Date.now(),
+      }).catch((saveError: unknown) => {
+        const detail =
+          saveError instanceof Error ? saveError.message : String(saveError);
+        setError(`${strings.updateFailed} ${detail}`);
+      });
+    };
+    window.addEventListener(WORKSPACE_DROP_EVENT, onDrop);
+    return () => window.removeEventListener(WORKSPACE_DROP_EVENT, onDrop);
+  });
 
   const addPin = async () => {
     const parsed = UrlSchema.safeParse(urlInput.trim());
@@ -146,26 +161,6 @@ export function Pins({
     setIsAdding(false);
   };
 
-  const finishDrag = async ({ active, over }: DragEndEvent) => {
-    if (!over || active.id === over.id) return;
-    const reordered = arrayMove(
-      pins,
-      pins.findIndex(({ id }) => id === active.id),
-      pins.findIndex(({ id }) => id === over.id),
-    );
-    const to = reordered.findIndex(({ id }) => id === active.id);
-    const movedCard = reordered[to];
-    if (!movedCard) return;
-    await saveCard({
-      ...movedCard,
-      order: generateKeyBetween(
-        reordered[to - 1]?.order ?? null,
-        reordered[to + 1]?.order ?? null,
-      ),
-      updatedAt: Date.now(),
-    });
-  };
-
   const updateMenuCard = async (change: Partial<Card>) => {
     if (!menuCard) return;
     await saveCard({ ...menuCard, ...change, updatedAt: Date.now() });
@@ -174,21 +169,20 @@ export function Pins({
 
   return (
     <section
+      ref={setNodeRef}
       data-deck="pins"
       className="deck-pins"
       aria-label={strings.pinsLabel}
+      data-drag-over={isOver || undefined}
     >
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={finishDrag}
+      <SortableContext
+        items={pins.map(({ id }) => dragId('pin', id))}
+        strategy={horizontalListSortingStrategy}
       >
-        <SortableContext items={pins} strategy={horizontalListSortingStrategy}>
-          {pins.map((card) => (
-            <SortablePin key={card.id} card={card} onMenu={setMenuCard} />
-          ))}
-        </SortableContext>
-      </DndContext>
+        {pins.map((card) => (
+          <SortablePin key={card.id} card={card} onMenu={setMenuCard} />
+        ))}
+      </SortableContext>
       {pins.length < MAX_PINS ? (
         isAdding ? (
           <div className="deck-pin-add-form">

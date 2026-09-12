@@ -82,6 +82,10 @@
 }
 
 @layer components {
+  .deck-dnd-root {
+    display: contents;
+  }
+
   /*
    * The calm layer's shell. P1.S1 ships it empty on purpose: the clock, the
    * greeting and The Line arrive in P1.S3, pins in P1.S4.
@@ -271,6 +275,29 @@
     gap: var(--deck-pin-gap);
     min-block-size: 5.5rem;
     margin-block-start: var(--deck-space-3);
+  }
+
+  .deck-pins[data-drag-over],
+  .deck-pages :where(button[data-drag-over]),
+  .deck-column[data-drag-over],
+  .deck-card[data-drag-over] {
+    outline: 2px solid var(--deck-color-focus);
+    outline-offset: -2px;
+    background: var(--deck-color-glass);
+  }
+
+  .deck-dnd-root[data-dragging-card] .deck-pins {
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline-start: 50%;
+    z-index: 6;
+    min-inline-size: min(100%, var(--deck-surface-column));
+    margin-block-start: 0;
+    padding-block: var(--deck-space-1);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-canvas-raised);
+    box-shadow: 0 1rem 2rem var(--deck-color-shadow);
+    transform: translateX(-50%);
   }
 
   .deck-pin,
@@ -602,6 +629,15 @@
     border-block-start-width: 0.2rem;
     border-radius: var(--deck-radius-panel);
     background: var(--deck-color-glass);
+    transition:
+      transform var(--deck-motion-settle) var(--deck-ease-hover),
+      box-shadow var(--deck-motion-hover) var(--deck-ease-hover);
+  }
+
+  .deck-column[data-dragging],
+  .deck-card[data-dragging] {
+    z-index: 3;
+    box-shadow: 0 1rem 2rem var(--deck-color-shadow);
   }
 
   .deck-column__header,
@@ -643,7 +679,9 @@
     min-block-size: 2.75rem;
     padding-inline: var(--deck-space-1);
     border-block-start: 1px solid var(--deck-color-hairline);
-    transition: opacity var(--deck-motion-hover) var(--deck-ease-hover);
+    transition:
+      opacity var(--deck-motion-hover) var(--deck-ease-hover),
+      transform var(--deck-motion-settle) var(--deck-ease-hover);
   }
 
   .deck-card[data-done] {

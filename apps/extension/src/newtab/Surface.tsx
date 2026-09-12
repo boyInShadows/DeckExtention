@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { strings } from '../i18n/strings';
+import { WorkspaceDnd } from '../drawer/WorkspaceDnd';
 import { blackScrimForWhiteText } from '../wallpaper/contrast';
 import type { SurfaceData } from './bootstrap';
 import { Line } from './Line';
@@ -29,6 +30,8 @@ export interface SurfaceProps {
 export function Surface({ initialData }: SurfaceProps) {
   const [now, setNow] = useState(() => new Date());
   const [cards, setCards] = useState(initialData.cards);
+  const [decks, setDecks] = useState(initialData.decks);
+  const [pages, setPages] = useState(initialData.pages);
   const [settings, setSettings] = useState(initialData.settings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -224,108 +227,116 @@ export function Surface({ initialData }: SurfaceProps) {
   } as CSSProperties;
 
   return (
-    <main
-      data-deck="surface"
-      className="deck-surface"
-      style={surfaceStyle}
-      data-wallpaper-kind={settings.wallpaper.kind}
-      data-blurred={settings.isBlurred || undefined}
-      data-bright-wallpaper={
-        (settings.wallpaperLuminance ?? 0) > BRIGHT_WALLPAPER_THRESHOLD ||
-        undefined
-      }
-      data-drawer-open={isDrawerMounted || undefined}
-    >
-      <div
-        data-deck="wallpaper"
-        className="deck-wallpaper"
-        data-loaded={Boolean(wallpaperUrl) || undefined}
-      />
-      <div data-deck="surface-column" className="deck-surface__column">
-        <time
-          data-deck="clock"
-          className="deck-clock"
-          dateTime={now.toISOString()}
-        >
-          {time}
-        </time>
-        {settings.ownerName ? (
-          <p data-deck="greeting" className="deck-greeting">
-            {greetingForHour(now.getHours())}, {settings.ownerName}
-          </p>
-        ) : null}
-        <Line
-          cards={cards}
-          settings={settings}
-          repository={initialData.repository}
-          openSettings={() => setIsSettingsOpen(true)}
-          saveSettings={saveSettings}
-          notify={setError}
-          canSpaceOpenDrawer={settings.canSpaceOpenDrawer}
-          openDrawer={openDrawer}
-        />
-        <Pins
-          cards={cards}
-          defaultDeckId={initialData.defaultDeckId}
-          repository={initialData.repository}
-          onCardsChange={setCards}
-        />
-      </div>
-      <nav data-deck="surface-controls" className="deck-surface-controls">
-        <button
-          type="button"
-          data-deck="blur-toggle"
-          onClick={() =>
-            void saveSettings({ ...settings, isBlurred: !settings.isBlurred })
-          }
-          aria-pressed={settings.isBlurred}
-        >
-          ◉
-        </button>
-        <button
-          type="button"
-          data-deck="settings-toggle"
-          onClick={() => setIsSettingsOpen(true)}
-          aria-label={strings.settings}
-        >
-          ⚙
-        </button>
-      </nav>
-      <button
-        type="button"
-        data-deck="drawer-handle"
-        className="deck-drawer-handle"
-        onClick={openDrawer}
-        aria-label={strings.openDrawer}
+    <WorkspaceDnd>
+      <main
+        data-deck="surface"
+        className="deck-surface"
+        style={surfaceStyle}
+        data-wallpaper-kind={settings.wallpaper.kind}
+        data-blurred={settings.isBlurred || undefined}
+        data-bright-wallpaper={
+          (settings.wallpaperLuminance ?? 0) > BRIGHT_WALLPAPER_THRESHOLD ||
+          undefined
+        }
+        data-drawer-open={isDrawerMounted || undefined}
       >
-        {strings.drawerHandle}
-      </button>
-      {error ? (
-        <p data-deck="error" className="deck-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <Suspense fallback={null}>
-        {isSettingsOpen ? (
-          <SettingsPanel
+        <div
+          data-deck="wallpaper"
+          className="deck-wallpaper"
+          data-loaded={Boolean(wallpaperUrl) || undefined}
+        />
+        <div data-deck="surface-column" className="deck-surface__column">
+          <time
+            data-deck="clock"
+            className="deck-clock"
+            dateTime={now.toISOString()}
+          >
+            {time}
+          </time>
+          {settings.ownerName ? (
+            <p data-deck="greeting" className="deck-greeting">
+              {greetingForHour(now.getHours())}, {settings.ownerName}
+            </p>
+          ) : null}
+          <Line
+            cards={cards}
             settings={settings}
             repository={initialData.repository}
-            onChange={saveSettings}
-            onClose={() => setIsSettingsOpen(false)}
+            openSettings={() => setIsSettingsOpen(true)}
+            saveSettings={saveSettings}
+            notify={setError}
+            canSpaceOpenDrawer={settings.canSpaceOpenDrawer}
+            openDrawer={openDrawer}
           />
-        ) : null}
-      </Suspense>
-      <Suspense fallback={null}>
-        {isDrawerMounted ? (
-          <Drawer
-            data={initialData}
-            isOpen={isDrawerOpen}
-            onClose={closeDrawer}
-            onError={setError}
+          <Pins
+            cards={cards}
+            defaultDeckId={initialData.defaultDeckId}
+            repository={initialData.repository}
+            onCardsChange={setCards}
           />
+        </div>
+        <nav data-deck="surface-controls" className="deck-surface-controls">
+          <button
+            type="button"
+            data-deck="blur-toggle"
+            onClick={() =>
+              void saveSettings({ ...settings, isBlurred: !settings.isBlurred })
+            }
+            aria-pressed={settings.isBlurred}
+          >
+            ◉
+          </button>
+          <button
+            type="button"
+            data-deck="settings-toggle"
+            onClick={() => setIsSettingsOpen(true)}
+            aria-label={strings.settings}
+          >
+            ⚙
+          </button>
+        </nav>
+        <button
+          type="button"
+          data-deck="drawer-handle"
+          className="deck-drawer-handle"
+          onClick={openDrawer}
+          aria-label={strings.openDrawer}
+        >
+          {strings.drawerHandle}
+        </button>
+        {error ? (
+          <p data-deck="error" className="deck-error" role="alert">
+            {error}
+          </p>
         ) : null}
-      </Suspense>
-      <style data-deck="custom-css">{settings.customCss}</style>
-    </main>
+        <Suspense fallback={null}>
+          {isSettingsOpen ? (
+            <SettingsPanel
+              settings={settings}
+              repository={initialData.repository}
+              onChange={saveSettings}
+              onClose={() => setIsSettingsOpen(false)}
+            />
+          ) : null}
+        </Suspense>
+        <Suspense fallback={null}>
+          {isDrawerMounted ? (
+            <Drawer
+              data={initialData}
+              cards={cards}
+              decks={decks}
+              pages={pages}
+              isOpen={isDrawerOpen}
+              onClose={closeDrawer}
+              onCardsChange={setCards}
+              onDecksChange={setDecks}
+              onPagesChange={setPages}
+              onError={setError}
+            />
+          ) : null}
+        </Suspense>
+        <style data-deck="custom-css">{settings.customCss}</style>
+      </main>
+    </WorkspaceDnd>
   );
 }

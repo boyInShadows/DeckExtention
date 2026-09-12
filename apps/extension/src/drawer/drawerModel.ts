@@ -1,5 +1,7 @@
 import type { Page } from 'deck-schema';
 
+import { compareOrder } from './workspaceModel';
+
 export const DRAWER_PAGE_KEY = 'deck:last-page';
 export const DRAWER_SCROLL_KEY = 'deck:drawer-scroll';
 export const INBOX_PAGE_ID = 'inbox';
@@ -7,7 +9,7 @@ export const INBOX_PAGE_ID = 'inbox';
 export function activePages(pages: Page[]): Page[] {
   return pages
     .filter((page) => page.deletedAt === null)
-    .toSorted((left, right) => left.order.localeCompare(right.order));
+    .toSorted((left, right) => compareOrder(left.order, right.order));
 }
 
 export function selectedPageId(

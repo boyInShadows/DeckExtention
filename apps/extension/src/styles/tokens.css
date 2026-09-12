@@ -109,6 +109,7 @@
 
   /* One spring for drawer and toasts; 120 ms ease for hovers. */
   --deck-motion-hover: 120ms;
+  --deck-motion-settle: 160ms;
   --deck-motion-spring-stiffness: 380;
   --deck-motion-spring-damping: 32;
   --deck-ease-hover: cubic-bezier(0.4, 0, 0.2, 1);

@@ -1,16 +1,5 @@
 import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
   SortableContext,
-  arrayMove,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
@@ -30,16 +19,25 @@ import {
   selectedPageId,
 } from './drawerModel';
 import { DeckWorkspace } from './DeckWorkspace';
+import { dragId } from './dragIdentity';
+import { handleWorkspaceDrop } from './workspaceDrop';
+import { WORKSPACE_DROP_EVENT, type WorkspaceDropDetail } from './WorkspaceDnd';
 
 function currentTimestamp(): number {
   return Date.now();
 }
 
 interface DrawerProps {
+  cards: Card[];
   data: SurfaceData;
+  decks: Deck[];
   isOpen: boolean;
+  pages: Page[];
+  onCardsChange: (cards: Card[]) => void;
   onClose: () => void;
+  onDecksChange: (decks: Deck[]) => void;
   onError: (message: string) => void;
+  onPagesChange: (pages: Page[]) => void;
 }
 
 function SortablePage({
@@ -60,7 +58,8 @@ function SortablePage({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: page.id });
+    isOver,
+  } = useSortable({ id: dragId('page', page.id) });
   return (
     <button
       ref={setNodeRef}
@@ -69,6 +68,7 @@ function SortablePage({
       data-deck="page"
       data-selected={isSelected || undefined}
       data-dragging={isDragging || undefined}
+      data-drag-over={isOver || undefined}
       onClick={onSelect}
       onDoubleClick={onRename}
       {...attributes}
@@ -81,27 +81,24 @@ function SortablePage({
 
 export default function Drawer({
   data,
+  pages,
+  decks,
+  cards,
   isOpen,
   onClose,
   onError,
+  onPagesChange,
+  onDecksChange,
+  onCardsChange,
 }: DrawerProps) {
-  const [pages, setPages] = useState(data.pages);
-  const [decks, setDecks] = useState<Deck[]>(data.decks);
-  const [cards, setCards] = useState<Card[]>(data.cards);
   const [isPagesLoaded, setIsPagesLoaded] = useState(false);
   const orderedPages = useMemo(() => activePages(pages), [pages]);
   const [selectedId, setSelectedId] = useState(() =>
     selectedPageId(pages, sessionStorage.getItem(DRAWER_PAGE_KEY)),
   );
   const scrollRef = useRef<HTMLDivElement>(null);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-  const inbox = data.decks.find((deck) => deck.kind === 'inbox');
-  const inboxCount = data.cards.filter(
+  const inbox = decks.find((deck) => deck.kind === 'inbox');
+  const inboxCount = cards.filter(
     (card) => inbox && card.deckId === inbox.id && card.deletedAt === null,
   ).length;
 
@@ -111,22 +108,49 @@ export default function Drawer({
   };
 
   useEffect(() => {
+    const onDrop = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
+      void handleWorkspaceDrop(event.detail as WorkspaceDropDetail, {
+        cards,
+        decks,
+        pages,
+        repository: data.repository,
+        onCardsChange,
+        onDecksChange,
+        onPagesChange,
+        onError,
+      });
+    };
+    window.addEventListener(WORKSPACE_DROP_EVENT, onDrop);
+    return () => window.removeEventListener(WORKSPACE_DROP_EVENT, onDrop);
+  }, [
+    cards,
+    data.repository,
+    decks,
+    onCardsChange,
+    onDecksChange,
+    onError,
+    onPagesChange,
+    pages,
+  ]);
+
+  useEffect(() => {
     void Promise.all([
       data.repository.listPages(),
       data.repository.listDecks(),
       data.repository.listCards(),
     ])
       .then(([storedPages, storedDecks, storedCards]) => {
-        setPages(storedPages);
-        setDecks(storedDecks);
-        setCards(storedCards);
+        onPagesChange(storedPages);
+        onDecksChange(storedDecks);
+        onCardsChange(storedCards);
         setSelectedId(
           selectedPageId(storedPages, sessionStorage.getItem(DRAWER_PAGE_KEY)),
         );
         setIsPagesLoaded(true);
       })
       .catch((pageError: unknown) => onError(errorMessage(pageError)));
-  }, [data.repository, onError]);
+  }, [data.repository, onCardsChange, onDecksChange, onError, onPagesChange]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -158,7 +182,7 @@ export default function Drawer({
         updatedAt: now,
         deletedAt: null,
       });
-      setPages((current) => [...current, page]);
+      onPagesChange([...pages, page]);
       selectPage(page.id);
     } catch (pageError) {
       onError(errorMessage(pageError));
@@ -174,36 +198,7 @@ export default function Drawer({
         title,
         updatedAt: currentTimestamp(),
       });
-      setPages((current) =>
-        current.map((item) => (item.id === saved.id ? saved : item)),
-      );
-    } catch (pageError) {
-      onError(errorMessage(pageError));
-    }
-  };
-
-  const finishDrag = async ({ active, over }: DragEndEvent) => {
-    if (!over || active.id === over.id) return;
-    const reordered = arrayMove(
-      orderedPages,
-      orderedPages.findIndex(({ id }) => id === active.id),
-      orderedPages.findIndex(({ id }) => id === over.id),
-    );
-    const index = reordered.findIndex(({ id }) => id === active.id);
-    const moved = reordered[index];
-    if (!moved) return;
-    try {
-      const saved = await data.repository.upsertPage({
-        ...moved,
-        order: generateKeyBetween(
-          reordered[index - 1]?.order ?? null,
-          reordered[index + 1]?.order ?? null,
-        ),
-        updatedAt: currentTimestamp(),
-      });
-      setPages((current) =>
-        current.map((item) => (item.id === saved.id ? saved : item)),
-      );
+      onPagesChange(pages.map((item) => (item.id === saved.id ? saved : item)));
     } catch (pageError) {
       onError(errorMessage(pageError));
     }
@@ -247,26 +242,20 @@ export default function Drawer({
             )
           }
         >
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={finishDrag}
+          <SortableContext
+            items={orderedPages.map(({ id }) => dragId('page', id))}
+            strategy={verticalListSortingStrategy}
           >
-            <SortableContext
-              items={orderedPages}
-              strategy={verticalListSortingStrategy}
-            >
-              {orderedPages.map((page) => (
-                <SortablePage
-                  key={page.id}
-                  page={page}
-                  isSelected={selectedId === page.id}
-                  onSelect={() => selectPage(page.id)}
-                  onRename={() => void renamePage(page)}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+            {orderedPages.map((page) => (
+              <SortablePage
+                key={page.id}
+                page={page}
+                isSelected={selectedId === page.id}
+                onSelect={() => selectPage(page.id)}
+                onRename={() => void renamePage(page)}
+              />
+            ))}
+          </SortableContext>
         </div>
         <button
           type="button"
@@ -277,7 +266,6 @@ export default function Drawer({
           +
         </button>
       </aside>
-      <div data-deck="drawer-content" className="deck-drawer__content" />
       <DeckWorkspace
         data={data}
         pages={pages}
@@ -287,8 +275,8 @@ export default function Drawer({
           selectedId === INBOX_PAGE_ID ? (inbox?.pageId ?? null) : selectedId
         }
         selectedDeckKind={selectedId === INBOX_PAGE_ID ? 'inbox' : undefined}
-        onDecksChange={setDecks}
-        onCardsChange={setCards}
+        onDecksChange={onDecksChange}
+        onCardsChange={onCardsChange}
         onError={onError}
       />
     </section>

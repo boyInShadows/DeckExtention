@@ -73,6 +73,7 @@ export const strings = {
   stashComing: 'Stash arrives with sessions in Phase 3.',
   searchEngine: 'Search URL template',
   drawer: 'Deck drawer',
+  pinLimitReached: 'Pins are full. Unpin one before adding another.',
   openDrawer: 'Open Deck drawer',
   closeDrawer: 'Close Deck drawer',
   inbox: 'Inbox',
