@@ -165,3 +165,80 @@ test('drawer triggers and page state survive repeated open and close cycles', as
     await context.close();
   }
 });
+
+test('drawer cards move between decks and onto the Pins strip', async ({
+  browserName,
+}) => {
+  expect(browserName).toBe('chromium');
+  const context = await launchExtension();
+  try {
+    const page = await context.newPage();
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector(READY_SELECTOR);
+    await page.keyboard.press('Control+J');
+
+    const decks = page.locator('[data-deck="deck"]');
+    await page.getByRole('button', { name: '+ Add deck' }).click();
+    await expect(decks).toHaveCount(2);
+    const sourceDeck = decks.nth(0);
+    const targetDeck = decks.nth(1);
+    const sourceCard = sourceDeck.locator('[data-deck="card"]').first();
+    const sourceCardBox = await sourceCard.boundingBox();
+    const targetDeckBox = await targetDeck.boundingBox();
+    if (!sourceCardBox || !targetDeckBox)
+      throw new Error('Card drag endpoints are not visible');
+    await page.mouse.move(
+      sourceCardBox.x + sourceCardBox.width / 2,
+      sourceCardBox.y + sourceCardBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      sourceCardBox.x + sourceCardBox.width / 2,
+      sourceCardBox.y + sourceCardBox.height / 2 + 12,
+      { steps: 2 },
+    );
+    await page.mouse.move(
+      targetDeckBox.x + targetDeckBox.width / 2,
+      targetDeckBox.y + targetDeckBox.height / 2,
+      { steps: 8 },
+    );
+    await expect(targetDeck).toHaveAttribute('data-drag-over', 'true');
+    await page.mouse.up();
+    await expect(sourceDeck.locator('[data-deck="card"]')).toHaveCount(5);
+    await expect(targetDeck.locator('[data-deck="card"]')).toHaveCount(1);
+
+    const movedCard = targetDeck.locator('[data-deck="card"]').first();
+    const sourceBox = await movedCard.boundingBox();
+    if (!sourceBox) throw new Error('Moved card is not visible');
+    await page.mouse.move(
+      sourceBox.x + sourceBox.width / 2,
+      sourceBox.y + sourceBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      sourceBox.x + sourceBox.width / 2,
+      sourceBox.y + sourceBox.height / 2 + 12,
+      { steps: 2 },
+    );
+    await expect(movedCard).toHaveAttribute('data-dragging', 'true');
+    const pinsDrop = page.locator('[data-deck="pins-drop"]');
+    await expect(pinsDrop).toBeVisible();
+    const pinsBox = await pinsDrop.boundingBox();
+    if (!pinsBox) throw new Error('Pins drop target is not visible');
+    await page.mouse.move(
+      pinsBox.x + pinsBox.width / 2,
+      pinsBox.y + pinsBox.height / 2,
+    );
+    await expect(pinsDrop).toHaveAttribute('data-drag-over', 'true');
+    await page.mouse.up();
+    await expect(page.locator('[data-deck="pin"]')).toHaveCount(1);
+
+    await page.reload();
+    await page.waitForSelector(READY_SELECTOR);
+    await expect(page.locator('[data-deck="pin"]')).toHaveCount(1);
+    await page.keyboard.press('Control+J');
+    await expect(decks.nth(1).locator('[data-deck="card"]')).toHaveCount(1);
+  } finally {
+    await context.close();
+  }
+});

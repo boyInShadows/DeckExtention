@@ -1,26 +1,38 @@
 import {
   DndContext,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
-  closestCenter,
+  pointerWithin,
+  rectIntersection,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type CollisionDetection,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
-import { parseDragId } from './dragIdentity';
-
-export const WORKSPACE_DROP_EVENT = 'deck:workspace-drop';
+export const WORKSPACE_DROP_EVENT = 'deck:drop';
 
 export interface WorkspaceDropDetail {
   activeId: string | number;
   overId: string | number;
 }
 
+const PIN_DROP_ID = 'pin:drawer';
+
+const collisionDetection: CollisionDetection = (arguments_) => {
+  const pointerCollisions = pointerWithin(arguments_);
+  const rectangleCollisions = rectIntersection(arguments_);
+  const pinCollision = [...pointerCollisions, ...rectangleCollisions].find(
+    ({ id }) => id === PIN_DROP_ID,
+  );
+  if (pinCollision) return [pinCollision];
+  return pointerCollisions.length ? pointerCollisions : rectangleCollisions;
+};
+
 export function WorkspaceDnd({ children }: { children: ReactNode }) {
-  const [isDraggingCard, setIsDraggingCard] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, {
@@ -28,7 +40,6 @@ export function WorkspaceDnd({ children }: { children: ReactNode }) {
     }),
   );
   const finishDrag = ({ active, over }: DragEndEvent) => {
-    setIsDraggingCard(false);
     if (!over || active.id === over.id) return;
     window.dispatchEvent(
       new CustomEvent<WorkspaceDropDetail>(WORKSPACE_DROP_EVENT, {
@@ -39,20 +50,11 @@ export function WorkspaceDnd({ children }: { children: ReactNode }) {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={({ active }) =>
-        setIsDraggingCard(parseDragId(active.id)?.entity === 'card')
-      }
-      onDragCancel={() => setIsDraggingCard(false)}
+      collisionDetection={collisionDetection}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragEnd={finishDrag}
     >
-      <div
-        data-deck="dnd-root"
-        className="deck-dnd-root"
-        data-dragging-card={isDraggingCard || undefined}
-      >
-        {children}
-      </div>
+      <div data-deck="dnd-root">{children}</div>
     </DndContext>
   );
 }

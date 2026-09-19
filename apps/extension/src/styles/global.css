@@ -82,7 +82,7 @@
 }
 
 @layer components {
-  .deck-dnd-root {
+  [data-deck='dnd-root'] {
     display: contents;
   }
 
@@ -138,8 +138,6 @@
   }
 
   .deck-surface__column {
-    position: relative;
-    z-index: 1;
     inline-size: min(100%, var(--deck-surface-column));
     text-align: center;
   }
@@ -286,18 +284,29 @@
     background: var(--deck-color-glass);
   }
 
-  .deck-dnd-root[data-dragging-card] .deck-pins {
+  .deck-pins-drop {
     position: fixed;
     inset-block-start: 0;
     inset-inline-start: 50%;
     z-index: 6;
-    min-inline-size: min(100%, var(--deck-surface-column));
-    margin-block-start: 0;
-    padding-block: var(--deck-space-1);
+    display: grid;
+    place-items: center;
+    block-size: var(--deck-drawer-peek);
+    inline-size: min(100%, var(--deck-surface-column));
     border-radius: var(--deck-radius-panel);
     background: var(--deck-color-canvas-raised);
     box-shadow: 0 1rem 2rem var(--deck-color-shadow);
+    opacity: 0;
     transform: translateX(-50%);
+  }
+
+  [data-deck='dnd-root']:has(.deck-card[data-dragging]) .deck-pins-drop {
+    opacity: 1;
+  }
+
+  .deck-pins-drop[data-drag-over] {
+    outline: 2px solid var(--deck-color-focus);
+    outline-offset: -2px;
   }
 
   .deck-pin,

@@ -26,11 +26,19 @@ const SURFACE_GLOB = 'dist/assets/index.html-*.js';
 const SURFACE_RUNTIME_GLOB = 'dist/assets/jsx-runtime-*.js';
 const SURFACE_STORAGE_GLOB = 'dist/assets/storage-*.js';
 const SURFACE_STRINGS_GLOB = 'dist/assets/strings-*.js';
+const SURFACE_ALL_GLOB =
+  'dist/assets/{index.html,jsx-runtime,storage,strings,WorkspaceDnd}-*.js';
 
 /** The lazily-imported drawer chunk. It arrives in P2.S1. */
 const DRAWER_GLOB = 'dist/assets/*drawer*.js';
 
 const entries = [
+  {
+    name: 'surface total',
+    path: SURFACE_ALL_GLOB,
+    limit: '60 kB',
+    gzip: true,
+  },
   {
     name: 'surface entry (new tab)',
     path: SURFACE_GLOB,

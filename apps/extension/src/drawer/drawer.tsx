@@ -4,6 +4,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useDroppable } from '@dnd-kit/core';
 import type { Card, Deck, Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -76,6 +77,20 @@ function SortablePage({
     >
       {page.title}
     </button>
+  );
+}
+
+function PinDropZone() {
+  const { isOver, setNodeRef } = useDroppable({ id: dragId('pin', 'drawer') });
+  return (
+    <div
+      ref={setNodeRef}
+      data-deck="pins-drop"
+      className="deck-pins-drop"
+      data-drag-over={isOver || undefined}
+    >
+      {strings.dropToPins}
+    </div>
   );
 }
 
@@ -211,6 +226,7 @@ export default function Drawer({
       data-open={isOpen || undefined}
       aria-label={strings.drawer}
     >
+      <PinDropZone />
       <aside data-deck="pages" className="deck-pages">
         <header>
           <h2>{strings.pages}</h2>
