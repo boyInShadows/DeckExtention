@@ -12,3 +12,4 @@ export * from './card';
 export * from './settings';
 export * from './op';
 export * from './snapshot';
+export * from './capture';

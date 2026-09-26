@@ -8,6 +8,13 @@ import {
   type CSSProperties,
 } from 'react';
 
+import {
+  CAPTURE_NOTICE_KEY,
+  CaptureNoticeSchema,
+  OPEN_PAGE_HASH_PREFIX,
+  OPEN_SETTINGS_HASH,
+} from 'deck-schema';
+
 import { strings } from '../i18n/strings';
 import { WorkspaceDnd } from '../drawer/WorkspaceDnd';
 import { blackScrimForWhiteText } from '../wallpaper/contrast';
@@ -33,9 +40,14 @@ export function Surface({ initialData }: SurfaceProps) {
   const [decks, setDecks] = useState(initialData.decks);
   const [pages, setPages] = useState(initialData.pages);
   const [settings, setSettings] = useState(initialData.settings);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isDrawerMounted, setIsDrawerMounted] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(
+    () => location.hash === OPEN_SETTINGS_HASH,
+  );
+  // A `#page=` link (Quick Save's "open Deck") arrives with the drawer open.
+  const [isDrawerOpen, setIsDrawerOpen] = useState(() =>
+    location.hash.startsWith(OPEN_PAGE_HASH_PREFIX),
+  );
+  const [isDrawerMounted, setIsDrawerMounted] = useState(isDrawerOpen);
   const [loadedWallpaper, setLoadedWallpaper] = useState<{
     key: string;
     url: string;
@@ -86,6 +98,22 @@ export function Surface({ initialData }: SurfaceProps) {
     },
     [initialData.repository],
   );
+
+  // Quick Save hands over here when its toast could not show (P2.S4).
+  useEffect(() => {
+    // Consumed once: a reload of this tab should start calm again.
+    if (location.hash === OPEN_SETTINGS_HASH)
+      history.replaceState(null, '', location.pathname);
+    chrome.storage.local
+      .get(CAPTURE_NOTICE_KEY)
+      .then((items) => {
+        const notice = CaptureNoticeSchema.safeParse(items[CAPTURE_NOTICE_KEY]);
+        if (!notice.success) return;
+        setError(notice.data.message);
+        return chrome.storage.local.remove(CAPTURE_NOTICE_KEY);
+      })
+      .catch((noticeError: unknown) => setError(String(noticeError)));
+  }, []);
 
   useEffect(() => {
     let idle: number | null = null;

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   activePages,
   INBOX_PAGE_ID,
+  pageIdFromHash,
   restoredScroll,
   selectedPageId,
 } from './drawerModel';
@@ -56,5 +57,20 @@ describe('drawer page model', () => {
     expect(restoredScroll(null)).toBe(0);
     expect(restoredScroll('NaN')).toBe(0);
     expect(restoredScroll('-1')).toBe(0);
+  });
+});
+
+describe('pageIdFromHash', () => {
+  it('reads the page a Quick Save "open Deck" link asks for', () => {
+    expect(pageIdFromHash('#page=page_001')).toBe('page_001');
+    expect(pageIdFromHash('#page=inbox')).toBe(INBOX_PAGE_ID);
+    expect(pageIdFromHash('#page=a%20b')).toBe('a b');
+  });
+
+  it('ignores other hashes and malformed links', () => {
+    expect(pageIdFromHash('')).toBeNull();
+    expect(pageIdFromHash('#settings')).toBeNull();
+    expect(pageIdFromHash('#page=')).toBeNull();
+    expect(pageIdFromHash('#page=%E0%A4%A')).toBeNull();
   });
 });

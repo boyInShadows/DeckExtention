@@ -106,4 +106,8 @@ export const strings = {
   close: 'Close',
   saveNote: 'Save note',
   drawerHandle: '⌃ Deck',
+  quickSave: 'Quick Save',
+  quickSaveReason: 'reads the page you save and shows a small toast on it.',
+  allowAccess: 'Allow',
+  revokeAccess: 'Revoke',
 } as const;

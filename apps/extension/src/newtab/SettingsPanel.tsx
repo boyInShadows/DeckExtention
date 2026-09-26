@@ -1,10 +1,18 @@
 import type { Settings, Snapshot, Theme } from 'deck-schema';
-import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from 'react';
 
 import { strings } from '../i18n/strings';
-import { BackupService, openDeckDatabase } from '../storage';
+import { BackupService } from '../storage/backup';
+import { openDeckDatabase } from '../storage/database';
 import { processWallpaper } from '../wallpaper/processWallpaper';
 import type { SurfaceData } from './bootstrap';
+import { QuickSavePermission } from './QuickSavePermission';
 
 interface SettingsPanelProps {
   settings: Settings;
@@ -46,11 +54,11 @@ export default function SettingsPanel({
       });
   }, [backups]);
 
-  const showError = (actionError: unknown) => {
+  const showError = useCallback((actionError: unknown) => {
     const detail =
       actionError instanceof Error ? actionError.message : String(actionError);
     setError(`${strings.updateFailed} ${detail}`);
-  };
+  }, []);
 
   const exportData = async () => {
     try {
@@ -222,6 +230,7 @@ export default function SettingsPanel({
           checked={settings.canSpaceOpenDrawer}
           onChange={(canSpaceOpenDrawer) => void update({ canSpaceOpenDrawer })}
         />
+        <QuickSavePermission onError={showError} />
         <p>{strings.keyHint}</p>
         <button
           type="button"

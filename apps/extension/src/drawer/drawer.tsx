@@ -16,6 +16,7 @@ import {
   DRAWER_PAGE_KEY,
   DRAWER_SCROLL_KEY,
   INBOX_PAGE_ID,
+  pageIdFromHash,
   restoredScroll,
   selectedPageId,
 } from './drawerModel';
@@ -109,7 +110,7 @@ export default function Drawer({
   const [isPagesLoaded, setIsPagesLoaded] = useState(false);
   const orderedPages = useMemo(() => activePages(pages), [pages]);
   const [selectedId, setSelectedId] = useState(() =>
-    selectedPageId(pages, sessionStorage.getItem(DRAWER_PAGE_KEY)),
+    selectedPageId(pages, requestedPageId()),
   );
   const scrollRef = useRef<HTMLDivElement>(null);
   const inbox = decks.find((deck) => deck.kind === 'inbox');
@@ -121,6 +122,15 @@ export default function Drawer({
     setSelectedId(id);
     sessionStorage.setItem(DRAWER_PAGE_KEY, id);
   };
+
+  // A `#page=` link is used once, then becomes the remembered page, so a
+  // reload of this tab starts calm instead of reopening the drawer.
+  useEffect(() => {
+    const linked = pageIdFromHash(location.hash);
+    if (!linked) return;
+    sessionStorage.setItem(DRAWER_PAGE_KEY, linked);
+    history.replaceState(null, '', location.pathname);
+  }, []);
 
   useEffect(() => {
     const onDrop = (event: Event) => {
@@ -159,9 +169,7 @@ export default function Drawer({
         onPagesChange(storedPages);
         onDecksChange(storedDecks);
         onCardsChange(storedCards);
-        setSelectedId(
-          selectedPageId(storedPages, sessionStorage.getItem(DRAWER_PAGE_KEY)),
-        );
+        setSelectedId(selectedPageId(storedPages, requestedPageId()));
         setIsPagesLoaded(true);
       })
       .catch((pageError: unknown) => onError(errorMessage(pageError)));
@@ -296,6 +304,13 @@ export default function Drawer({
         onError={onError}
       />
     </section>
+  );
+}
+
+/** A `#page=<id>` link (from Quick Save's "open Deck") beats the last page. */
+function requestedPageId(): string | null {
+  return (
+    pageIdFromHash(location.hash) ?? sessionStorage.getItem(DRAWER_PAGE_KEY)
   );
 }
 

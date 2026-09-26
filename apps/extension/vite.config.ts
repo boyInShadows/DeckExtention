@@ -35,6 +35,10 @@ const PREACT_ALIAS = {
   'react/jsx-dev-runtime': '@preact/compat/jsx-dev-runtime',
 } as const;
 
+/** Schema, storage and the libraries under them: see `manualChunks`. */
+const CORE_CHUNK_PATTERN =
+  /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:zod|idb|fractional-indexing)\/|\/packages\/schema\/|\/src\/storage\/(?:database|document|repository)\.ts$/;
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), crx({ manifest })],
   resolve: { alias: { ...PREACT_ALIAS } },
@@ -51,5 +55,20 @@ export default defineConfig({
      * stays a separate file rather than base64 inside the stylesheet.
      */
     assetsInlineLimit: 4096,
+    rollupOptions: {
+      output: {
+        /*
+         * The new tab and the service worker share the data layer. Left to
+         * itself Rollup splits that shared graph into a new chunk per
+         * importer combination, and every split adds import/export glue the
+         * 60 kB surface pays for. One named `core` chunk keeps it whole.
+         */
+        manualChunks(id) {
+          return CORE_CHUNK_PATTERN.test(id.replaceAll('\\', '/'))
+            ? 'core'
+            : undefined;
+        },
+      },
+    },
   },
 });

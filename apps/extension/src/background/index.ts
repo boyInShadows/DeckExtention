@@ -1,18 +1,20 @@
 /**
  * Deck's MV3 service worker.
  *
- * It exists in P1.S1 so the manifest is loadable and the three commands have a
- * home. What lands here over time:
- *   P2.S4  the `quick-save` command, the "Save to Deck" context menus and the
- *          toast injected via `activeTab` at hotkey time only
- *   P3     `stash`
- *
- * There is no `chrome.commands.onCommand` listener yet: an empty handler would
- * be a lie about what the hotkeys do, and Chrome is happy for a declared
- * command to have no listener until the feature exists.
+ *   P1.S2  daily snapshot maintenance
+ *   P2.S1  `toggle-drawer` relayed to the open new tab
+ *   P2.S4  Quick Save: the `quick-save` command, the toolbar icon and the
+ *          "Save to Deck" context menus, with the toast injected at that
+ *          moment only (see ./quickSave.ts)
+ *   P3     `stash` - declared in the manifest, deliberately unhandled until
+ *          the feature exists rather than wired to an empty lie
  */
 
-import { BackupService, DeckRepository, openDeckDatabase } from '../storage';
+import { captureStrings } from '../i18n/captureStrings';
+import { BackupService } from '../storage/backup';
+import { openDeckDatabase } from '../storage/database';
+import { DeckRepository } from '../storage/repository';
+import { handleToastDecision, quickSave } from './quickSave';
 
 const BACKUP_ERROR_KEY = 'backupMaintenanceError';
 const repository = new DeckRepository();
@@ -37,7 +39,45 @@ async function runBackupMaintenance(): Promise<void> {
 void runBackupMaintenance();
 chrome.runtime.onStartup.addListener(() => void runBackupMaintenance());
 
-chrome.commands.onCommand.addListener((command) => {
+const MENU_SAVE_PAGE = 'deck-save-page';
+const MENU_SAVE_LINK = 'deck-save-link';
+
+chrome.runtime.onInstalled.addListener(() => {
+  void chrome.contextMenus.removeAll().then(() => {
+    chrome.contextMenus.create({
+      id: MENU_SAVE_PAGE,
+      title: captureStrings.menuSavePage,
+      contexts: ['page'],
+    });
+    chrome.contextMenus.create({
+      id: MENU_SAVE_LINK,
+      title: captureStrings.menuSaveLink,
+      contexts: ['link'],
+    });
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === MENU_SAVE_PAGE) void quickSave(repository, tab);
+  if (info.menuItemId === MENU_SAVE_LINK && info.linkUrl)
+    void quickSave(repository, tab, info.linkUrl);
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!sender.tab || sender.id !== chrome.runtime.id) return false;
+  void handleToastDecision(repository, message, sender).then((reply) => {
+    if (reply) sendResponse(reply);
+  });
+  return true;
+});
+
+chrome.action.onClicked.addListener((tab) => void quickSave(repository, tab));
+
+chrome.commands.onCommand.addListener((command, tab) => {
+  if (command === 'quick-save') {
+    void quickSave(repository, tab);
+    return;
+  }
   if (command !== 'toggle-drawer') return;
   void chrome.runtime
     .sendMessage({ type: 'deck:toggle-drawer' })

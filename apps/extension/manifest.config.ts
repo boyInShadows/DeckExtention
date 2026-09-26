@@ -31,9 +31,17 @@ const INSTALL_PERMISSIONS = [
 /**
  * Requested one at a time, with a one-sentence reason, and revocable from
  * Settings (MasterPlan I7).
+ *
+ * `scripting` - added 2026-09-27 for P2.S4. The plan's optional list omits it,
+ * but MV3 has no other way to show the Quick Save toast without a content
+ * script (forbidden by AGENTS.md guardrail 6): `chrome.scripting` requires
+ * this permission. It carries no install warning, is optional, and is granted
+ * together with `activeTab` from Settings > Keys (see CAPTURE_PERMISSIONS in
+ * deck-schema). Install-time permissions are unchanged.
  */
 const OPTIONAL_PERMISSIONS = [
   'activeTab',
+  'scripting',
   'tabs',
   'tabGroups',
   'bookmarks',
@@ -54,6 +62,18 @@ export default defineManifest({
     32: 'icons/icon-32.png',
     48: 'icons/icon-48.png',
     128: 'icons/icon-128.png',
+  },
+
+  /**
+   * No popup, on purpose: clicking the icon is Quick Save (FableTasks P2.S4,
+   * "no popup, no picker"). The key exists so the badge can flash.
+   */
+  action: {
+    default_title: "Save this page to Deck's Inbox",
+    default_icon: {
+      16: 'icons/icon-16.png',
+      32: 'icons/icon-32.png',
+    },
   },
 
   chrome_url_overrides: {

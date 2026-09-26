@@ -1,4 +1,4 @@
-import type { Page } from 'deck-schema';
+import { OPEN_PAGE_HASH_PREFIX, type Page } from 'deck-schema';
 
 import { compareOrder } from './workspaceModel';
 
@@ -26,4 +26,14 @@ export function restoredScroll(value: string | null): number {
   if (value === null || value.trim() === '') return 0;
   const scroll = Number(value);
   return Number.isFinite(scroll) && scroll >= 0 ? scroll : 0;
+}
+
+export function pageIdFromHash(hash: string): string | null {
+  if (!hash.startsWith(OPEN_PAGE_HASH_PREFIX)) return null;
+  try {
+    return decodeURIComponent(hash.slice(OPEN_PAGE_HASH_PREFIX.length)) || null;
+  } catch (error) {
+    if (error instanceof URIError) return null;
+    throw error;
+  }
 }
