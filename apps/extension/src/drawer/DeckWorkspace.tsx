@@ -18,6 +18,8 @@ import {
   replaceEntity,
 } from './workspaceModel';
 import { dragId } from './dragIdentity';
+import { NotePanel } from './NotePanel';
+import { focusOnMount } from '../newtab/focusOnMount';
 
 const DECK_COLORS = ['slate', 'blue', 'green', 'amber', 'rose'] as const;
 const DROP_SETTLE_MS = 160;
@@ -262,7 +264,7 @@ function DeckColumn({
                 }}
               >
                 <input
-                  autoFocus
+                  ref={focusOnMount}
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
                   placeholder={strings.pasteUrl}
@@ -451,59 +453,6 @@ function DeckMenu({
         </button>
       ) : null}
     </div>
-  );
-}
-
-function NotePanel({
-  entity,
-  repository,
-  onSaved,
-  onClose,
-  onError,
-}: {
-  entity: Deck | Card;
-  repository: SurfaceData['repository'];
-  onSaved: (saved: Deck | Card) => void;
-  onClose: () => void;
-  onError: (value: string) => void;
-}) {
-  const [note, setNote] = useState(entity.note ?? '');
-  const [isPreview, setIsPreview] = useState(false);
-  const save = async () => {
-    try {
-      const value = { ...entity, note: note || undefined, updatedAt: now() };
-      onSaved(
-        'deckId' in value
-          ? await repository.upsertCard(value)
-          : await repository.upsertDeck(value),
-      );
-    } catch (error) {
-      onError(message(error));
-    }
-  };
-  return (
-    <aside data-deck="note" className="deck-note-panel">
-      <header>
-        <button type="button" onClick={() => setIsPreview((value) => !value)}>
-          {isPreview ? strings.edit : strings.preview}
-        </button>
-        <button type="button" onClick={onClose}>
-          {strings.close}
-        </button>
-      </header>
-      {isPreview ? (
-        <div className="deck-note-preview">{note}</div>
-      ) : (
-        <textarea
-          autoFocus
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-        />
-      )}
-      <button type="button" onClick={() => void save()}>
-        {strings.saveNote}
-      </button>
-    </aside>
   );
 }
 

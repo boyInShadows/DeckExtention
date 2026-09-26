@@ -800,4 +800,95 @@
   .deck-note-preview {
     white-space: pre-wrap;
   }
+
+  /* Inbox triage (P2.S5): one list, one cursor, keyboard first. */
+  .deck-inbox {
+    position: relative;
+    min-inline-size: 0;
+    overflow: auto;
+    padding: var(--deck-space-3);
+  }
+
+  .deck-inbox__hint {
+    margin: 0 0 var(--deck-space-1);
+    color: var(--deck-color-text-muted);
+    font-size: 0.75rem;
+  }
+
+  .deck-inbox__list {
+    display: grid;
+    max-inline-size: var(--deck-surface-column);
+    margin: 0;
+    padding: 0;
+    border-radius: var(--deck-radius-panel);
+    list-style: none;
+    outline: none;
+  }
+
+  .deck-inbox__list .deck-card {
+    grid-template-columns: 1.25rem 1fr;
+    cursor: default;
+  }
+
+  .deck-inbox__list .deck-card span {
+    display: grid;
+    min-inline-size: 0;
+  }
+
+  .deck-inbox__list .deck-card[data-selected] {
+    background: var(--deck-color-glass);
+  }
+
+  .deck-inbox__list:focus-visible .deck-card[data-cursor] {
+    box-shadow: inset 0.2rem 0 0 var(--deck-color-focus);
+  }
+
+  .deck-inbox__zero {
+    margin: 0;
+    color: var(--deck-color-text-muted);
+    font-size: 0.875rem;
+  }
+
+  .deck-move-line {
+    position: absolute;
+    inset-block-start: var(--deck-space-3);
+    inset-inline-start: var(--deck-space-3);
+    z-index: 3;
+    display: grid;
+    inline-size: min(24rem, calc(100% - 2 * var(--deck-space-3)));
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-canvas-raised);
+    box-shadow: 0 1rem 2rem var(--deck-color-shadow);
+  }
+
+  .deck-move-line__input {
+    padding: var(--deck-space-1) var(--deck-space-2);
+    border: 0;
+    border-block-end: 1px solid var(--deck-color-hairline);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+
+  .deck-move-line ul {
+    margin: 0;
+    padding: var(--deck-space-1) 0;
+    list-style: none;
+  }
+
+  .deck-move-line li,
+  .deck-move-line p {
+    margin: 0;
+    padding: var(--deck-space-1) var(--deck-space-2);
+    font-size: 0.875rem;
+  }
+
+  .deck-move-line li[aria-selected='true'] {
+    background: var(--deck-color-glass);
+  }
+
+  .deck-move-line p {
+    color: var(--deck-color-text-muted);
+  }
 }

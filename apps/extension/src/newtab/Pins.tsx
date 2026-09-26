@@ -18,6 +18,7 @@ import {
   type WorkspaceDropDetail,
 } from '../drawer/WorkspaceDnd';
 import type { SurfaceData } from './bootstrap';
+import { focusOnMount } from './focusOnMount';
 
 const MAX_PINS = 12;
 const FAVICON_SIZE = 64;
@@ -188,7 +189,7 @@ export function Pins({
           <div className="deck-pin-add-form">
             <input
               className="deck-pin-url-input"
-              autoFocus
+              ref={focusOnMount}
               value={urlInput}
               placeholder={strings.pinUrlPlaceholder}
               aria-label={strings.pinUrlPlaceholder}

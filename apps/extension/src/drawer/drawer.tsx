@@ -21,6 +21,7 @@ import {
   selectedPageId,
 } from './drawerModel';
 import { DeckWorkspace } from './DeckWorkspace';
+import { InboxTriage } from './InboxTriage';
 import { dragId } from './dragIdentity';
 import { handleWorkspaceDrop } from './workspaceDrop';
 import { WORKSPACE_DROP_EVENT, type WorkspaceDropDetail } from './WorkspaceDnd';
@@ -290,19 +291,28 @@ export default function Drawer({
           +
         </button>
       </aside>
-      <DeckWorkspace
-        data={data}
-        pages={pages}
-        decks={decks}
-        cards={cards}
-        selectedPageId={
-          selectedId === INBOX_PAGE_ID ? (inbox?.pageId ?? null) : selectedId
-        }
-        selectedDeckKind={selectedId === INBOX_PAGE_ID ? 'inbox' : undefined}
-        onDecksChange={onDecksChange}
-        onCardsChange={onCardsChange}
-        onError={onError}
-      />
+      {selectedId === INBOX_PAGE_ID ? (
+        <InboxTriage
+          data={data}
+          pages={pages}
+          decks={decks}
+          cards={cards}
+          onCardsChange={onCardsChange}
+          onError={onError}
+        />
+      ) : (
+        <DeckWorkspace
+          data={data}
+          pages={pages}
+          decks={decks}
+          cards={cards}
+          selectedPageId={selectedId}
+          selectedDeckKind="normal"
+          onDecksChange={onDecksChange}
+          onCardsChange={onCardsChange}
+          onError={onError}
+        />
+      )}
     </section>
   );
 }
