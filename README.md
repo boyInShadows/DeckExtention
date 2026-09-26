@@ -16,12 +16,12 @@ No account. No telemetry. No network calls. Four permissions.
 
 ## Status
 
-**Phase 1 implementation complete — acceptance gates are still in progress.**
+**Phase 2 in progress — the drawer is taking shape.**
 
 | Phase | Scope | Status |
 |---|---|---|
-| P1 | Calm surface — clock, The Line, pins, themes, wallpaper, backups | Acceptance in progress: coverage and one-week field trial pending |
-| P2 | Drawer — pages, decks, cards, drag-and-drop, quick save, inbox | Not started |
+| P1 | Calm surface — clock, The Line, pins, themes, wallpaper, backups | Implementation complete; coverage and one-week field trial pending |
+| P2 | Drawer — pages, decks, cards, drag-and-drop, quick save, inbox | In progress: drawer shell + pages rail, decks and cards CRUD, and drag-and-drop are done. Quick Save, inbox triage, keyboard help and bookmarks import are next |
 | P3 | Sessions, tab stashing, resurfacing | Planned |
 | P4 | Optional self-hosted sync | Planned |
 
@@ -76,8 +76,9 @@ pnpm size     # bundle budgets — fails the build if exceeded
 pnpm build
 ```
 
-**Stack:** pnpm workspaces · TypeScript strict · Vite + CRXJS · React 19 · Tailwind 4 ·
-IndexedDB via `idb` · `dnd-kit` · `fractional-indexing` · Zod · Vitest · Playwright.
+**Stack:** pnpm workspaces · TypeScript strict · Vite + CRXJS · React 19 (aliased to
+`preact/compat` at build time to stay inside the bundle budget) · Tailwind 4 · IndexedDB via
+`idb` · `dnd-kit` · `fractional-indexing` · Zod · Vitest · Playwright · `size-limit`.
 
 ### Contributing agents — read this
 
