@@ -1,0 +1,132 @@
+/*
+ * tokens.css - the only file in Deck allowed to contain a raw colour.
+ * Everything else references these custom properties; `deck/no-raw-hex` and
+ * stylelint's `color-no-hex` enforce that (AGENTS.md section 6).
+ *
+ * Themes are selected by `data-theme` on <html>: night (default), day, system.
+ * `system` resolves through prefers-color-scheme, and falls back to Night so a
+ * user whose OS reports nothing still gets the intended default.
+ */
+
+:root,
+[data-theme='night'],
+[data-theme='system'] {
+  color-scheme: dark;
+
+  /* Surface */
+  --deck-color-canvas: #0b0d12;
+  --deck-color-canvas-raised: #12151d;
+  --deck-gradient-canvas: linear-gradient(
+    180deg,
+    #10131a 0%,
+    #0b0d12 55%,
+    #090b0f 100%
+  );
+
+  /* Type */
+  --deck-color-text: #e8eaf0;
+  --deck-color-text-muted: #949bad;
+
+  /* Glass, per MasterPlan section 3.4 */
+  --deck-color-glass: rgb(255 255 255 / 5.5%);
+  --deck-color-hairline: rgb(255 255 255 / 12%);
+  --deck-color-scrim: rgb(9 11 15 / 45%);
+  --deck-color-focus: #7aa2f7;
+  --deck-color-shadow: rgb(0 0 0 / 24%);
+  --deck-color-danger: #f38ba8;
+  --deck-color-on-bright: #ffffff;
+  --deck-color-on-bright-muted: #e1e4eb;
+}
+
+[data-theme='day'] {
+  color-scheme: light;
+
+  --deck-color-canvas: #f5f6f8;
+  --deck-color-canvas-raised: #ffffff;
+  --deck-gradient-canvas: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #f5f6f8 55%,
+    #eef0f4 100%
+  );
+
+  --deck-color-text: #14161c;
+  --deck-color-text-muted: #5c6474;
+
+  --deck-color-glass: rgb(255 255 255 / 55%);
+  --deck-color-hairline: rgb(0 0 0 / 12%);
+  --deck-color-scrim: rgb(255 255 255 / 45%);
+  --deck-color-focus: #2f5bd8;
+  --deck-color-shadow: rgb(20 22 28 / 14%);
+  --deck-color-danger: #b4233f;
+  --deck-color-on-bright: #ffffff;
+  --deck-color-on-bright-muted: #e1e4eb;
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme='system'] {
+    color-scheme: light;
+
+    --deck-color-canvas: #f5f6f8;
+    --deck-color-canvas-raised: #ffffff;
+    --deck-gradient-canvas: linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #f5f6f8 55%,
+      #eef0f4 100%
+    );
+
+    --deck-color-text: #14161c;
+    --deck-color-text-muted: #5c6474;
+
+    --deck-color-glass: rgb(255 255 255 / 55%);
+    --deck-color-hairline: rgb(0 0 0 / 12%);
+    --deck-color-scrim: rgb(255 255 255 / 45%);
+    --deck-color-focus: #2f5bd8;
+    --deck-color-shadow: rgb(20 22 28 / 14%);
+    --deck-color-danger: #b4233f;
+    --deck-color-on-bright: #ffffff;
+    --deck-color-on-bright-muted: #e1e4eb;
+  }
+}
+
+/*
+ * Non-colour tokens. AGENTS.md section 6: no magic numbers - spacing, radius
+ * and motion are named here and referenced everywhere else.
+ */
+:root {
+  --deck-font-ui:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* 8-pt spacing scale (MasterPlan section 3.4) */
+  --deck-space-1: 0.5rem;
+  --deck-space-2: 1rem;
+  --deck-space-3: 1.5rem;
+  --deck-space-4: 2rem;
+
+  --deck-radius-panel: 1rem;
+  --deck-radius-tile: 1.125rem;
+
+  /* One spring for drawer and toasts; 120 ms ease for hovers. */
+  --deck-motion-hover: 120ms;
+  --deck-motion-settle: 160ms;
+  --deck-motion-spring-stiffness: 380;
+  --deck-motion-spring-damping: 32;
+  --deck-ease-hover: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* The Line and the surface column are one width (MasterPlan section 3.1). */
+  --deck-surface-column: 40rem;
+  --deck-clock-size: 4rem;
+  --deck-clock-width: 8ch;
+  --deck-line-height: 3.5rem;
+  --deck-pin-size: 4rem;
+  --deck-pin-gap: 1.5rem;
+  --deck-pin-lift: -0.375rem;
+  --deck-settings-width: 22rem;
+  --deck-wallpaper-fade: 300ms;
+  --deck-drawer-rail: 13.75rem;
+  --deck-drawer-peek: 3rem;
+  --deck-drawer-blur: 0.5rem;
+  --deck-drawer-duration: 320ms;
+  --deck-drawer-ease: cubic-bezier(0.2, 0.9, 0.25, 1);
+}

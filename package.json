@@ -1,0 +1,40 @@
+{
+  "name": "deck-newtab",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter deck-extension dev",
+    "build": "pnpm --filter deck-extension build",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "e2e": "pnpm build && playwright test",
+    "size": "pnpm build && pnpm --filter deck-extension size",
+    "lint": "pnpm lint:types && pnpm lint:js && pnpm lint:css && pnpm lint:format",
+    "lint:types": "tsc -p packages/schema --noEmit && tsc -p apps/extension --noEmit",
+    "lint:js": "eslint .",
+    "lint:css": "stylelint \"apps/*/src/**/*.css\"",
+    "lint:format": "prettier --check .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "26.5.0",
+    "@vitest/coverage-v8": "^5.0.0",
+    "deck-eslint-plugin": "workspace:*",
+    "eslint": "10.10.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.6",
+    "globals": "17.12.0",
+    "prettier": "3.9.6",
+    "stylelint": "17.15.0",
+    "stylelint-config-standard": "40.0.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0",
+    "vitest": "5.0.0"
+  }
+}
