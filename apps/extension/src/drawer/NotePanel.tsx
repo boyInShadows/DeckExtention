@@ -1,7 +1,7 @@
 import type { Card, Deck } from 'deck-schema';
 import { useState, type KeyboardEvent } from 'react';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
 import { focusOnMount } from '../newtab/focusOnMount';
 

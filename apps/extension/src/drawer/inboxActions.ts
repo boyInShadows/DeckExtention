@@ -1,7 +1,7 @@
 import type { Card } from 'deck-schema';
 import { generateNKeysBetween } from 'fractional-indexing';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import type { DeckRepository } from '../storage/repository';
 import { compareOrder } from './workspaceModel';
 

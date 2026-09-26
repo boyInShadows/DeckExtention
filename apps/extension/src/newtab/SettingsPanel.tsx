@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import { BackupService } from '../storage/backup';
 import { openDeckDatabase } from '../storage/database';
 import { processWallpaper } from '../wallpaper/processWallpaper';

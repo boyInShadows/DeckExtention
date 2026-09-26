@@ -9,7 +9,7 @@ import type { Card, Deck, Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
 import {
   activePages,

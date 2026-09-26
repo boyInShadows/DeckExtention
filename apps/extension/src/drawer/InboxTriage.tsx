@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
 import { markOpened, moveCards, pinCards, trashCards } from './inboxActions';
 import {

@@ -1,7 +1,7 @@
 import { CAPTURE_PERMISSIONS } from 'deck-schema';
 import { useEffect, useState } from 'react';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 
 const PERMISSIONS = { permissions: [...CAPTURE_PERMISSIONS] };
 

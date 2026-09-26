@@ -1,6 +1,6 @@
 import { useMemo, useState, type KeyboardEvent } from 'react';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import { focusOnMount } from '../newtab/focusOnMount';
 import { clampIndex, rankMoveTargets, type MoveTarget } from './inboxModel';
 

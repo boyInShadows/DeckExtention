@@ -5,7 +5,7 @@ import { generateNKeysBetween } from 'fractional-indexing';
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import { DeckRepository } from '../storage/repository';
 import { markOpened, moveCards, pinCards, trashCards } from './inboxActions';
 

@@ -1,7 +1,7 @@
 import type { Card, Deck, Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
 import { compareOrder, replaceEntity } from './workspaceModel';
 import { parseDragId } from './dragIdentity';

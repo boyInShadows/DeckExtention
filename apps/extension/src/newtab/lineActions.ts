@@ -1,6 +1,6 @@
 import type { Settings } from 'deck-schema';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import { BackupService } from '../storage/backup';
 import { openDeckDatabase } from '../storage/database';
 import type { SurfaceData } from './bootstrap';
