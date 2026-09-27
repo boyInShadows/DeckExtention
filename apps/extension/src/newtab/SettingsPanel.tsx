@@ -12,6 +12,7 @@ import { BackupService } from '../storage/backup';
 import { openDeckDatabase } from '../storage/database';
 import { processWallpaper } from '../wallpaper/processWallpaper';
 import type { SurfaceData } from './bootstrap';
+import { KeymapEditor } from './KeymapEditor';
 import { QuickSavePermission } from './QuickSavePermission';
 
 interface SettingsPanelProps {
@@ -231,6 +232,10 @@ export default function SettingsPanel({
           onChange={(canSpaceOpenDrawer) => void update({ canSpaceOpenDrawer })}
         />
         <QuickSavePermission onError={showError} />
+        <KeymapEditor
+          overrides={settings.keymap}
+          onChange={(keymap) => void update({ keymap })}
+        />
         <p>{strings.keyHint}</p>
         <button
           type="button"

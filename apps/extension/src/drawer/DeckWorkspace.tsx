@@ -1,6 +1,6 @@
 import type { Card, Deck, Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   SortableContext,
   rectSortingStrategy,
@@ -18,6 +18,16 @@ import {
   replaceEntity,
 } from './workspaceModel';
 import { dragId } from './dragIdentity';
+import { moveCards } from './inboxActions';
+import {
+  moveTargets,
+  parseRecentTargets,
+  RECENT_TARGETS_KEY,
+  rememberTarget,
+} from './inboxModel';
+import { MoveLine } from './MoveLine';
+import { useWorkspaceKeys } from './useWorkspaceKeys';
+import type { Keymap } from '../keys/keymap';
 import { NotePanel } from './NotePanel';
 import { focusOnMount } from '../newtab/focusOnMount';
 
@@ -35,6 +45,9 @@ interface Props {
   onCardsChange: (cards: Card[]) => void;
   onDecksChange: (decks: Deck[]) => void;
   onError: (message: string) => void;
+  keymap: Keymap;
+  /** False while the drawer animates closed: keys must not act then. */
+  isOpen: boolean;
 }
 
 const now = () => Date.now();
@@ -48,6 +61,49 @@ export function DeckWorkspace(props: Props) {
     [props.decks, props.selectedDeckKind, props.selectedPageId],
   );
   const [noteEntity, setNoteEntity] = useState<Deck | Card | null>(null);
+  const [movingCard, setMovingCard] = useState<Card | null>(null);
+  const [recentTargets, setRecentTargets] = useState(() =>
+    parseRecentTargets(localStorage.getItem(RECENT_TARGETS_KEY)),
+  );
+  const mainRef = useRef<HTMLElement>(null);
+  const targets = useMemo(
+    () => moveTargets(props.decks, props.pages),
+    [props.decks, props.pages],
+  );
+  useWorkspaceKeys({
+    mainRef,
+    keymap: props.keymap,
+    cards: props.cards,
+    repository: props.data.repository,
+    isPaused: !props.isOpen || noteEntity !== null || movingCard !== null,
+    onCardsChange: props.onCardsChange,
+    onError: (error) => props.onError(message(error)),
+    onNote: setNoteEntity,
+    onMove: setMovingCard,
+  });
+  // After a panel closes, keyboard focus goes back to the card it was about.
+  const refocus = (id: string) =>
+    requestAnimationFrame(() =>
+      mainRef.current
+        ?.querySelector<HTMLElement>(
+          `[data-card-id="${window.CSS.escape(id)}"]`,
+        )
+        ?.focus(),
+    );
+  const moveTo = async (card: Card, deckId: string) => {
+    setMovingCard(null);
+    const nextRecent = rememberTarget(recentTargets, deckId);
+    setRecentTargets(nextRecent);
+    localStorage.setItem(RECENT_TARGETS_KEY, JSON.stringify(nextRecent));
+    try {
+      props.onCardsChange(
+        await moveCards(props.data.repository, props.cards, [card.id], deckId),
+      );
+      refocus(card.id);
+    } catch (error) {
+      props.onError(message(error));
+    }
+  };
   const addDeck = async () => {
     if (!props.selectedPageId) return;
     try {
@@ -72,7 +128,7 @@ export function DeckWorkspace(props: Props) {
   if (!props.selectedPageId)
     return <p className="deck-workspace__empty">{strings.selectPage}</p>;
   return (
-    <main data-deck="decks" className="deck-workspace">
+    <main ref={mainRef} data-deck="decks" className="deck-workspace">
       <div className="deck-grid">
         <SortableContext
           items={visible.map(({ id }) => dragId('deck', id))}
@@ -91,6 +147,7 @@ export function DeckWorkspace(props: Props) {
         <button
           type="button"
           className="deck-add"
+          data-deck="deck-add"
           onClick={() => void addDeck()}
         >
           {strings.addDeck}
@@ -100,13 +157,27 @@ export function DeckWorkspace(props: Props) {
         <NotePanel
           entity={noteEntity}
           repository={props.data.repository}
-          onClose={() => setNoteEntity(null)}
+          onClose={() => {
+            setNoteEntity(null);
+            if ('deckId' in noteEntity) refocus(noteEntity.id);
+          }}
           onError={props.onError}
           onSaved={(saved) => {
             if ('deckId' in saved)
               props.onCardsChange(replaceEntity(props.cards, saved));
             else props.onDecksChange(replaceEntity(props.decks, saved));
             setNoteEntity(saved);
+          }}
+        />
+      ) : null}
+      {movingCard ? (
+        <MoveLine
+          targets={targets}
+          recentDeckIds={recentTargets}
+          onMove={(deckId) => void moveTo(movingCard, deckId)}
+          onCancel={() => {
+            setMovingCard(null);
+            refocus(movingCard.id);
           }}
         />
       ) : null}
@@ -186,6 +257,7 @@ function DeckColumn({
         transition,
       }}
       data-deck="deck"
+      data-deck-id={deck.id}
       className="deck-column"
       data-color={deck.color ?? undefined}
       data-dragging={isDragging || undefined}
@@ -272,7 +344,11 @@ function DeckColumn({
                 />
               </form>
             ) : (
-              <button type="button" onClick={() => setIsAdding(true)}>
+              <button
+                type="button"
+                data-deck="add-card"
+                onClick={() => setIsAdding(true)}
+              >
                 + {strings.addCard}
               </button>
             )}
@@ -335,6 +411,7 @@ function CardRow({
         transition,
       }}
       data-deck="card"
+      data-card-id={card.id}
       className="deck-card"
       data-done={card.done || undefined}
       data-dragging={isDragging || undefined}

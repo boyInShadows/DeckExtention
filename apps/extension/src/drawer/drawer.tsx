@@ -5,9 +5,9 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
-import type { Card, Deck, Page } from 'deck-schema';
+import type { Card, Deck, KeyBinding, Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
@@ -20,6 +20,12 @@ import {
   restoredScroll,
   selectedPageId,
 } from './drawerModel';
+import {
+  actionForChord,
+  chordFromEvent,
+  isTypingTarget,
+  resolveKeymap,
+} from '../keys/keymap';
 import { DeckWorkspace } from './DeckWorkspace';
 import { InboxTriage } from './InboxTriage';
 import { dragId } from './dragIdentity';
@@ -31,6 +37,8 @@ function currentTimestamp(): number {
 }
 
 interface DrawerProps {
+  /** Settings.keymap - resolved here so the keymap code stays off the surface. */
+  keymapOverrides: readonly KeyBinding[];
   cards: Card[];
   data: SurfaceData;
   decks: Deck[];
@@ -97,6 +105,7 @@ function PinDropZone() {
 }
 
 export default function Drawer({
+  keymapOverrides,
   data,
   pages,
   decks,
@@ -108,6 +117,10 @@ export default function Drawer({
   onDecksChange,
   onCardsChange,
 }: DrawerProps) {
+  const keymap = useMemo(
+    () => resolveKeymap(keymapOverrides),
+    [keymapOverrides],
+  );
   const [isPagesLoaded, setIsPagesLoaded] = useState(false);
   const orderedPages = useMemo(() => activePages(pages), [pages]);
   const [selectedId, setSelectedId] = useState(() =>
@@ -123,6 +136,16 @@ export default function Drawer({
     setSelectedId(id);
     sessionStorage.setItem(DRAWER_PAGE_KEY, id);
   };
+
+  // Opening hands the drawer the keyboard (a key typed next must reach the
+  // grid, not the Line where Space or Ctrl+J was pressed); closing takes it
+  // back at once, so no card acts during the 320 ms exit animation.
+  useLayoutEffect(() => {
+    const focused = document.activeElement;
+    const drawer = document.querySelector('[data-deck="drawer"]');
+    const isInside = drawer?.contains(focused) ?? false;
+    if (focused instanceof HTMLElement && isInside !== isOpen) focused.blur();
+  }, [isOpen]);
 
   // A `#page=` link is used once, then becomes the remembered page, so a
   // reload of this tab starts calm instead of reopening the drawer.
@@ -184,12 +207,26 @@ export default function Drawer({
     );
   }, [isPagesLoaded]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // The Inbox is the rail's first stop, then the user pages in order.
+    const railIds = [INBOX_PAGE_ID, ...orderedPages.map(({ id }) => id)];
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.altKey || !/^Digit[1-9]$/.test(event.code)) return;
-      const index = Number(event.code.at(-1)) - 1;
-      const page = orderedPages[index];
-      if (page) selectPage(page.id);
+      if (event.altKey && /^Digit[1-9]$/.test(event.code)) {
+        const page = orderedPages[Number(event.code.at(-1)) - 1];
+        if (page) selectPage(page.id);
+        return;
+      }
+      if (!isOpen || isTypingTarget(event.target)) return;
+      const chord = chordFromEvent(event);
+      const scope = selectedId === INBOX_PAGE_ID ? 'inbox' : 'drawer';
+      const action = chord ? actionForChord(keymap, scope, chord) : null;
+      if (action !== 'nextPage' && action !== 'previousPage') return;
+      event.preventDefault();
+      const index = railIds.indexOf(selectedId ?? INBOX_PAGE_ID);
+      const step = action === 'nextPage' ? 1 : -1;
+      const target =
+        railIds[Math.min(Math.max(index + step, 0), railIds.length - 1)];
+      if (target) selectPage(target);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -293,6 +330,8 @@ export default function Drawer({
       </aside>
       {selectedId === INBOX_PAGE_ID ? (
         <InboxTriage
+          isOpen={isOpen}
+          keymap={keymap}
           data={data}
           pages={pages}
           decks={decks}
@@ -302,6 +341,8 @@ export default function Drawer({
         />
       ) : (
         <DeckWorkspace
+          isOpen={isOpen}
+          keymap={keymap}
           data={data}
           pages={pages}
           decks={decks}

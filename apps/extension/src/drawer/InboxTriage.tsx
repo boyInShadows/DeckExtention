@@ -10,7 +10,7 @@ import {
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
-import { markOpened, moveCards, pinCards, trashCards } from './inboxActions';
+import { moveCards, openCard, pinCards, trashCards } from './inboxActions';
 import {
   clampIndex,
   moveTargets,
@@ -19,12 +19,21 @@ import {
   rememberTarget,
   selectionOf,
 } from './inboxModel';
+import {
+  actionForChord,
+  chordFromEvent,
+  type KeyActionId,
+  type Keymap,
+} from '../keys/keymap';
 import { MoveLine } from './MoveLine';
 import { NotePanel } from './NotePanel';
 import { useTriageQueue } from './useTriageQueue';
 import { activeCards, replaceEntity } from './workspaceModel';
 
 interface InboxTriageProps {
+  keymap: Keymap;
+  /** False while the drawer animates closed: keys must not act then. */
+  isOpen: boolean;
   cards: Card[];
   decks: Deck[];
   pages: Page[];
@@ -110,38 +119,57 @@ export function InboxTriage(props: InboxTriageProps) {
     enqueue((cards, ids) => pinCards(repository, cards, ids, homeDeckId));
   };
 
-  const open = async (card: Card) => {
-    // Imported data could carry any scheme; only web pages are opened.
-    if (!/^https?:\/\//i.test(card.url))
-      return props.onError(strings.invalidUrl);
+  const open = async (card: Card, isNewTab: boolean) => {
     try {
-      await markOpened(repository, card);
-      location.assign(card.url);
+      props.onCardsChange(
+        replaceEntity(props.cards, await openCard(repository, card, isNewTab)),
+      );
     } catch (error) {
       props.onError(message(error));
     }
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLOListElement>) => {
-    if (event.target !== event.currentTarget) return;
-    if (event.altKey || event.ctrlKey || event.metaKey) return;
-    const card = inboxCards[position];
-    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-    let isHandled = true;
-    if (key === 'ArrowDown' || key === 'ArrowUp') {
-      setAnchor(event.shiftKey ? (anchor ?? position) : null);
+  const act = (action: KeyActionId, card: Card, isExtending: boolean) => {
+    if (action === 'next' || action === 'previous') {
+      setAnchor(isExtending ? (anchor ?? position) : null);
       setCursor(
-        clampIndex(position + (key === 'ArrowDown' ? 1 : -1), ids.length),
+        clampIndex(position + (action === 'next' ? 1 : -1), ids.length),
       );
-    } else if (!card) isHandled = false;
-    else if (key === 'ArrowRight' || key === 'm') setIsMoving(true);
-    else if (key === 'x')
-      enqueue((cards, ids) => trashCards(repository, cards, ids));
-    else if (key === 'n') setNoteCard(card);
-    else if (key === 'p') pin();
-    else if (key === 'Enter') void open(card);
-    else isHandled = false;
-    if (isHandled) event.preventDefault();
+    } else if (action === 'move') setIsMoving(true);
+    else if (action === 'trash')
+      enqueue((cards, targetIds) => trashCards(repository, cards, targetIds));
+    else if (action === 'note') setNoteCard(card);
+    else if (action === 'pin') pin();
+    else if (action === 'open' || action === 'openInNewTab')
+      void open(card, action === 'openInNewTab');
+    else return false;
+    return true;
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLOListElement>) => {
+    if (!props.isOpen || event.target !== event.currentTarget) return;
+    const card = inboxCards[position];
+    const chord = chordFromEvent(event);
+    if (!card || !chord) return;
+    const exact = actionForChord(props.keymap, 'inbox', chord);
+    // Shift plus any next/previous binding extends the selection.
+    // Built field by field: an event's key and modifiers are prototype
+    // getters, so spreading the event would copy none of them.
+    const plain = chordFromEvent({
+      key: event.key,
+      ctrlKey: event.ctrlKey,
+      altKey: event.altKey,
+      metaKey: event.metaKey,
+      shiftKey: false,
+    });
+    const shifted =
+      event.shiftKey && plain
+        ? actionForChord(props.keymap, 'inbox', plain)
+        : null;
+    const isExtending =
+      !exact && (shifted === 'next' || shifted === 'previous');
+    const action = exact ?? (isExtending ? shifted : null);
+    if (action && act(action, card, isExtending)) event.preventDefault();
   };
 
   return (

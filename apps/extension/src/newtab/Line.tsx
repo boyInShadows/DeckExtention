@@ -21,6 +21,7 @@ interface LineProps {
   notify: (message: string) => void;
   canSpaceOpenDrawer: boolean;
   openDrawer: () => void;
+  openHelp: () => void;
 }
 
 export function Line(props: LineProps) {
@@ -45,12 +46,15 @@ export function Line(props: LineProps) {
   const itemCount = isWebSearch ? 1 : actions.length || cards.length;
   const activeIndex = itemCount > 0 ? Math.min(selected, itemCount - 1) : 0;
 
+  const focusKey =
+    props.settings.keymap.find(({ action }) => action === 'focusLine')?.chord ??
+    '/';
   useEffect(() => {
     const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
       const isInput =
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement;
-      if (event.key === '/' && !isInput) {
+      if (event.key === focusKey && !isInput) {
         event.preventDefault();
         inputRef.current?.focus();
       }
@@ -64,13 +68,14 @@ export function Line(props: LineProps) {
     };
     window.addEventListener('keydown', onWindowKeyDown);
     return () => window.removeEventListener('keydown', onWindowKeyDown);
-  }, []);
+  }, [focusKey]);
 
   const execute = async (isNewTab: boolean) => {
     try {
       if (isWebSearch) {
         const term = query.slice(1).trim();
-        if (!term) return;
+        // "?" alone is help, not an empty web search (P2.S6).
+        if (!term) return props.openHelp();
         const { searchWeb } = await import('./lineActions');
         await searchWeb(term, props.settings);
         return;

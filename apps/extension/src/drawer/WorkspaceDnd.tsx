@@ -22,6 +22,16 @@ export interface WorkspaceDropDetail {
 
 const PIN_DROP_ID = 'pin:drawer';
 
+/**
+ * Space lifts and drops (FableTasks P2.S3). dnd-kit also lifts on Enter by
+ * default; that key opens the focused card instead (P2.S6).
+ */
+const KEYBOARD_DRAG_CODES = {
+  start: ['Space'],
+  cancel: ['Escape'],
+  end: ['Space', 'Enter'],
+};
+
 const collisionDetection: CollisionDetection = (arguments_) => {
   const pointerCollisions = pointerWithin(arguments_);
   const rectangleCollisions = rectIntersection(arguments_);
@@ -37,6 +47,7 @@ export function WorkspaceDnd({ children }: { children: ReactNode }) {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
+      keyboardCodes: KEYBOARD_DRAG_CODES,
     }),
   );
   const finishDrag = ({ active, over }: DragEndEvent) => {

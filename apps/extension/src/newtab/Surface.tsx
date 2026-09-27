@@ -3,6 +3,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -24,6 +25,7 @@ import { Pins } from './Pins';
 import { greetingForHour } from './surfaceModel';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
+const HelpOverlay = lazy(() => import('./HelpOverlay'));
 const loadDrawer = () => import('../drawer/drawer');
 const Drawer = lazy(loadDrawer);
 const CLOCK_UPDATE_MS = 1_000;
@@ -40,6 +42,7 @@ export function Surface({ initialData }: SurfaceProps) {
   const [decks, setDecks] = useState(initialData.decks);
   const [pages, setPages] = useState(initialData.pages);
   const [settings, setSettings] = useState(initialData.settings);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(
     () => location.hash === OPEN_SETTINGS_HASH,
   );
@@ -132,7 +135,7 @@ export function Surface({ initialData }: SurfaceProps) {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isDrawerOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       const isInput =
@@ -144,7 +147,7 @@ export function Surface({ initialData }: SurfaceProps) {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [closeDrawer, isDrawerOpen]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const toggleDrawer = () => {
       if (isDrawerOpen) closeDrawer();
       else openDrawer();
@@ -223,14 +226,20 @@ export function Surface({ initialData }: SurfaceProps) {
     };
   }, [initialData.repository, settings.wallpaper]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const isInput =
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement;
-      if (event.key.toLocaleLowerCase() === 'b' && !isInput) {
+      const isPlain = !event.ctrlKey && !event.altKey && !event.metaKey;
+      if (isInput || !isPlain) return;
+      // Surface keys are single characters (keys/keymap.ts), so a plain
+      // comparison here keeps the keymap code off the first paint.
+      const blurKey = settings.keymap.find(({ action }) => action === 'blur');
+      if (event.key === (blurKey?.chord ?? 'b')) {
         void saveSettings({ ...settings, isBlurred: !settings.isBlurred });
       }
+      if (event.key === '?') setIsHelpOpen(true);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -294,6 +303,7 @@ export function Surface({ initialData }: SurfaceProps) {
             saveSettings={saveSettings}
             notify={setError}
             canSpaceOpenDrawer={settings.canSpaceOpenDrawer}
+            openHelp={() => setIsHelpOpen(true)}
             openDrawer={openDrawer}
           />
           <Pins
@@ -350,6 +360,7 @@ export function Surface({ initialData }: SurfaceProps) {
         <Suspense fallback={null}>
           {isDrawerMounted ? (
             <Drawer
+              keymapOverrides={settings.keymap}
               data={initialData}
               cards={cards}
               decks={decks}
@@ -360,6 +371,14 @@ export function Surface({ initialData }: SurfaceProps) {
               onDecksChange={setDecks}
               onPagesChange={setPages}
               onError={setError}
+            />
+          ) : null}
+        </Suspense>
+        <Suspense fallback={null}>
+          {isHelpOpen ? (
+            <HelpOverlay
+              keymapOverrides={settings.keymap}
+              onClose={() => setIsHelpOpen(false)}
             />
           ) : null}
         </Suspense>

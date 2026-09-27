@@ -128,3 +128,20 @@ export async function markOpened(
     updatedAt: time,
   });
 }
+
+/**
+ * Opens a card here or in a new tab, stamping `lastOpenedAt` first. Imported
+ * data could carry any scheme, so only web pages are ever opened.
+ */
+export async function openCard(
+  repository: DeckRepository,
+  card: Card,
+  isNewTab: boolean,
+  now: () => number = Date.now,
+): Promise<Card> {
+  if (!/^https?:\/\//i.test(card.url)) throw new Error(strings.invalidUrl);
+  const opened = await markOpened(repository, card, now);
+  if (isNewTab) window.open(card.url, '_blank', 'noopener');
+  else location.assign(card.url);
+  return opened;
+}

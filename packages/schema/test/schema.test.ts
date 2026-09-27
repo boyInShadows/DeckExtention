@@ -54,6 +54,19 @@ describe('valid fixtures parse', () => {
     expect(SettingsSchema.parse(SETTINGS_DEFAULTS)).toEqual(SETTINGS_DEFAULTS);
   });
 
+  it('reads Settings saved before key overrides existed as an empty keymap', () => {
+    const legacy = Object.fromEntries(
+      Object.entries(SETTINGS_DEFAULTS).filter(([key]) => key !== 'keymap'),
+    );
+    expect(SettingsSchema.parse(legacy).keymap).toEqual([]);
+    expect(
+      SettingsSchema.parse({
+        ...SETTINGS_DEFAULTS,
+        keymap: [{ action: 'trash', chord: 'Delete' }],
+      }).keymap,
+    ).toEqual([{ action: 'trash', chord: 'Delete' }]);
+  });
+
   it('parses an upsert Op and a delete Op', () => {
     const upsert = OpSchema.parse(validFixtures.op);
     expect(upsert.entity).toBe('card');

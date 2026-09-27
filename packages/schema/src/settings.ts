@@ -7,6 +7,14 @@ export const ThemeSchema = z.enum(['night', 'day', 'system']);
 /** Percent of dimming laid over a wallpaper (FableTasks P1.S5). */
 export const WALLPAPER_DIM_MAX = 60;
 
+const KEYMAP_ENTRY_MAX = 32;
+const KEYMAP_MAX_BINDINGS = 64;
+
+export const KeyBindingSchema = z.strictObject({
+  action: z.string().max(KEYMAP_ENTRY_MAX),
+  chord: z.string().max(KEYMAP_ENTRY_MAX),
+});
+
 /**
  * A wallpaper never blocks first paint (MasterPlan I10): the stored gradient is
  * painted immediately and the image fades in once decoded. `file` keeps only a
@@ -34,6 +42,12 @@ export const SettingsSchema = z.strictObject({
   wallpaperGradient: z.string().max(1024).nullable(),
   wallpaperLuminance: z.number().min(0).max(1).nullable().optional(),
   customCss: z.string().max(CUSTOM_CSS_MAX_LENGTH),
+  /**
+   * In-page key overrides (FableTasks P2.S6). Only what differs from the
+   * defaults is stored, so older data parses as []. A list of pairs rather
+   * than a record: z.record would add ~1.2 kB of zod to the 60 kB surface.
+   */
+  keymap: z.array(KeyBindingSchema).max(KEYMAP_MAX_BINDINGS).default([]),
   searchUrlTemplate: z
     .string()
     .max(1024)
@@ -56,9 +70,11 @@ export const SETTINGS_DEFAULTS: Settings = Object.freeze({
   wallpaperGradient: null,
   wallpaperLuminance: null,
   customCss: '',
+  keymap: [],
   searchUrlTemplate: 'https://www.google.com/search?q={query}',
 } satisfies Settings);
 
 export type Theme = z.infer<typeof ThemeSchema>;
 export type Wallpaper = z.infer<typeof WallpaperSchema>;
 export type Settings = z.infer<typeof SettingsSchema>;
+export type KeyBinding = z.infer<typeof KeyBindingSchema>;
