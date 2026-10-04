@@ -21,7 +21,7 @@ No account. No telemetry. No network calls. Four permissions.
 | Phase | Scope | Status |
 |---|---|---|
 | P1 | Calm surface — clock, The Line, pins, themes, wallpaper, backups | Implementation complete; coverage and one-week field trial pending |
-| P2 | Drawer — pages, decks, cards, drag-and-drop, quick save, inbox | In progress: drawer shell + pages rail, decks and cards CRUD, and drag-and-drop are done. Quick Save, inbox triage, keyboard help and bookmarks import are next |
+| P2 | Drawer — pages, decks, cards, drag-and-drop, quick save, inbox | In progress: drawer shell + pages rail, decks and cards CRUD, drag-and-drop, Quick Save, inbox triage, keyboard map + help and bookmarks import are done. The P2 quality gate is next |
 | P3 | Sessions, tab stashing, resurfacing | Planned |
 | P4 | Optional self-hosted sync | Planned |
 

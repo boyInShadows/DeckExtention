@@ -125,6 +125,46 @@ export class DeckRepository {
     return this.#upsert('card', CardSchema.parse(structuredClone(value)));
   }
 
+  /**
+   * Many records in one transaction, one Op each - what a bulk import needs
+   * to stay fast (FableTasks P2.S7: 1,000 bookmarks under 2 s). All or
+   * nothing: one invalid record rejects the whole batch before any write.
+   */
+  async upsertMany(batch: {
+    pages?: Page[];
+    decks?: Deck[];
+    cards?: Card[];
+  }): Promise<void> {
+    const records = [
+      ...(batch.pages ?? []).map((page) => ({
+        entity: 'page' as const,
+        value: PageSchema.parse(structuredClone(page)),
+      })),
+      ...(batch.decks ?? []).map((deck) => ({
+        entity: 'deck' as const,
+        value: DeckSchema.parse(structuredClone(deck)),
+      })),
+      ...(batch.cards ?? []).map((card) => ({
+        entity: 'card' as const,
+        value: CardSchema.parse(structuredClone(card)),
+      })),
+    ];
+    if (records.length === 0) return;
+    const database = await this.#database;
+    const clientId = await this.#clientId();
+    const transaction = database.transaction(
+      ['pages', 'decks', 'cards', 'ops'],
+      'readwrite',
+    );
+    const writes = records.flatMap(({ entity, value }) => [
+      transaction.objectStore(storeFor(entity)).put(value),
+      transaction
+        .objectStore('ops')
+        .put(this.#makeOp(clientId, entity, value.id, 'upsert', value)),
+    ]);
+    await Promise.all([...writes, transaction.done]);
+  }
+
   async listPages(): Promise<Page[]> {
     return PageSchema.array().parse(
       await (await this.#database).getAll('pages'),

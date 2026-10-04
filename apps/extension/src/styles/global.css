@@ -603,6 +603,17 @@
     gap: var(--deck-space-1);
   }
 
+  .deck-settings [data-deck='bookmark-import'],
+  .deck-settings [data-deck='import-preview'] {
+    display: grid;
+    gap: var(--deck-space-1);
+  }
+
+  .deck-settings progress {
+    inline-size: 100%;
+    accent-color: var(--deck-color-focus);
+  }
+
   .deck-settings p {
     margin: 0;
     color: var(--deck-color-text-muted);

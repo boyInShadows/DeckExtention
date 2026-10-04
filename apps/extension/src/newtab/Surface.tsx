@@ -102,6 +102,26 @@ export function Surface({ initialData }: SurfaceProps) {
     [initialData.repository],
   );
 
+  // A bulk write from Settings (bookmark import) - re-read what changed.
+  const reloadWorkspace = useCallback(() => {
+    const { repository } = initialData;
+    void Promise.all([
+      repository.listPages(),
+      repository.listDecks(),
+      repository.listCards(),
+    ])
+      .then(([storedPages, storedDecks, storedCards]) => {
+        setPages(storedPages);
+        setDecks(storedDecks);
+        setCards(storedCards);
+      })
+      .catch((loadError: unknown) => {
+        const detail =
+          loadError instanceof Error ? loadError.message : String(loadError);
+        setError(`${strings.updateFailed} ${detail}`);
+      });
+  }, [initialData]);
+
   // Quick Save hands over here when its toast could not show (P2.S4).
   useEffect(() => {
     // Consumed once: a reload of this tab should start calm again.
@@ -353,6 +373,7 @@ export function Surface({ initialData }: SurfaceProps) {
               settings={settings}
               repository={initialData.repository}
               onChange={saveSettings}
+              onDataChange={reloadWorkspace}
               onClose={() => setIsSettingsOpen(false)}
             />
           ) : null}

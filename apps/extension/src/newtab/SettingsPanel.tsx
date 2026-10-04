@@ -12,6 +12,7 @@ import { BackupService } from '../storage/backup';
 import { openDeckDatabase } from '../storage/database';
 import { processWallpaper } from '../wallpaper/processWallpaper';
 import type { SurfaceData } from './bootstrap';
+import { BookmarkImport } from './BookmarkImport';
 import { KeymapEditor } from './KeymapEditor';
 import { QuickSavePermission } from './QuickSavePermission';
 
@@ -19,6 +20,8 @@ interface SettingsPanelProps {
   settings: Settings;
   repository: SurfaceData['repository'];
   onChange: (settings: Settings) => Promise<void>;
+  /** Pages, decks or cards were written behind the surface's back. */
+  onDataChange: () => void;
   onClose: () => void;
 }
 
@@ -32,6 +35,7 @@ export default function SettingsPanel({
   settings,
   repository,
   onChange,
+  onDataChange,
   onClose,
 }: SettingsPanelProps) {
   const [error, setError] = useState('');
@@ -42,24 +46,22 @@ export default function SettingsPanel({
   const update = (change: Partial<Settings>) =>
     onChange({ ...settings, ...change });
 
-  useEffect(() => {
-    void backups
-      .listSnapshots()
-      .then(setSnapshots)
-      .catch((snapshotError: unknown) => {
-        const detail =
-          snapshotError instanceof Error
-            ? snapshotError.message
-            : String(snapshotError);
-        setError(`${strings.updateFailed} ${detail}`);
-      });
-  }, [backups]);
-
   const showError = useCallback((actionError: unknown) => {
     const detail =
       actionError instanceof Error ? actionError.message : String(actionError);
     setError(`${strings.updateFailed} ${detail}`);
   }, []);
+
+  const loadSnapshots = useCallback(() => {
+    void backups.listSnapshots().then(setSnapshots).catch(showError);
+  }, [backups, showError]);
+
+  useEffect(loadSnapshots, [loadSnapshots]);
+
+  const afterImport = useCallback(() => {
+    loadSnapshots();
+    onDataChange();
+  }, [loadSnapshots, onDataChange]);
 
   const exportData = async () => {
     try {
@@ -272,6 +274,14 @@ export default function SettingsPanel({
             onChange={(event) => void importData(event)}
           />
         </label>
+      </SettingsGroup>
+      <SettingsGroup title={strings.import}>
+        <BookmarkImport
+          repository={repository}
+          backups={backups}
+          onImported={afterImport}
+          onError={showError}
+        />
       </SettingsGroup>
       <SettingsGroup title={strings.advanced}>
         <label>

@@ -76,6 +76,28 @@ export const panelStrings = {
   quickSaveReason: 'reads the page you save and shows a small toast on it.',
   allowAccess: 'Allow',
   revokeAccess: 'Revoke',
+  import: 'Import',
+  bookmarks: 'Bookmarks',
+  bookmarksReason: 'reads your Chrome bookmarks once, to copy them into Deck.',
+  importChromeBookmarks: 'Import Chrome bookmarks',
+  importBookmarksFile: 'Bookmarks file (.html)',
+  bookmarksDeclined: 'Bookmark import needs access to your bookmarks.',
+  importConfirmButton: 'Import',
+  cancel: 'Cancel',
+  importing: 'Importing…',
+  importPreview: (counts: {
+    pages: number;
+    decks: number;
+    links: number;
+    duplicates: number;
+    unsupported: number;
+  }) =>
+    `${plural(counts.pages, 'folder')} → ${plural(counts.pages, 'page')}, ` +
+    `${plural(counts.decks, 'subfolder')} → ${plural(counts.decks, 'deck')}, ` +
+    `${plural(counts.links, 'link')}${skippedNote(counts)}`,
+  importNothingNew: (duplicates: number) =>
+    `Nothing new to import${duplicates > 0 ? ` - ${plural(duplicates, 'duplicate')} skipped` : ''}.`,
+  importDone: (links: number) => `Imported ${plural(links, 'link')}.`,
   keyboard: 'Keyboard',
   keysAnywhere: 'Anywhere',
   keysDrawer: 'Drawer',
@@ -113,3 +135,21 @@ export const panelStrings = {
     addDeck: 'Add deck',
   },
 } as const;
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+function skippedNote({
+  duplicates,
+  unsupported,
+}: {
+  duplicates: number;
+  unsupported: number;
+}): string {
+  const notes = [
+    duplicates > 0 ? `${plural(duplicates, 'duplicate')} skipped` : '',
+    unsupported > 0 ? `${unsupported} unsupported skipped` : '',
+  ].filter(Boolean);
+  return notes.length > 0 ? ` (${notes.join(', ')})` : '';
+}
