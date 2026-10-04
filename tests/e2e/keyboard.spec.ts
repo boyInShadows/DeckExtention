@@ -89,6 +89,9 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
     await expect(
       page.locator(`[data-deck="card"][data-card-id="${moving}"]`),
     ).toHaveCount(1);
+    // Focus follows the moved card a frame later; a key pressed before that
+    // frame would be undone by it (P2.S8: this race made the test flaky).
+    await expect.poll(() => focusedCardId(page)).toBe(moving);
 
     // Trash the focused card; focus lands on the next one.
     await keys.press('h');

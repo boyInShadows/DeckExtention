@@ -53,18 +53,34 @@ function startToast(page: Page, model: ToastModel): Promise<ToastOutcome> {
   return page.evaluate(showCaptureToast, model);
 }
 
+/**
+ * Keys pressed before the toast is mounted reach no listener and the toast
+ * times out (P2.S8: that made this spec flaky). Wait out the previous toast's
+ * exit, then for the new one, before typing.
+ */
+async function startToastForKeys(
+  page: Page,
+  model: ToastModel,
+): Promise<{ outcome: Promise<ToastOutcome> }> {
+  const host = page.locator(`#${TOAST_HOST_ID}`);
+  await expect(host).toHaveCount(0);
+  const outcome = startToast(page, model);
+  await expect(host).toHaveCount(1);
+  // Wrapped: an async function would otherwise wait for the outcome itself.
+  return { outcome };
+}
+
 test('toast: Backspace undoes, Enter adds a note, and it times out alone', async () => {
   const context = await launchExtension();
   try {
     await serveArticle(context);
     const page = await openArticle(context);
 
-    const undo = startToast(page, MODEL);
-    await expect(page.locator(`#${TOAST_HOST_ID}`)).toHaveCount(1);
+    const { outcome: undo } = await startToastForKeys(page, MODEL);
     await page.keyboard.press('Backspace');
     expect(await undo).toEqual({ kind: 'undo' });
 
-    const note = startToast(page, MODEL);
+    const { outcome: note } = await startToastForKeys(page, MODEL);
     await page.keyboard.press('Enter');
     await page.keyboard.type('read on the train');
     await page.keyboard.press('Enter');
@@ -74,7 +90,10 @@ test('toast: Backspace undoes, Enter adds a note, and it times out alone', async
     expect(await timeout).toEqual({ kind: 'timeout' });
     await expect(page.locator(`#${TOAST_HOST_ID}`)).toHaveCount(0);
 
-    const open = startToast(page, { ...MODEL, mode: 'duplicate' });
+    const { outcome: open } = await startToastForKeys(page, {
+      ...MODEL,
+      mode: 'duplicate',
+    });
     await page.keyboard.press('Enter');
     expect(await open).toEqual({ kind: 'open' });
   } finally {
@@ -88,7 +107,10 @@ test('toast: page scripts cannot fake a keystroke, and typing in the page is lef
     await serveArticle(context);
     const page = await openArticle(context);
 
-    const outcome = startToast(page, { ...MODEL, durationMs: 1_000 });
+    const { outcome } = await startToastForKeys(page, {
+      ...MODEL,
+      durationMs: 1_000,
+    });
     await page.evaluate(() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace' }));
     });

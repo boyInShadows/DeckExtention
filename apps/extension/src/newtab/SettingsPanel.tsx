@@ -13,6 +13,7 @@ import { openDeckDatabase } from '../storage/database';
 import { processWallpaper } from '../wallpaper/processWallpaper';
 import type { SurfaceData } from './bootstrap';
 import { BookmarkImport } from './BookmarkImport';
+import { GrantedAccess } from './GrantedAccess';
 import { KeymapEditor } from './KeymapEditor';
 import { QuickSavePermission } from './QuickSavePermission';
 
@@ -284,6 +285,7 @@ export default function SettingsPanel({
         />
       </SettingsGroup>
       <SettingsGroup title={strings.advanced}>
+        <GrantedAccess onError={showError} />
         <label>
           {strings.searchEngine}
           <input
