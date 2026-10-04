@@ -3,11 +3,17 @@ import 'fake-indexeddb/auto';
 import type { Card } from 'deck-schema';
 import { generateNKeysBetween } from 'fractional-indexing';
 import { deleteDB } from 'idb';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { DeckRepository } from '../storage/repository';
-import { markOpened, moveCards, pinCards, trashCards } from './inboxActions';
+import {
+  markOpened,
+  moveCards,
+  openCard,
+  pinCards,
+  trashCards,
+} from './inboxActions';
 
 const DATABASE_NAME = 'deck-inbox-actions-test';
 const NOW = 1_900_000_000_000;
@@ -160,5 +166,59 @@ describe('markOpened', () => {
     if (!item) throw new Error('seed failed');
     const opened = await markOpened(repository, item, now);
     expect(opened).toEqual({ ...item, lastOpenedAt: NOW, updatedAt: NOW });
+  });
+});
+
+describe('openCard', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubNavigation() {
+    const open = vi.fn();
+    const assign = vi.fn();
+    vi.stubGlobal('window', { open });
+    vi.stubGlobal('location', { assign });
+    return { open, assign };
+  }
+
+  it('stamps lastOpenedAt, then opens the page in this tab', async () => {
+    const navigation = stubNavigation();
+    const [item] = await seed([card('card_in1', 'deck_inbox', 'a0')]);
+    if (!item) throw new Error('seed failed');
+    const opened = await openCard(repository, item, false, now);
+    expect(opened.lastOpenedAt).toBe(NOW);
+    expect(navigation.assign).toHaveBeenCalledWith(item.url);
+    expect(navigation.open).not.toHaveBeenCalled();
+    expect(
+      (await repository.listCards()).find(({ id }) => id === item.id)
+        ?.lastOpenedAt,
+    ).toBe(NOW);
+  });
+
+  it('opens a new tab without giving the page a handle back', async () => {
+    const navigation = stubNavigation();
+    const [item] = await seed([card('card_in1', 'deck_inbox', 'a0')]);
+    if (!item) throw new Error('seed failed');
+    await openCard(repository, item, true, now);
+    expect(navigation.open).toHaveBeenCalledWith(
+      item.url,
+      '_blank',
+      'noopener',
+    );
+    expect(navigation.assign).not.toHaveBeenCalled();
+  });
+
+  it('refuses a non-web URL before writing or navigating anything', async () => {
+    const navigation = stubNavigation();
+    const [item] = await seed([
+      card('card_js', 'deck_inbox', 'a0', { url: 'ftp://files.test/x' }),
+    ]);
+    if (!item) throw new Error('seed failed');
+    await expect(openCard(repository, item, false, now)).rejects.toThrow(
+      strings.invalidUrl,
+    );
+    expect(navigation.assign).not.toHaveBeenCalled();
+    expect((await repository.listCards())[0]?.lastOpenedAt).toBeNull();
   });
 });

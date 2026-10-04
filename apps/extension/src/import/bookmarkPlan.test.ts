@@ -209,6 +209,67 @@ describe('planBookmarkImport', () => {
   });
 });
 
+describe('planBookmarkImport - edge folders and links', () => {
+  const planTree = (tree: BookmarkFolder) =>
+    planBookmarkImport(tree, EMPTY, { now: NOW, createId: idFactory() });
+
+  it('counts an unparseable URL as unsupported instead of failing', () => {
+    const result = planTree(
+      folder('', [folder('A', [link('broken', 'http://')])], true),
+    );
+    expect(result.counts).toMatchObject({ links: 0, unsupported: 1 });
+  });
+
+  it('names untitled folders "Bookmarks" at every depth', () => {
+    const result = planTree(
+      folder(
+        '',
+        [folder('', [folder('', [link('deep', 'https://deep.example/')])])],
+        true,
+      ),
+    );
+    expect(result.pages.map(({ title }) => title)).toEqual(['Bookmarks']);
+    expect(result.decks.map(({ title }) => title)).toEqual(['Bookmarks']);
+  });
+
+  it('titles a whitespace-only link with its hostname', () => {
+    const result = planTree(
+      folder('', [folder('A', [link('   ', 'https://blank.example/x')])], true),
+    );
+    expect(result.cards[0]).toMatchObject({
+      title: 'blank.example',
+      url: 'https://blank.example/x',
+    });
+  });
+
+  it('reuses a page and deck planned earlier in the same import', () => {
+    const result = planTree(
+      folder(
+        '',
+        [
+          folder('Shared', [link('loose', 'https://loose.example/')], true),
+          folder('shared', [
+            link('page loose', 'https://page.example/'),
+            folder('SHARED', [link('nested', 'https://nested.example/')]),
+          ]),
+        ],
+        true,
+      ),
+    );
+    expect(result.pages.map(({ title }) => title)).toEqual(['Shared']);
+    expect(result.decks.map(({ title }) => title)).toEqual(['Shared']);
+    const [onlyDeck] = result.decks;
+    expect(result.cards.map(({ deckId }) => deckId)).toEqual([
+      onlyDeck?.id,
+      onlyDeck?.id,
+      onlyDeck?.id,
+    ]);
+    const orders = result.cards.map(({ order }) => order);
+    expect(orders).toEqual(orders.toSorted());
+    expect(new Set(orders).size).toBe(orders.length);
+  });
+});
+
 describe('normalizeUrl', () => {
   it('drops the fragment and lowercases the host', () => {
     expect(normalizeUrl('https://Example.com/a?b#c')).toBe(
