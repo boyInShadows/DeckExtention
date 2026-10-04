@@ -52,6 +52,7 @@ export function isMeasuredSource(sourcePath) {
     MEASURED_ROOTS.some((root) => path.includes(root)) &&
     /\.tsx?$/.test(path) &&
     !path.includes('/apps/extension/src/background/') &&
+    !path.includes('/apps/extension/src/testing/') &&
     !path.endsWith('/wallpaper/palette.worker.ts') &&
     !path.endsWith('.test.ts') &&
     !path.endsWith('.test.tsx') &&

@@ -1,6 +1,9 @@
 import { configDefaults, defineConfig } from 'vitest/config';
 
+import { PREACT_ALIAS } from './apps/extension/preactAlias.js';
+
 export default defineConfig({
+  resolve: { alias: { ...PREACT_ALIAS } },
   test: {
     exclude: [...configDefaults.exclude, 'tests/e2e/**'],
     coverage: {
@@ -12,6 +15,7 @@ export default defineConfig({
       exclude: [
         'apps/extension/src/background/**',
         'apps/extension/src/wallpaper/palette.worker.ts',
+        'apps/extension/src/testing/**',
       ],
       /*
        * No thresholds here: the 80 % floor applies to unit + E2E merged, and
