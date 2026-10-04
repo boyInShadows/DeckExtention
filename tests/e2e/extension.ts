@@ -2,6 +2,8 @@ import { chromium, type BrowserContext } from '@playwright/test';
 import { existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { withCoverage } from './coverage';
+
 /** Shared launcher for the extension E2E specs. */
 const EXTENSION_PATH = resolve('apps/extension/dist');
 
@@ -35,7 +37,7 @@ function chromeExecutable(): string {
 }
 
 export async function launchExtension(): Promise<BrowserContext> {
-  return chromium.launchPersistentContext('', {
+  const context = await chromium.launchPersistentContext('', {
     executablePath: chromeExecutable(),
     headless: true,
     ignoreDefaultArgs: ['--disable-extensions'],
@@ -44,4 +46,5 @@ export async function launchExtension(): Promise<BrowserContext> {
       `--load-extension=${EXTENSION_PATH}`,
     ],
   });
+  return withCoverage(context);
 }

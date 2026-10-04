@@ -35,6 +35,14 @@ const PREACT_ALIAS = {
   'react/jsx-dev-runtime': '@preact/compat/jsx-dev-runtime',
 } as const;
 
+/*
+ * `pnpm test:coverage` builds with DECK_COVERAGE=1 so Playwright's V8
+ * coverage can be mapped back to source and merged with Vitest's
+ * (tools/test-coverage). Never a shipping build: inline maps and unminified
+ * code would blow the budgets.
+ */
+const IS_COVERAGE_BUILD = process.env.DECK_COVERAGE === '1';
+
 /** Schema, storage and the libraries under them: see `manualChunks`. */
 const CORE_CHUNK_PATTERN =
   /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:zod|idb|fractional-indexing)\/|\/packages\/schema\/|\/src\/storage\/(?:database|document|repository)\.ts$/;
@@ -49,7 +57,8 @@ export default defineConfig({
      * and only add markup. Keeping them off makes the first frame cheaper.
      */
     modulePreload: false,
-    sourcemap: false,
+    sourcemap: IS_COVERAGE_BUILD ? 'inline' : false,
+    minify: !IS_COVERAGE_BUILD,
     /*
      * The font is 48 KB; leave the default inline threshold well below it so it
      * stays a separate file rather than base64 inside the stylesheet.

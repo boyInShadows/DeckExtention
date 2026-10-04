@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { expectWithinBudget } from './coverage';
 import { launchExtension } from './extension';
 
 const READY_SELECTOR = 'html[data-deck-ready="true"]';
@@ -163,7 +164,7 @@ test('chrome bookmarks: preview, 1,000 links under 2 s, idempotent, revocable', 
       type: 'import-ms',
       description: `${TOTAL_LINKS} bookmarks in ${elapsedMs} ms`,
     });
-    expect(elapsedMs).toBeLessThan(IMPORT_BUDGET_MS);
+    expectWithinBudget('import ms', elapsedMs, { max: IMPORT_BUDGET_MS });
     expect(
       await page.evaluate(
         () => (window as unknown as { sawProgress?: boolean }).sawProgress,

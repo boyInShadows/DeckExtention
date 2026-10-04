@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { expectWithinBudget } from './coverage';
 import { launchExtension } from './extension';
 
 const READY_SELECTOR = 'html[data-deck-ready="true"]';
@@ -137,7 +138,7 @@ test('inbox: 20 saved links triaged to Inbox zero by keyboard alone', async ({
       body: JSON.stringify({ cards: INBOX_SIZE, elapsedMs }),
       contentType: 'application/json',
     });
-    expect(elapsedMs).toBeLessThan(TRIAGE_BUDGET_MS);
+    expectWithinBudget('triage ms', elapsedMs, { max: TRIAGE_BUDGET_MS });
   } finally {
     await context.close();
   }

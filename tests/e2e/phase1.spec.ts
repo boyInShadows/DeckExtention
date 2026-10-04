@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 
+import { expectWithinBudget } from './coverage';
 import { launchExtension } from './extension';
 
 const READY_SELECTOR = 'html[data-deck-ready="true"]';
@@ -58,7 +59,7 @@ test('surface persists a pin, exports data, and stays fast when warm', async ({
     });
     const sortedTimings = timings.toSorted((left, right) => left - right);
     const medianTiming = sortedTimings[Math.floor(sortedTimings.length / 2)];
-    expect(medianTiming).toBeLessThan(60);
+    expectWithinBudget('surface median ms', medianTiming, { max: 60 });
   } finally {
     await context.close();
   }

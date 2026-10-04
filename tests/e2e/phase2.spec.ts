@@ -1,6 +1,7 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
+import { expectWithinBudget } from './coverage';
 import { launchExtension } from './extension';
 
 /**
@@ -251,8 +252,10 @@ test('phase 2 journey: quick save, triage, drag, export', async ({
       body: JSON.stringify(timings),
       contentType: 'application/json',
     });
-    expect(sortedOpen.at(-1)).toBeLessThan(DRAWER_OPEN_BUDGET_MS);
-    expect(drag.fps).toBeGreaterThan(DRAG_MIN_FPS);
+    expectWithinBudget('drawer open worst ms', sortedOpen.at(-1) ?? Infinity, {
+      max: DRAWER_OPEN_BUDGET_MS,
+    });
+    expectWithinBudget('drag fps', drag.fps, { min: DRAG_MIN_FPS });
   } finally {
     await context.close();
   }

@@ -13,12 +13,12 @@ export default defineConfig({
         'apps/extension/src/background/**',
         'apps/extension/src/wallpaper/palette.worker.ts',
       ],
-      thresholds: {
-        lines: 80,
-        functions: 80,
-        branches: 80,
-        statements: 80,
-      },
+      /*
+       * No thresholds here: the 80 % floor applies to unit + E2E merged, and
+       * tools/test-coverage/run.mjs (`pnpm test:coverage`) enforces it.
+       */
+      reportsDirectory: 'coverage/unit',
+      reporter: ['json', 'text-summary'],
     },
   },
 });
