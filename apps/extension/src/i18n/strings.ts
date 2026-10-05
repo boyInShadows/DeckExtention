@@ -1,0 +1,53 @@
+/**
+ * Strings the new tab needs before first paint. Everything shown only by the
+ * drawer, Settings or a Line action lives in `panelStrings.ts`, which loads
+ * with those chunks - this file counts against the 60 kB surface budget
+ * (AGENTS.md section 3.3). A translation adds a sibling of each file.
+ */
+export const strings = {
+  linePlaceholder: 'Search, or > for commands',
+  exampleHint: 'Examples — press x to remove one.',
+  greetingMorning: 'Good morning',
+  greetingAfternoon: 'Good afternoon',
+  greetingEvening: 'Good evening',
+  noResults: 'No cards found.',
+  examplesPage: 'Examples',
+  examplesDeck: 'Examples',
+  examples: [
+    'MDN Web Docs',
+    'GitHub',
+    'Internet Archive',
+    'Wikipedia',
+    'Web Standards',
+    'TypeScript',
+  ],
+  pinsLabel: 'Pins',
+  addPin: 'Add pin',
+  pinUrlPlaceholder: 'Paste a URL',
+  invalidUrl: 'Enter an http or https URL.',
+  renamePin: 'Rename pin',
+  changePinIcon: 'Use an emoji icon',
+  unpin: 'Unpin',
+  renamePinPrompt: 'Pin label',
+  iconPrompt: 'Emoji (empty uses favicon)',
+  settings: 'Settings',
+  updateFailed: 'That change could not be saved.',
+  cardsGroup: 'Cards',
+  actionsGroup: 'Actions',
+  searchWeb: 'Search the web',
+  searchPermissionReason: 'Chrome search runs for ? queries.',
+  actionBlur: 'Toggle privacy blur',
+  actionThemeNight: 'Use Night theme',
+  actionThemeDay: 'Use Day theme',
+  actionThemeSystem: 'Follow system theme',
+  actionExport: 'Export Deck data',
+  actionImport: 'Open import settings',
+  actionSettings: 'Open settings',
+  actionNewPage: 'Create a page',
+  actionStash: 'Stash this window',
+  openDrawer: 'Open Deck drawer',
+  inbox: 'Inbox',
+  newPage: 'New page',
+  newDeck: 'New deck',
+  drawerHandle: '⌃ Deck',
+} as const;

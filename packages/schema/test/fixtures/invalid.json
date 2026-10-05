@@ -1,0 +1,231 @@
+[
+  {
+    "schema": "Page",
+    "reason": "unknown key - a stale field from an old version must not pass silently",
+    "value": {
+      "id": "pg_work01",
+      "title": "Work",
+      "order": "a0",
+      "colour": "blue",
+      "createdAt": 1757000000000,
+      "updatedAt": 1757000000000,
+      "deletedAt": null
+    }
+  },
+  {
+    "schema": "Page",
+    "reason": "order key is not a fractional index (contains a separator)",
+    "value": {
+      "id": "pg_work01",
+      "title": "Work",
+      "order": "a0.1",
+      "createdAt": 1757000000000,
+      "updatedAt": 1757000000000,
+      "deletedAt": null
+    }
+  },
+  {
+    "schema": "Page",
+    "reason": "timestamp is a float, so it would not survive a JSON round trip",
+    "value": {
+      "id": "pg_work01",
+      "title": "Work",
+      "order": "a0",
+      "createdAt": 1757000000000.5,
+      "updatedAt": 1757000000000,
+      "deletedAt": null
+    }
+  },
+  {
+    "schema": "Deck",
+    "reason": "deck kind outside the allowed set",
+    "value": {
+      "id": "dk_inbox1",
+      "pageId": "pg_work01",
+      "title": "Inbox",
+      "kind": "archive",
+      "order": "a0",
+      "color": null,
+      "isCollapsed": false,
+      "createdAt": 1757000000000,
+      "updatedAt": 1757000000000,
+      "deletedAt": null
+    }
+  },
+  {
+    "schema": "Deck",
+    "reason": "raw hex colour instead of a design-token name (AGENTS.md 6)",
+    "value": {
+      "id": "dk_inbox1",
+      "pageId": "pg_work01",
+      "title": "Inbox",
+      "kind": "normal",
+      "order": "a0",
+      "color": "#7aa2f7",
+      "isCollapsed": false,
+      "createdAt": 1757000000000,
+      "updatedAt": 1757000000000,
+      "deletedAt": null
+    }
+  },
+  {
+    "schema": "Card",
+    "reason": "url is not a url",
+    "value": {
+      "id": "cd_00001a",
+      "deckId": "dk_inbox1",
+      "url": "not a url",
+      "title": "broken",
+      "hostname": "",
+      "order": "a0",
+      "pinned": false,
+      "lastOpenedAt": null,
+      "createdAt": 1757000000000,
+      "updatedAt": 1757000000000,
+      "deletedAt": null
+    }
+  },
+  {
+    "schema": "Card",
+    "reason": "lastOpenedAt missing - null and absent must not be the same thing",
+    "value": {
+      "id": "cd_00001a",
+      "deckId": "dk_inbox1",
+      "url": "https://example.com/",
+      "title": "example",
+      "hostname": "example.com",
+      "order": "a0",
+      "pinned": false,
+      "createdAt": 1757000000000,
+      "updatedAt": 1757000000000,
+      "deletedAt": null
+    }
+  },
+  {
+    "schema": "Card",
+    "reason": "pinned is a string, not a boolean",
+    "value": {
+      "id": "cd_00001a",
+      "deckId": "dk_inbox1",
+      "url": "https://example.com/",
+      "title": "example",
+      "hostname": "example.com",
+      "order": "a0",
+      "pinned": "true",
+      "lastOpenedAt": null,
+      "createdAt": 1757000000000,
+      "updatedAt": 1757000000000,
+      "deletedAt": null
+    }
+  },
+  {
+    "schema": "Settings",
+    "reason": "theme outside Night / Day / System",
+    "value": {
+      "theme": "midnight",
+      "ownerName": "Kasra",
+      "showSeconds": false,
+      "isBlurred": false,
+      "canSpaceOpenDrawer": true,
+      "wallpaper": { "kind": "none" },
+      "wallpaperDim": 0,
+      "wallpaperGradient": null,
+      "customCss": ""
+    }
+  },
+  {
+    "schema": "Settings",
+    "reason": "wallpaper dim above the 60% ceiling",
+    "value": {
+      "theme": "night",
+      "ownerName": "Kasra",
+      "showSeconds": false,
+      "isBlurred": false,
+      "canSpaceOpenDrawer": true,
+      "wallpaper": { "kind": "none" },
+      "wallpaperDim": 90,
+      "wallpaperGradient": null,
+      "customCss": ""
+    }
+  },
+  {
+    "schema": "Settings",
+    "reason": "wallpaper variant carries the wrong payload for its kind",
+    "value": {
+      "theme": "night",
+      "ownerName": "Kasra",
+      "showSeconds": false,
+      "isBlurred": false,
+      "canSpaceOpenDrawer": true,
+      "wallpaper": { "kind": "file", "url": "https://example.com/a.jpg" },
+      "wallpaperDim": 0,
+      "wallpaperGradient": null,
+      "customCss": ""
+    }
+  },
+  {
+    "schema": "Op",
+    "reason": "upsert with no payload would replay as a no-op and lose the write",
+    "value": {
+      "id": "op_00001a",
+      "ts": 1757000000000,
+      "kind": "upsert",
+      "clientId": "cl_desk01",
+      "entity": "card",
+      "entityId": "cd_00001a",
+      "payload": null
+    }
+  },
+  {
+    "schema": "Op",
+    "reason": "payload is a Page but the op is filed against a card",
+    "value": {
+      "id": "op_00001a",
+      "ts": 1757000000000,
+      "kind": "upsert",
+      "clientId": "cl_desk01",
+      "entity": "card",
+      "entityId": "cd_00001a",
+      "payload": {
+        "id": "pg_work01",
+        "title": "Work",
+        "order": "a0",
+        "createdAt": 1757000000000,
+        "updatedAt": 1757000000000,
+        "deletedAt": null
+      }
+    }
+  },
+  {
+    "schema": "Op",
+    "reason": "unknown entity",
+    "value": {
+      "id": "op_00001a",
+      "ts": 1757000000000,
+      "kind": "upsert",
+      "clientId": "cl_desk01",
+      "entity": "widget",
+      "entityId": "wd_00001a",
+      "payload": null
+    }
+  },
+  {
+    "schema": "Snapshot",
+    "reason": "empty blob - a snapshot that restores nothing is worse than none",
+    "value": {
+      "id": "sn_00001a",
+      "ts": 1757000200000,
+      "schemaVersion": 1,
+      "blob": ""
+    }
+  },
+  {
+    "schema": "Snapshot",
+    "reason": "schemaVersion missing, so a restore could not pick a migration path",
+    "value": {
+      "id": "sn_00001a",
+      "ts": 1757000200000,
+      "blob": "{}"
+    }
+  }
+]

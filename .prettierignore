@@ -1,0 +1,11 @@
+node_modules
+dist
+pnpm-lock.yaml
+*.woff2
+*.png
+
+# Markdown here is the owner's, not the formatter's (AGENTS.md 4.1 / 8.6).
+*.md
+
+apps/extension/src/assets/fonts/LICENSE-Inter.txt
+apps/extension/src/assets/fonts/PROVENANCE.txt

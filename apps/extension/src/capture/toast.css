@@ -1,0 +1,108 @@
+/*
+ * Quick Save toast (FableTasks P2.S4). Lives inside a closed shadow root on
+ * someone else's page, so nothing here can leak out and page CSS cannot leak
+ * in. tokens.css is injected alongside with `:root` rewritten to `:host`.
+ */
+
+:host {
+  all: initial;
+}
+
+.toast {
+  position: fixed;
+
+  /* Above any page chrome; the maximum 32-bit z-index. */
+  z-index: 2147483647;
+  inset-block-end: var(--deck-space-3);
+  inset-inline-end: var(--deck-space-3);
+  display: grid;
+  gap: var(--deck-space-1);
+  box-sizing: border-box;
+  inline-size: min(22rem, calc(100vw - 2 * var(--deck-space-3)));
+  padding-block: var(--deck-space-2);
+  padding-inline: var(--deck-space-2);
+  border: 1px solid var(--deck-color-hairline);
+  border-radius: var(--deck-radius-panel);
+  background: var(--deck-color-canvas-raised);
+  box-shadow: 0 var(--deck-space-1) var(--deck-space-4) var(--deck-color-shadow);
+  color: var(--deck-color-text);
+  font:
+    500 0.875rem/1.4 system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  opacity: 0;
+  transform: translateY(var(--deck-space-2));
+  transition:
+    opacity var(--deck-drawer-duration) var(--deck-drawer-ease),
+    transform var(--deck-drawer-duration) var(--deck-drawer-ease);
+}
+
+.toast[data-visible] {
+  opacity: 1;
+  transform: none;
+}
+
+.message {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--deck-space-1);
+  align-items: center;
+}
+
+.hint {
+  margin-inline-end: auto;
+  color: var(--deck-color-text-muted);
+  font-size: 0.75rem;
+}
+
+button {
+  padding-block: 0.25rem;
+  padding-inline: var(--deck-space-1);
+  border: 1px solid var(--deck-color-hairline);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background var(--deck-motion-hover) var(--deck-ease-hover);
+}
+
+button:hover {
+  background: var(--deck-color-glass);
+}
+
+input {
+  box-sizing: border-box;
+  inline-size: 100%;
+  padding-block: 0.375rem;
+  padding-inline: var(--deck-space-1);
+  border: 1px solid var(--deck-color-hairline);
+  border-radius: 0.5rem;
+  background: var(--deck-color-canvas);
+  color: inherit;
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--deck-color-focus);
+  outline-offset: 2px;
+}
+
+[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    transform: none;
+    transition: none;
+  }
+}
