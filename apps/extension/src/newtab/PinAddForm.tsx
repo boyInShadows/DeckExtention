@@ -10,7 +10,7 @@ import type { NoticeInput } from './ToastStack';
 export default function PinAddForm({
   cards,
   pins,
-  defaultDeckId,
+  initialUrl,
   repository,
   onCardsChange,
   onClose,
@@ -18,16 +18,17 @@ export default function PinAddForm({
 }: {
   cards: Card[];
   pins: Card[];
-  defaultDeckId: string;
+  initialUrl: string;
   repository: SurfaceData['repository'];
   onCardsChange: (cards: Card[]) => void;
   onClose: () => void;
   notify: (notice: NoticeInput) => void;
 }) {
-  const [urlInput, setUrlInput] = useState('');
+  const [urlInput, setUrlInput] = useState(initialUrl);
+  const [labelInput, setLabelInput] = useState('');
   const addPin = async () => {
     try {
-      const saved = await createPin(repository, urlInput, defaultDeckId, pins);
+      const saved = await createPin(repository, urlInput, labelInput, pins);
       onCardsChange([...cards, saved]);
       onClose();
       notify({ kind: 'success', text: strings.saved });
@@ -39,7 +40,7 @@ export default function PinAddForm({
     }
   };
   return (
-    <div className="deck-pin-add-form">
+    <div data-deck="pin-add-form" className="deck-pin-add-form">
       <input
         className="deck-pin-url-input"
         ref={focusOnMount}
@@ -52,6 +53,20 @@ export default function PinAddForm({
           if (event.key === 'Escape') onClose();
         }}
       />
+      <input
+        className="deck-pin-label-input"
+        value={labelInput}
+        placeholder={strings.pinLabelPlaceholder}
+        aria-label={strings.pinLabelPlaceholder}
+        onChange={(event) => setLabelInput(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') void addPin();
+          if (event.key === 'Escape') onClose();
+        }}
+      />
+      <button type="button" onClick={() => void addPin()}>
+        {strings.addPin}
+      </button>
     </div>
   );
 }

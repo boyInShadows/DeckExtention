@@ -8,7 +8,7 @@ import {
   type Page,
 } from 'deck-schema';
 import { deleteDB } from 'idb';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DeckRepository } from '../storage/repository';
 import { openDeckDatabase } from '../storage/database';
@@ -108,7 +108,9 @@ describe('hydrateSurface', () => {
     expect(await store.listPages()).toEqual([page]);
     const decks = await store.listDecks();
     expect(decks).toContainEqual(trashedDeck);
-    expect(await store.listCards()).toEqual([editedExample]);
+    expect(await store.listCards()).toEqual([
+      { ...editedExample, deckId: INBOX_DECK_ID },
+    ]);
 
     const recovered = decks.find(({ id }) => id === data.defaultDeckId);
     expect(recovered).toMatchObject({
@@ -117,6 +119,31 @@ describe('hydrateSurface', () => {
       deletedAt: null,
     });
     expect(recovered?.id).not.toBe(trashedDeck.id);
+  });
+
+  it('moves older pins into Inbox once, atomically preserving them on failure', async () => {
+    const store = openRepository();
+    await store.upsertPage(page);
+    await store.upsertDeck({ ...trashedDeck, deletedAt: null });
+    await store.upsertCard(editedExample);
+    await store.upsertCard({ ...editedExample, id: 'another_pin' });
+    const upsertMany = vi.spyOn(store, 'upsertMany');
+    upsertMany.mockRejectedValueOnce(new Error('disk full'));
+
+    await expect(hydrateSurface(store)).rejects.toThrow('disk full');
+    expect(await store.listCards()).toEqual([
+      { ...editedExample, id: 'another_pin' },
+      editedExample,
+    ]);
+
+    const hydrated = await hydrateSurface(store);
+    expect(hydrated.cards).toHaveLength(2);
+    expect(hydrated.cards.every(({ deckId }) => deckId === INBOX_DECK_ID)).toBe(
+      true,
+    );
+    expect(await store.listCards()).toEqual(hydrated.cards);
+    await hydrateSurface(store);
+    expect(upsertMany).toHaveBeenCalledTimes(2);
   });
 
   it('adds a page too when every page is trashed', async () => {

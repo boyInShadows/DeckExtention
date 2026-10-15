@@ -1,4 +1,4 @@
-import type { Card } from 'deck-schema';
+import { INBOX_DECK_ID, type Card } from 'deck-schema';
 import { generateNKeysBetween } from 'fractional-indexing';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
@@ -54,6 +54,7 @@ export async function moveCards(
       await repository.upsertCard({
         ...card,
         deckId: targetDeckId,
+        pinned: false,
         order: keys[index] ?? card.order,
         updatedAt: now(),
       }),
@@ -76,14 +77,12 @@ export async function trashCards(
 }
 
 /**
- * Pinning is a triage decision too: the card leaves the Inbox for the deck
- * the surface files its pins in, so Inbox zero stays reachable.
+ * Pins live in the Inbox record but are omitted from Inbox triage.
  */
 export async function pinCards(
   repository: DeckRepository,
   cards: Card[],
   ids: string[],
-  homeDeckId: string,
   now: () => number = Date.now,
 ): Promise<Card[]> {
   const pinning = pick(cards, ids).filter(({ pinned }) => !pinned);
@@ -103,7 +102,7 @@ export async function pinCards(
     saved.push(
       await repository.upsertCard({
         ...card,
-        deckId: homeDeckId,
+        deckId: INBOX_DECK_ID,
         pinned: true,
         order: keys[index] ?? card.order,
         updatedAt: now(),

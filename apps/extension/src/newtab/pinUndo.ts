@@ -1,10 +1,12 @@
-import { UrlSchema, type Card } from 'deck-schema';
+import { INBOX_DECK_ID, UrlSchema, type Card } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
 
 import type { UndoAction } from '../drawer/UndoToast';
 import { strings } from '../i18n/strings';
 import type { SurfaceData } from './bootstrap';
 import { openCard } from '../drawer/inboxActions';
+
+const MAX_PIN_COUNT = 12;
 
 export async function openPin(
   repository: SurfaceData['repository'],
@@ -17,9 +19,10 @@ export async function openPin(
 export async function createPin(
   repository: SurfaceData['repository'],
   input: string,
-  defaultDeckId: string,
+  label: string,
   pins: Card[],
 ): Promise<Card> {
+  if (pins.length >= MAX_PIN_COUNT) throw new Error(strings.pinLimit);
   const parsed = UrlSchema.safeParse(input.trim());
   if (
     !parsed.success ||
@@ -27,13 +30,17 @@ export async function createPin(
   )
     throw new Error(strings.invalidUrl);
   const url = new URL(parsed.data);
+  const hostname = url.hostname.replace(/^www\./i, '');
+  const name = hostname.split('.')[0] ?? hostname;
+  const title = name.charAt(0).toUpperCase() + name.slice(1);
   const now = Date.now();
   return repository.upsertCard({
     id: crypto.randomUUID(),
-    deckId: defaultDeckId,
+    deckId: INBOX_DECK_ID,
     url: url.href,
-    title: url.hostname,
+    title,
     hostname: url.hostname,
+    pinLabel: label.trim() || undefined,
     order: generateKeyBetween(pins.at(-1)?.order ?? null, null),
     pinned: true,
     lastOpenedAt: null,
@@ -57,6 +64,7 @@ function unpinUndo(
       if (!current) throw new Error(strings.updateFailed);
       await repository.upsertCard({
         ...current,
+        deckId: INBOX_DECK_ID,
         pinned: true,
         order: previous.order,
         updatedAt: Date.now(),

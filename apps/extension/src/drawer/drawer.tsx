@@ -144,7 +144,11 @@ export default function Drawer({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inbox = decks.find((deck) => deck.kind === 'inbox');
   const inboxCount = cards.filter(
-    (card) => inbox && card.deckId === inbox.id && card.deletedAt === null,
+    (card) =>
+      inbox &&
+      card.deckId === inbox.id &&
+      card.deletedAt === null &&
+      !card.pinned,
   ).length;
 
   const selectPage = (id: string) => {

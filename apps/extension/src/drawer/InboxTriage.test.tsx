@@ -383,16 +383,20 @@ describe('InboxTriage - move', () => {
 });
 
 describe('InboxTriage - pin', () => {
-  it('pins into the default deck', async () => {
+  it('pins into the Inbox record without leaving it in a user deck', async () => {
     const triage = await renderTriage();
     await press(triage, 'p');
     expect(triage.upsertCard).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'one', pinned: true, deckId: HOME_ID }),
+      expect.objectContaining({
+        id: 'one',
+        pinned: true,
+        deckId: 'deck_inbox',
+      }),
     );
     triage.view.unmount();
   });
 
-  it('falls back to the first deck when the default deck is trashed', async () => {
+  it('keeps pins in the Inbox record when the default deck is trashed', async () => {
     const triage = await renderTriage({
       decks: DECKS.map((item) =>
         item.id === HOME_ID ? { ...item, deletedAt: STAMP } : item,
@@ -400,18 +404,20 @@ describe('InboxTriage - pin', () => {
     });
     await press(triage, 'p');
     expect(triage.upsertCard).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'one', deckId: 'deck_docs' }),
+      expect.objectContaining({ id: 'one', deckId: 'deck_inbox' }),
     );
     triage.view.unmount();
   });
 
-  it('asks for a deck first when there is nowhere to pin', async () => {
+  it('can pin without a user deck', async () => {
     const triage = await renderTriage({
       decks: DECKS.filter(({ kind }) => kind === 'inbox'),
     });
     await press(triage, 'p');
-    expect(triage.onError).toHaveBeenCalledWith(strings.noDecks);
-    expect(triage.upsertCard).not.toHaveBeenCalled();
+    expect(triage.onError).not.toHaveBeenCalled();
+    expect(triage.upsertCard).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'one', deckId: 'deck_inbox' }),
+    );
     triage.view.unmount();
   });
 });

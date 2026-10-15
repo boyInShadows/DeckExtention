@@ -124,12 +124,14 @@ test('inbox: 20 saved links triaged to Inbox zero by keyboard alone', async ({
       id.startsWith('triage_'),
     );
     const live = cards.filter(({ deletedAt }) => deletedAt === null);
-    expect(live.filter(({ deckId }) => deckId === 'deck_inbox')).toEqual([]);
+    expect(
+      live.filter(({ deckId, pinned }) => deckId === 'deck_inbox' && !pinned),
+    ).toEqual([]);
     expect(cards.filter(({ deletedAt }) => deletedAt !== null)).toHaveLength(5);
     expect(live.filter(({ pinned }) => pinned)).toHaveLength(2);
     expect(
       live.filter(({ deckId }) => deckId === 'deck_examples'),
-    ).toHaveLength(15);
+    ).toHaveLength(13);
     expect(
       cards.find(({ note }) => note === 'skim later')?.deletedAt,
     ).not.toBeNull();

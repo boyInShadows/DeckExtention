@@ -115,16 +115,10 @@ describe('pinCards', () => {
       card('card_pin', 'deck_home0', 'a8', { pinned: true }),
       card('card_in1', 'deck_inbox', 'a0'),
     ]);
-    const next = await pinCards(
-      repository,
-      cards,
-      ['card_in1'],
-      'deck_home0',
-      now,
-    );
+    const next = await pinCards(repository, cards, ['card_in1'], now);
     expect(next.find(({ id }) => id === 'card_in1')).toMatchObject({
       pinned: true,
-      deckId: 'deck_home0',
+      deckId: 'deck_inbox',
     });
     expect(byId(next, 'card_in1').order > 'a8').toBe(true);
   });
@@ -139,7 +133,7 @@ describe('pinCards', () => {
       card('card_in2', 'deck_inbox', 'a2'),
     ]);
     await expect(
-      pinCards(repository, cards, ['card_in1', 'card_in2'], 'deck_home0', now),
+      pinCards(repository, cards, ['card_in1', 'card_in2'], now),
     ).rejects.toThrow(strings.pinLimitReached);
     const stored = await repository.listCards();
     expect(stored.filter(({ pinned }) => pinned)).toHaveLength(11);
@@ -149,13 +143,7 @@ describe('pinCards', () => {
     const cards = await seed([
       card('card_pin', 'deck_inbox', 'a0', { pinned: true }),
     ]);
-    const next = await pinCards(
-      repository,
-      cards,
-      ['card_pin'],
-      'deck_home0',
-      now,
-    );
+    const next = await pinCards(repository, cards, ['card_pin'], now);
     expect(next).toEqual(cards);
   });
 });

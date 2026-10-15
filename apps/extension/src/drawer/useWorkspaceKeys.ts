@@ -148,12 +148,7 @@ export function useWorkspaceKeys(options: WorkspaceKeysOptions): void {
         );
       } else if (action === 'pin') {
         enqueue(async (cards) => {
-          const next = await pinCards(
-            repository,
-            cards,
-            [card.id],
-            card.deckId,
-          );
+          const next = await pinCards(repository, cards, [card.id]);
           latest.current.onSuccess?.(strings.pinSaved);
           return next;
         });

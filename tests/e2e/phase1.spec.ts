@@ -453,7 +453,7 @@ test('drawer cards move between decks and onto the Pins strip', async ({
     await page.waitForSelector(READY_SELECTOR);
     await expect(page.locator('[data-deck="pin"]')).toHaveCount(1);
     await page.keyboard.press('Control+J');
-    await expect(decks.nth(1).locator('[data-deck="card"]')).toHaveCount(1);
+    await expect(decks.nth(1).locator('[data-deck="card"]')).toHaveCount(0);
   } finally {
     await context.close();
   }

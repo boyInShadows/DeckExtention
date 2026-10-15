@@ -1,4 +1,4 @@
-import type { Card, Deck, Page } from 'deck-schema';
+import { INBOX_DECK_ID, type Card, type Deck, type Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
@@ -120,6 +120,7 @@ async function persistCardPin(activeId: string, state: WorkspaceDropState) {
   if (pins.length >= MAX_PIN_COUNT) throw new Error(strings.pinLimitReached);
   const saved = await state.repository.upsertCard({
     ...moved,
+    deckId: INBOX_DECK_ID,
     pinned: true,
     order: generateKeyBetween(pins.at(-1)?.order ?? null, null),
     updatedAt: Date.now(),

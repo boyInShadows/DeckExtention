@@ -30,6 +30,7 @@ import { MoveLine } from './MoveLine';
 import { NotePanel } from './NotePanel';
 import { useTriageQueue } from './useTriageQueue';
 import { activeCards, replaceEntity } from './workspaceModel';
+import FaviconTile from '../newtab/FaviconTile';
 
 interface InboxTriageProps {
   keymap: Keymap;
@@ -76,10 +77,6 @@ export function InboxTriage(props: InboxTriageProps) {
   const listRef = useRef<HTMLOListElement>(null);
   const position = clampIndex(cursor, ids.length);
   const selected = selectionOf(ids, position, anchor);
-  const homeDeckId =
-    props.decks.find(
-      ({ id, deletedAt }) => id === props.data.defaultDeckId && !deletedAt,
-    )?.id ?? targets[0]?.deckId;
 
   useEffect(() => listRef.current?.focus(), []);
   useEffect(() => {
@@ -140,9 +137,8 @@ export function InboxTriage(props: InboxTriageProps) {
   };
 
   const pin = () => {
-    if (!homeDeckId) return props.onError(strings.noDecks);
     enqueue(async (cards, ids) => {
-      const next = await pinCards(repository, cards, ids, homeDeckId);
+      const next = await pinCards(repository, cards, ids);
       props.onSuccess?.(strings.pinSaved);
       return next;
     });
@@ -245,10 +241,7 @@ export function InboxTriage(props: InboxTriageProps) {
               setAnchor(null);
             }}
           >
-            <img
-              src={`/_favicon/?pageUrl=${encodeURIComponent(card.url)}&size=32`}
-              alt=""
-            />
+            <FaviconTile url={card.url} hostname={card.hostname} />
             <span>
               <strong>{card.title}</strong>
               <small>{card.note ? `● ${card.hostname}` : card.hostname}</small>

@@ -52,8 +52,9 @@ export async function hydrateSurface(
       existingDecks,
       defaultDeck.pageId,
     );
+    const cards = await loadLegacyPins(repository, existingCards);
     return {
-      cards: existingCards,
+      cards,
       decks,
       pages: existingPages,
       defaultDeckId: defaultDeck.id,
@@ -63,13 +64,17 @@ export async function hydrateSurface(
   }
 
   if (!isFreshStore(existingPages, existingDecks, existingCards)) {
-    return recoverDefaultDeck(
+    const recovered = await recoverDefaultDeck(
       repository,
       existingPages,
       existingDecks,
       existingCards,
       settings,
     );
+    return {
+      ...recovered,
+      cards: await loadLegacyPins(repository, existingCards),
+    };
   }
 
   /*
@@ -128,6 +133,16 @@ export async function hydrateSurface(
     settings: { ...SETTINGS_DEFAULTS, ...settings },
     repository,
   };
+}
+
+async function loadLegacyPins(
+  repository: DeckRepository,
+  cards: Card[],
+): Promise<Card[]> {
+  if (!cards.some((card) => card.pinned && card.deckId !== INBOX_DECK_ID))
+    return cards;
+  const { migratePinsToInbox } = await import('./migratePinsToInbox');
+  return migratePinsToInbox(repository, cards);
 }
 
 /** True when nothing exists except, possibly, the Inbox and its cards. */

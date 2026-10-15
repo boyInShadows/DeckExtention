@@ -348,7 +348,6 @@ export function Surface({ initialData }: SurfaceProps) {
           />
           <Pins
             cards={cards}
-            defaultDeckId={initialData.defaultDeckId}
             repository={initialData.repository}
             onCardsChange={setCards}
             offerUndo={offerUndo}

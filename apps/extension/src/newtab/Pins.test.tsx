@@ -9,6 +9,7 @@ import { dragId } from '../drawer/dragIdentity';
 import { compareOrder } from '../drawer/workspaceModel';
 import { WORKSPACE_DROP_EVENT } from '../drawer/WorkspaceDnd';
 import { strings } from '../i18n/strings';
+import type { UndoAction } from '../drawer/UndoToast';
 import type { DeckRepository } from '../storage/repository';
 import {
   click,
@@ -63,7 +64,7 @@ const MAX_PINS = 12;
 function makeCard(id: string, overrides: Partial<Card> = {}): Card {
   return {
     id,
-    deckId: 'deck_001',
+    deckId: DEFAULT_DECK_ID,
     url: `https://${id}.example.com/`,
     title: `Title ${id}`,
     hostname: `${id}.example.com`,
@@ -84,11 +85,18 @@ function nth<T>(items: readonly T[], index = 0): T {
   return item;
 }
 
-function fakeRepository() {
-  const upsertCard = vi.fn((card: Card) => Promise.resolve(card));
+function fakeRepository(cards: Card[]) {
+  let stored = cards;
+  const upsertCard = vi.fn(async (card: Card) => {
+    stored = stored.some(({ id }) => id === card.id)
+      ? stored.map((item) => (item.id === card.id ? card : item))
+      : [...stored, card];
+    return card;
+  });
+  const listCards = vi.fn(async () => stored);
   return {
     upsertCard,
-    repository: { upsertCard } as unknown as DeckRepository,
+    repository: { upsertCard, listCards } as unknown as DeckRepository,
   };
 }
 
@@ -97,22 +105,24 @@ interface Mounted {
   upsertCard: ReturnType<typeof fakeRepository>['upsertCard'];
   onCardsChange: ReturnType<typeof vi.fn<(cards: Card[]) => void>>;
   notify: ReturnType<typeof vi.fn>;
+  offerUndo: ReturnType<typeof vi.fn>;
 }
 
 async function mountPins(cards: Card[]): Promise<Mounted> {
-  const { upsertCard, repository } = fakeRepository();
+  const { upsertCard, repository } = fakeRepository(cards);
   const onCardsChange = vi.fn<(cards: Card[]) => void>();
   const notify = vi.fn();
+  const offerUndo = vi.fn();
   const view = await render(
     <Pins
       cards={cards}
-      defaultDeckId={DEFAULT_DECK_ID}
       repository={repository}
       onCardsChange={onCardsChange}
+      offerUndo={offerUndo}
       notify={notify}
     />,
   );
-  return { view, upsertCard, onCardsChange, notify };
+  return { view, upsertCard, onCardsChange, notify, offerUndo };
 }
 
 function pinLabels(view: RenderResult): string[] {
@@ -132,6 +142,25 @@ it('stamps a pin before opening its link', async () => {
   );
   expect(upsertCard).toHaveBeenCalledWith(
     expect.objectContaining({ id: 'pinned', lastOpenedAt: expect.any(Number) }),
+  );
+  view.unmount();
+});
+
+it('opens a focused pin in a new tab on Shift+Enter', async () => {
+  const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+  const { view, upsertCard } = await mountPins([makeCard('pinned')]);
+  await view.act(() => {
+    keyDown(view.get('[data-deck="pin"]'), 'Enter', { shiftKey: true });
+  });
+  await vi.waitFor(() =>
+    expect(open).toHaveBeenCalledWith(
+      'https://pinned.example.com/',
+      '_blank',
+      'noopener',
+    ),
+  );
+  expect(upsertCard).toHaveBeenCalledWith(
+    expect.objectContaining({ lastOpenedAt: expect.any(Number) }),
   );
   view.unmount();
 });
@@ -177,12 +206,6 @@ async function openMenu(view: RenderResult, label: string): Promise<void> {
     await view.act(async () => {});
     expect(view.query('[data-deck="pin-menu"]')).not.toBeNull();
   });
-}
-
-function stubPrompt() {
-  const prompt = vi.fn<(message?: string, value?: string) => string | null>();
-  vi.stubGlobal('prompt', prompt);
-  return prompt;
 }
 
 async function drop(
@@ -239,7 +262,7 @@ describe('Pins - strip', () => {
     expect(nth(images).getAttribute('src')).toBe(
       `${EXTENSION_ORIGIN}/_favicon/?pageUrl=${encodeURIComponent(
         'https://b.example.com/',
-      )}&size=64`,
+      )}&size=32`,
     );
     expect(view.getByLabel('Title b').getAttribute('href')).toBe(
       'https://b.example.com/',
@@ -276,12 +299,17 @@ describe('Pins - strip', () => {
     dragging.unmount();
   });
 
-  it('hides the add button once the strip is full', async () => {
+  it('disables the add button with a useful tooltip once the strip is full', async () => {
     const full = Array.from({ length: MAX_PINS }, (_, index) =>
       makeCard(`p${index}`, { order: `a${index}` }),
     );
     const { view } = await mountPins(full);
-    expect(view.query('[data-deck="pin-add"]')).toBeNull();
+    expect(view.get('[data-deck="pin-add"]').hasAttribute('disabled')).toBe(
+      true,
+    );
+    expect(view.get('[data-deck="pin-add"]').getAttribute('title')).toBe(
+      strings.pinLimit,
+    );
     view.unmount();
 
     const { view: roomy } = await mountPins(full.slice(1));
@@ -322,7 +350,7 @@ describe('Pins - adding', () => {
     expect(saved).toMatchObject({
       deckId: DEFAULT_DECK_ID,
       url: 'https://news.example.org/today',
-      title: 'news.example.org',
+      title: 'News',
       hostname: 'news.example.org',
       pinned: true,
       createdAt: NOW,
@@ -344,6 +372,36 @@ describe('Pins - adding', () => {
     view.unmount();
   });
 
+  it('accepts an optional label and opens a URL pasted outside inputs', async () => {
+    const { view, upsertCard } = await mountPins([]);
+    const paste = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { getData: () => 'https://www.wikipedia.org/wiki/Deck' },
+    });
+    await view.act(() => {
+      window.dispatchEvent(paste);
+    });
+    await vi.waitFor(async () => {
+      await view.act(async () => {
+        await vi.dynamicImportSettled();
+      });
+      expect(view.get<HTMLInputElement>('.deck-pin-url-input').value).toBe(
+        'https://www.wikipedia.org/wiki/Deck',
+      );
+    });
+    await view.act(() =>
+      type(view.get<HTMLInputElement>('.deck-pin-label-input'), 'Wiki'),
+    );
+    await view.act(() => click(view.getByText(strings.addPin)));
+    await vi.waitFor(() => expect(upsertCard).toHaveBeenCalledTimes(1));
+    expect(upsertCard.mock.calls[0]?.[0]).toMatchObject({
+      title: 'Wikipedia',
+      pinLabel: 'Wiki',
+      deckId: DEFAULT_DECK_ID,
+    });
+    view.unmount();
+  });
+
   it.each(['not a url', 'ftp://files.example.com/x', ''])(
     'refuses %j with a visible error and saves nothing',
     async (value) => {
@@ -361,65 +419,42 @@ describe('Pins - adding', () => {
 });
 
 describe('Pins - menu', () => {
-  it('opens on right-click and renames the pin', async () => {
+  it('edits the label inline and closes after saving', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(NOW + 1);
     const card = makeCard('a');
-    const prompt = stubPrompt().mockReturnValue('Work mail');
     const { view, upsertCard, onCardsChange } = await mountPins([card]);
     await openMenu(view, 'Title a');
-    expect(view.query('[data-deck="pin-menu"]')).not.toBeNull();
-
+    expect(view.get('[data-deck="pin-menu"]').getAttribute('role')).toBe(
+      'menu',
+    );
     await view.act(() => click(view.getByText(strings.renamePin)));
-    await vi.waitFor(async () => {
-      await view.act(async () => {});
-      expect(upsertCard).toHaveBeenCalledTimes(1);
-    });
-    expect(prompt).toHaveBeenCalledWith(strings.renamePinPrompt, 'Title a');
+    const input = view.get<HTMLInputElement>(
+      `input[aria-label="${strings.renamePinPrompt}"]`,
+    );
+    expect(input.value).toBe('Title a');
+    await view.act(() => type(input, 'Work mail'));
+    await view.act(() => click(view.getByText(strings.savePin)));
+    await vi.waitFor(() => expect(upsertCard).toHaveBeenCalledTimes(1));
     const renamed = { ...card, pinLabel: 'Work mail', updatedAt: NOW + 1 };
     expect(upsertCard).toHaveBeenCalledWith(renamed);
     expect(onCardsChange).toHaveBeenCalledWith([renamed]);
-    expect(view.query('[data-deck="pin-menu"]')).toBeNull();
     view.unmount();
   });
 
-  it('prefills the prompts with the current label and icon', async () => {
-    const prompt = stubPrompt().mockReturnValue(null);
+  it('edits and clears the emoji inline', async () => {
     const { view, upsertCard } = await mountPins([
-      makeCard('a', { pinLabel: 'Mail', pinIcon: '✉' }),
+      makeCard('a', { pinIcon: '✉' }),
     ]);
-    await openMenu(view, 'Mail');
-    await view.act(() => click(view.getByText(strings.renamePin)));
-    await view.act(() => click(view.getByText(strings.changePinIcon)));
-
-    expect(prompt.mock.calls).toEqual([
-      [strings.renamePinPrompt, 'Mail'],
-      [strings.iconPrompt, '✉'],
-    ]);
-    expect(upsertCard).not.toHaveBeenCalled();
-    expect(view.query('[data-deck="pin-menu"]')).not.toBeNull();
-    view.unmount();
-  });
-
-  it('sets an emoji icon, and clears it back to the favicon when emptied', async () => {
-    const prompt = stubPrompt().mockReturnValueOnce('🔥');
-    const { view, upsertCard } = await mountPins([makeCard('a')]);
     await openMenu(view, 'Title a');
     await view.act(() => click(view.getByText(strings.changePinIcon)));
-    await vi.waitFor(async () => {
-      await view.act(async () => {});
-      expect(upsertCard).toHaveBeenCalledTimes(1);
-    });
-    expect(prompt).toHaveBeenCalledWith(strings.iconPrompt, '');
+    const input = view.get<HTMLInputElement>(
+      `input[aria-label="${strings.iconPrompt}"]`,
+    );
+    expect(input.value).toBe('✉');
+    await view.act(() => type(input, '🔥'));
+    await view.act(() => click(view.getByText(strings.savePin)));
+    await vi.waitFor(() => expect(upsertCard).toHaveBeenCalledTimes(1));
     expect(nth(upsertCard.mock.calls)[0].pinIcon).toBe('🔥');
-
-    prompt.mockReturnValueOnce('');
-    await openMenu(view, 'Title a');
-    await view.act(() => click(view.getByText(strings.changePinIcon)));
-    await vi.waitFor(async () => {
-      await view.act(async () => {});
-      expect(upsertCard).toHaveBeenCalledTimes(2);
-    });
-    expect(nth(upsertCard.mock.calls, 1)[0].pinIcon).toBeUndefined();
     view.unmount();
   });
 
@@ -437,6 +472,95 @@ describe('Pins - menu', () => {
     });
     view.unmount();
   });
+
+  it('keeps the menu open and reports a failed write', async () => {
+    const { view, upsertCard, notify } = await mountPins([makeCard('a')]);
+    upsertCard.mockRejectedValueOnce(new Error('disk full'));
+    await openMenu(view, 'Title a');
+    await view.act(() => click(view.getByText(strings.unpin)));
+    await vi.waitFor(() =>
+      expect(notify).toHaveBeenCalledWith({
+        kind: 'error',
+        text: `${strings.updateFailed} disk full`,
+      }),
+    );
+    expect(view.query('[data-deck="pin-menu"]')).not.toBeNull();
+    view.unmount();
+  });
+
+  it('anchors near the tile, handles arrow keys, and dismisses on Escape or outside press', async () => {
+    const { view } = await mountPins([makeCard('a')]);
+    const anchor = view.getByLabel('Title a');
+    vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue({
+      left: window.innerWidth - 20,
+      top: 100,
+      bottom: 164,
+    } as DOMRect);
+    await openMenu(view, 'Title a');
+    const menu = view.get('[data-deck="pin-menu"]');
+    expect(
+      Number.parseFloat((menu as HTMLElement).style.insetInlineStart),
+    ).toBeLessThan(window.innerWidth - 20);
+    const first = view.getByText(strings.renamePin).closest('button');
+    if (!first) throw new Error('Missing first menu item');
+    expect(document.activeElement).toBe(first);
+    await view.act(() => {
+      keyDown(first, 'ArrowDown');
+    });
+    expect(document.activeElement?.textContent).toBe(strings.changePinIcon);
+    await view.act(() => {
+      keyDown(menu, 'Escape');
+    });
+    expect(view.query('[data-deck="pin-menu"]')).toBeNull();
+    expect(document.activeElement).toBe(anchor);
+    await openMenu(view, 'Title a');
+    await view.act(() => {
+      window.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    });
+    expect(view.query('[data-deck="pin-menu"]')).toBeNull();
+    view.unmount();
+  });
+});
+
+it('moves focus with arrows, opens the keyboard menu, and unpins with Undo', async () => {
+  const { view, upsertCard, offerUndo } = await mountPins([
+    makeCard('a', { order: 'a1' }),
+    makeCard('b', { order: 'a2' }),
+  ]);
+  const first = view.getByLabel('Title a');
+  const second = view.getByLabel('Title b');
+  first.focus();
+  await view.act(() => {
+    keyDown(first, 'ArrowRight');
+  });
+  expect(document.activeElement).toBe(second);
+  await view.act(() => {
+    keyDown(second, 'ContextMenu');
+  });
+  await vi.waitFor(() =>
+    expect(view.query('[data-deck="pin-menu"]')).not.toBeNull(),
+  );
+  await view.act(() => {
+    keyDown(view.get('[data-deck="pin-menu"]'), 'Escape');
+  });
+  await view.act(() => {
+    keyDown(second, 'Delete');
+  });
+  await vi.waitFor(() => expect(upsertCard).toHaveBeenCalledTimes(1));
+  expect(upsertCard.mock.calls[0]?.[0]).toMatchObject({
+    id: 'b',
+    pinned: false,
+  });
+  expect(offerUndo).toHaveBeenCalledTimes(1);
+  const action = offerUndo.mock.calls[0]?.[0] as UndoAction;
+  await upsertCard({ ...makeCard('b'), deckId: 'deck_user', pinned: false });
+  await action.undo();
+  expect(upsertCard.mock.calls.at(-1)?.[0]).toMatchObject({
+    id: 'b',
+    pinned: true,
+    deckId: DEFAULT_DECK_ID,
+  });
+  view.unmount();
 });
 
 describe('Pins - reordering', () => {

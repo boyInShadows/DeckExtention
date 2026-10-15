@@ -423,7 +423,7 @@ describe('useWorkspaceKeys - card actions', () => {
     view.unmount();
   });
 
-  it('pins the focused card into its own deck', async () => {
+  it('pins the focused card into the Inbox record', async () => {
     const cards = await seed([makeCard('card_1', 'deck_1')]);
     const view = await render(
       <Harness
@@ -436,7 +436,7 @@ describe('useWorkspaceKeys - card actions', () => {
     await press(view, 'p');
     await eventually(view, async () =>
       expect(await repository.listCards()).toMatchObject([
-        { id: 'card_1', pinned: true, deckId: 'deck_1' },
+        { id: 'card_1', pinned: true, deckId: 'deck_inbox' },
       ]),
     );
     view.unmount();

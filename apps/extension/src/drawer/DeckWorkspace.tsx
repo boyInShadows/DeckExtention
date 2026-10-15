@@ -31,6 +31,7 @@ import { useWorkspaceKeys } from './useWorkspaceKeys';
 import type { Keymap } from '../keys/keymap';
 import { NotePanel } from './NotePanel';
 import { focusOnMount } from '../newtab/focusOnMount';
+import FaviconTile from '../newtab/FaviconTile';
 
 const DECK_COLORS = ['slate', 'blue', 'green', 'amber', 'rose'] as const;
 const DROP_SETTLE_MS = 160;
@@ -484,10 +485,7 @@ function CardRow({
       {...attributes}
       {...listeners}
     >
-      <img
-        src={`/_favicon/?pageUrl=${encodeURIComponent(card.url)}&size=32`}
-        alt=""
-      />
+      <FaviconTile url={card.url} hostname={card.hostname} />
       <a
         href={card.url}
         onClick={(event) => void open(event)}

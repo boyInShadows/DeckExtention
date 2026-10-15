@@ -39,6 +39,7 @@ export function moveCard(
   return {
     ...moved,
     deckId: targetDeckId,
+    pinned: false,
     order: fractionalOrderForMove(targetCards, cardId, overCardId),
   };
 }
