@@ -179,6 +179,7 @@ const DECK: Deck = {
 
 function fakeRepository() {
   return {
+    getRecoveryIssueCount: () => 0,
     setSettings: vi.fn((next: Settings) => Promise.resolve(next)),
     listPages: vi.fn(() => Promise.resolve([PAGE])),
     listDecks: vi.fn(() => Promise.resolve([DECK])),

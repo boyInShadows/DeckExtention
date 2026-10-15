@@ -15,6 +15,7 @@ import {
   type Settings,
 } from 'deck-schema';
 import type { StoreNames } from 'idb';
+import type { ZodType } from 'zod';
 
 import {
   openDeckDatabase,
@@ -26,6 +27,7 @@ import { parseDocument, type DeckDocument } from './document';
 const SETTINGS_KEY = 'settings';
 const CLIENT_ID_KEY = 'clientId';
 const WALLPAPER_BLOB_PREFIX = 'wallpaper:';
+const QUARANTINE_PREFIX = 'quarantine:';
 const PURGE_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 
 type EntityRecord = Page | Deck | Card;
@@ -52,6 +54,7 @@ export class DeckRepository {
   readonly #database: Promise<DeckDatabaseHandle>;
   readonly #now: () => number;
   readonly #createId: () => string;
+  readonly #recoveryIssues = new Set<string>();
 
   constructor(options: RepositoryOptions = {}) {
     this.#database = openDeckDatabase(options.databaseName);
@@ -65,9 +68,15 @@ export class DeckRepository {
 
   async getSettings(): Promise<Settings> {
     const record = await (await this.#database).get('meta', SETTINGS_KEY);
-    return record
-      ? SettingsSchema.parse(record.value)
-      : structuredClone(SETTINGS_DEFAULTS);
+    if (!record) return structuredClone(SETTINGS_DEFAULTS);
+    const result = SettingsSchema.safeParse(record.value);
+    if (result.success) return result.data;
+    await this.#quarantine('settings', SETTINGS_KEY, record.value);
+    return structuredClone(SETTINGS_DEFAULTS);
+  }
+
+  getRecoveryIssueCount(): number {
+    return this.#recoveryIssues.size;
   }
 
   async setSettings(value: Settings): Promise<Settings> {
@@ -166,21 +175,15 @@ export class DeckRepository {
   }
 
   async listPages(): Promise<Page[]> {
-    return PageSchema.array().parse(
-      await (await this.#database).getAll('pages'),
-    );
+    return this.#listValid('pages', PageSchema);
   }
 
   async listDecks(): Promise<Deck[]> {
-    return DeckSchema.array().parse(
-      await (await this.#database).getAll('decks'),
-    );
+    return this.#listValid('decks', DeckSchema);
   }
 
   async listCards(): Promise<Card[]> {
-    return CardSchema.array().parse(
-      await (await this.#database).getAll('cards'),
-    );
+    return this.#listValid('cards', CardSchema);
   }
 
   async listOps(): Promise<Op[]> {
@@ -188,11 +191,12 @@ export class DeckRepository {
   }
 
   async readDocument(exportedAt = this.#now()): Promise<DeckDocument> {
-    const [pages, decks, cards, settings] = await Promise.all([
-      this.listPages(),
-      this.listDecks(),
-      this.listCards(),
-      this.getSettings(),
+    const database = await this.#database;
+    const [pages, decks, cards, settingsRecord] = await Promise.all([
+      database.getAll('pages'),
+      database.getAll('decks'),
+      database.getAll('cards'),
+      database.get('meta', SETTINGS_KEY),
     ]);
     return parseDocument({
       schemaVersion: 1,
@@ -200,77 +204,43 @@ export class DeckRepository {
       pages,
       decks,
       cards,
-      settings,
+      settings: settingsRecord?.value ?? SETTINGS_DEFAULTS,
     });
+  }
+
+  async #listValid<T>(
+    store: 'pages' | 'decks' | 'cards',
+    schema: ZodType<T>,
+  ): Promise<T[]> {
+    const database = await this.#database;
+    const records = await database.getAll(store);
+    const valid: T[] = [];
+    for (const record of records) {
+      const result = schema.safeParse(record);
+      if (result.success) valid.push(result.data);
+      else await this.#quarantine(store, record.id, record);
+    }
+    return valid;
+  }
+
+  async #quarantine(
+    store: 'pages' | 'decks' | 'cards' | 'settings',
+    key: string,
+    value: unknown,
+  ): Promise<void> {
+    const quarantineKey = `${QUARANTINE_PREFIX}${store}:${key}`;
+    this.#recoveryIssues.add(quarantineKey);
+    await (await this.#database).put('meta', { key: quarantineKey, value });
   }
 
   async replaceDocument(value: DeckDocument): Promise<void> {
     const document = parseDocument(structuredClone(value));
     const database = await this.#database;
     const clientId = await this.#clientId();
-    const transaction = database.transaction(
-      ['pages', 'decks', 'cards', 'meta', 'ops'],
-      'readwrite',
+    const { replaceDocument } = await import('./replaceDocument');
+    await replaceDocument(database, document, (entity, id, kind, payload) =>
+      this.#makeOp(clientId, entity, id, kind, payload),
     );
-    const [oldPages, oldDecks, oldCards] = await Promise.all([
-      transaction.objectStore('pages').getAll(),
-      transaction.objectStore('decks').getAll(),
-      transaction.objectStore('cards').getAll(),
-    ]);
-    await Promise.all([
-      transaction.objectStore('pages').clear(),
-      transaction.objectStore('decks').clear(),
-      transaction.objectStore('cards').clear(),
-    ]);
-    for (const oldPage of oldPages) {
-      await transaction
-        .objectStore('ops')
-        .put(this.#makeOp(clientId, 'page', oldPage.id, 'delete', null));
-    }
-    for (const oldDeck of oldDecks) {
-      await transaction
-        .objectStore('ops')
-        .put(this.#makeOp(clientId, 'deck', oldDeck.id, 'delete', null));
-    }
-    for (const oldCard of oldCards) {
-      await transaction
-        .objectStore('ops')
-        .put(this.#makeOp(clientId, 'card', oldCard.id, 'delete', null));
-    }
-    for (const page of document.pages) {
-      await transaction.objectStore('pages').put(page);
-      await transaction
-        .objectStore('ops')
-        .put(this.#makeOp(clientId, 'page', page.id, 'upsert', page));
-    }
-    for (const deck of document.decks) {
-      await transaction.objectStore('decks').put(deck);
-      await transaction
-        .objectStore('ops')
-        .put(this.#makeOp(clientId, 'deck', deck.id, 'upsert', deck));
-    }
-    for (const card of document.cards) {
-      await transaction.objectStore('cards').put(card);
-      await transaction
-        .objectStore('ops')
-        .put(this.#makeOp(clientId, 'card', card.id, 'upsert', card));
-    }
-    await transaction.objectStore('meta').put({
-      key: SETTINGS_KEY,
-      value: document.settings,
-    });
-    await transaction
-      .objectStore('ops')
-      .put(
-        this.#makeOp(
-          clientId,
-          'settings',
-          SETTINGS_ENTITY_ID,
-          'upsert',
-          document.settings,
-        ),
-      );
-    await transaction.done;
   }
 
   async softDelete(

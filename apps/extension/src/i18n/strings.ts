@@ -31,7 +31,7 @@ export const strings = {
   renamePinPrompt: 'Pin label',
   iconPrompt: 'Emoji (empty uses favicon)',
   settings: 'Settings',
-  updateFailed: 'That change could not be saved.',
+  updateFailed: 'Deck could not complete this action.',
   cardsGroup: 'Cards',
   actionsGroup: 'Actions',
   searchWeb: 'Search the web',

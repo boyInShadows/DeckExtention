@@ -52,7 +52,9 @@ describe('Surface drawer preload failure', () => {
       pages: [],
       defaultDeckId: 'deck_a',
       settings: SETTINGS_DEFAULTS,
-      repository: {} as SurfaceData['repository'],
+      repository: {
+        getRecoveryIssueCount: () => 0,
+      } as SurfaceData['repository'],
     };
     const view = await render(<Surface initialData={data} />);
     // Two rounds: the frame schedules the idle callback, which preloads.

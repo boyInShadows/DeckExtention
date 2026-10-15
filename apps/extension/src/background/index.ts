@@ -12,13 +12,20 @@
 
 import { captureStrings } from '../i18n/captureStrings';
 import { BackupService } from '../storage/backup';
-import { openDeckDatabase } from '../storage/database';
+import { ACTIVE_DATABASE_KEY, openDeckDatabase } from '../storage/database';
 import { DeckRepository } from '../storage/repository';
 import { handleToastDecision, quickSave } from './quickSave';
 
 const BACKUP_ERROR_KEY = 'backupMaintenanceError';
-const repository = new DeckRepository();
-const backups = new BackupService(repository, openDeckDatabase());
+let repository = new DeckRepository();
+let backups = new BackupService(repository, openDeckDatabase());
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes[ACTIVE_DATABASE_KEY]) return;
+  repository = new DeckRepository();
+  backups = new BackupService(repository, openDeckDatabase());
+  void runBackupMaintenance();
+});
 
 async function runBackupMaintenance(): Promise<void> {
   try {

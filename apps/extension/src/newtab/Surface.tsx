@@ -26,6 +26,11 @@ import { greetingForHour } from './surfaceModel';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
 const HelpOverlay = lazy(() => import('./HelpOverlay'));
+const RecoveryNotice = lazy(() =>
+  import('./RecoverySurface').then(({ RecoveryNotice }) => ({
+    default: RecoveryNotice,
+  })),
+);
 const loadDrawer = () => import('../drawer/drawer');
 const Drawer = lazy(loadDrawer);
 const CLOCK_UPDATE_MS = 1_000;
@@ -37,6 +42,7 @@ export interface SurfaceProps {
 }
 
 export function Surface({ initialData }: SurfaceProps) {
+  const recoveryIssueCount = initialData.repository.getRecoveryIssueCount();
   const [now, setNow] = useState(() => new Date());
   const [cards, setCards] = useState(initialData.cards);
   const [decks, setDecks] = useState(initialData.decks);
@@ -367,6 +373,14 @@ export function Surface({ initialData }: SurfaceProps) {
             {error}
           </p>
         ) : null}
+        <Suspense fallback={null}>
+          {recoveryIssueCount ? (
+            <RecoveryNotice
+              count={recoveryIssueCount}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+          ) : null}
+        </Suspense>
         <Suspense fallback={null}>
           {isSettingsOpen ? (
             <SettingsPanel

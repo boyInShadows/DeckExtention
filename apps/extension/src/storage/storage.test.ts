@@ -11,7 +11,7 @@ import { deleteDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { BackupService, migrateDocument, SNAPSHOT_INTERVAL_MS } from './backup';
-import { openDeckDatabase } from './database';
+import { ACTIVE_DATABASE_KEY, openDeckDatabase } from './database';
 import { parseDocument, type DeckDocument } from './document';
 import { DeckRepository } from './repository';
 
@@ -193,10 +193,16 @@ describe('BackupService', () => {
     const snapshot = await backups.createSnapshot();
     const handle = await database;
     await handle.put('cards', { ...card, url: 'not a URL' } as never);
+    const corruptSettings = { ...SETTINGS_DEFAULTS, ownerName: 42 };
+    await handle.put('meta', { key: 'settings', value: corruptSettings });
 
     await backups.restoreSnapshot(snapshot.id);
 
     expect(await repository.readDocument(NOW)).toEqual(populatedDocument());
+    expect(await handle.get('meta', 'quarantine:settings:settings')).toEqual({
+      key: 'quarantine:settings:settings',
+      value: corruptSettings,
+    });
     await repository.close();
     handle.close();
   });
@@ -286,6 +292,89 @@ describe('migrateDocument - refusals', () => {
 });
 
 describe('BackupService - snapshots and export fallbacks', () => {
+  it('keeps an independent snapshot and can export when IndexedDB cannot open', async () => {
+    const values: Record<string, unknown> = {};
+    const snapshotStorage = {
+      get: async (key: string) => ({ [key]: values[key] }),
+      set: async (items: Record<string, unknown>) => {
+        Object.assign(values, items);
+      },
+    };
+    const { repository, database } = await createServices();
+    await repository.replaceDocument(populatedDocument());
+    const backups = new BackupService(repository, database, {
+      now: () => NOW,
+      createId,
+      snapshotStorage,
+    });
+    const snapshot = await backups.createSnapshot();
+    const unavailable = new BackupService(
+      {
+        readDocument: async () => {
+          throw new Error('database unavailable');
+        },
+      } as unknown as DeckRepository,
+      Promise.reject(new Error('database unavailable')),
+      { now: () => NOW, createId, snapshotStorage },
+    );
+
+    expect((await unavailable.exportData()).document).toEqual(
+      populatedDocument(),
+    );
+    await unavailable.restoreToFreshDatabase(snapshot.id);
+    const restoredName = values[ACTIVE_DATABASE_KEY];
+    expect(restoredName).toMatch(/^deck-recovery-/);
+    const restored = new DeckRepository({ databaseName: String(restoredName) });
+    expect(await restored.readDocument(NOW)).toEqual(populatedDocument());
+
+    await restored.close();
+    await deleteDB(String(restoredName));
+    await repository.close();
+    (await database).close();
+  });
+
+  it('backfills the independent copy from a recent existing snapshot', async () => {
+    const { repository, database, backups } = await createServices();
+    await repository.replaceDocument(populatedDocument());
+    const snapshot = await backups.createSnapshot();
+    const values: Record<string, unknown> = {};
+    const upgraded = new BackupService(repository, database, {
+      now: () => NOW,
+      snapshotStorage: {
+        get: async (key) => ({ [key]: values[key] }),
+        set: async (items) => {
+          Object.assign(values, items);
+        },
+      },
+    });
+
+    expect(await upgraded.ensureDailySnapshot()).toBe(false);
+    expect(values.deckLatestSnapshot).toEqual(snapshot);
+
+    await repository.close();
+    (await database).close();
+  });
+
+  it('keeps invalid records in quarantine while live export remains strict', async () => {
+    const { repository, database } = await createServices();
+    await repository.replaceDocument(populatedDocument());
+    const handle = await database;
+    const corrupt = { ...card, title: 42 };
+    await handle.put('cards', corrupt as never);
+
+    expect(await repository.listCards()).toEqual([]);
+    expect(await repository.listCards()).toEqual([]);
+    expect(repository.getRecoveryIssueCount()).toBe(1);
+    expect(await handle.get('meta', `quarantine:cards:${card.id}`)).toEqual({
+      key: `quarantine:cards:${card.id}`,
+      value: corrupt,
+    });
+    await expect(repository.readDocument(NOW)).rejects.toThrow();
+
+    await repository.close();
+    handle.close();
+  });
+
   function servicesWithClock(clock: { now: number }) {
     const repository = new DeckRepository({
       databaseName: DATABASE_NAME,

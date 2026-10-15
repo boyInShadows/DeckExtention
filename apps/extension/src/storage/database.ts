@@ -3,6 +3,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 
 export const DATABASE_NAME = 'deck';
 export const DATABASE_VERSION = 1;
+export const ACTIVE_DATABASE_KEY = 'deckDb';
 
 export interface MetaRecord {
   key: string;
@@ -24,10 +25,24 @@ export interface DeckDatabase extends DBSchema {
 
 export type DeckDatabaseHandle = IDBPDatabase<DeckDatabase>;
 
-export function openDeckDatabase(
+export async function openDeckDatabase(
   name = DATABASE_NAME,
 ): Promise<DeckDatabaseHandle> {
-  return openDB<DeckDatabase>(name, DATABASE_VERSION, {
+  const activeName =
+    name === DATABASE_NAME &&
+    typeof chrome !== 'undefined' &&
+    chrome.storage?.local
+      ? (await chrome.storage.local.get(ACTIVE_DATABASE_KEY))[
+          ACTIVE_DATABASE_KEY
+        ]
+      : undefined;
+  if (
+    activeName !== undefined &&
+    (typeof activeName !== 'string' || !activeName.startsWith('deck-recovery-'))
+  ) {
+    throw new Error('Bad database');
+  }
+  return openDB<DeckDatabase>(activeName ?? name, DATABASE_VERSION, {
     upgrade(database) {
       database.createObjectStore('pages', { keyPath: 'id' });
       database.createObjectStore('decks', { keyPath: 'id' });

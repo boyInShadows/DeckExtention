@@ -415,6 +415,16 @@
     text-align: start;
   }
 
+  .deck-recovery-notice button,
+  .deck-recovery button {
+    padding: var(--deck-space-1) var(--deck-space-2);
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-glass);
+    color: inherit;
+    cursor: pointer;
+  }
+
   .deck-pin-menu button:hover {
     background: var(--deck-color-glass);
   }
@@ -626,6 +636,70 @@
     inset-block-end: var(--deck-space-3);
     max-inline-size: 30rem;
     color: var(--deck-color-danger);
+  }
+
+  .deck-recovery-notice {
+    position: fixed;
+    inset-inline-start: var(--deck-space-3);
+    inset-block-end: var(--deck-space-3);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: var(--deck-space-2);
+    max-inline-size: min(40rem, 90vw);
+    padding: var(--deck-space-2);
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-canvas-raised);
+    box-shadow: 0 1rem 2rem var(--deck-color-shadow);
+  }
+
+  .deck-recovery-notice p {
+    margin: 0;
+  }
+
+  .deck-recovery-notice button:disabled,
+  .deck-recovery button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+
+  .deck-recovery {
+    display: grid;
+    min-block-size: 100vh;
+    place-items: center;
+    padding: var(--deck-space-3);
+  }
+
+  .deck-recovery__panel {
+    inline-size: min(38rem, 100%);
+    padding: var(--deck-space-3);
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-canvas-raised);
+    box-shadow: 0 1rem 2rem var(--deck-color-shadow);
+  }
+
+  .deck-recovery__panel h1 {
+    margin-block-start: 0;
+  }
+
+  .deck-recovery__panel [role='alert'] {
+    color: var(--deck-color-danger);
+  }
+
+  .deck-recovery__actions,
+  .deck-recovery-snapshots li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--deck-space-2);
+  }
+
+  .deck-recovery-snapshots {
+    display: grid;
+    gap: var(--deck-space-2);
+    padding-inline-start: var(--deck-space-3);
   }
 
   .deck-workspace {

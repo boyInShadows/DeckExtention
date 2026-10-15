@@ -6,6 +6,19 @@ import { strings } from './strings';
  */
 export const panelStrings = {
   ...strings,
+  recoveryTitle: 'Deck could not read its data',
+  recoveryDetail:
+    'Your saved data is still on this device. Export a backup or restore a snapshot to continue.',
+  recoveryExport: 'Export now',
+  recoveryRestore: 'Restore this snapshot',
+  recoveryContinue: 'Continue with valid records',
+  recoveryOpenSettings: 'Open Settings',
+  recoveryNoSnapshots: 'No readable snapshots are available.',
+  recoveryRestoreWarning:
+    'Restoring a snapshot replaces the visible workspace. The original database is kept on this device.',
+  recoveryRecords: (count: number) =>
+    `${count} stored ${count === 1 ? 'record' : 'records'} could not be read. Open Settings › Backups to recover them.`,
+  dismiss: 'Dismiss',
   closeSettings: 'Close settings',
   appearance: 'Appearance',
   keys: 'Keys',

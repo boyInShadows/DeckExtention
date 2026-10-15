@@ -7,16 +7,17 @@ import {
   type Snapshot,
 } from 'deck-schema';
 
-import { type DeckDatabaseHandle } from './database';
+import { ACTIVE_DATABASE_KEY, type DeckDatabaseHandle } from './database';
 import {
   parseDocument,
   parseDocumentJson,
   serializeDocument,
   type DeckDocument,
 } from './document';
-import type { DeckRepository } from './repository';
+import { DeckRepository } from './repository';
 
 const SNAPSHOT_RETENTION = 7;
+const INDEPENDENT_SNAPSHOT_KEY = 'deckLatestSnapshot';
 export const SNAPSHOT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 export type ImportMode = 'merge' | 'replace';
@@ -37,6 +38,10 @@ export interface ExportResult {
 export interface BackupOptions {
   now?: () => number;
   createId?: () => string;
+  snapshotStorage?: {
+    get(key: string): Promise<Record<string, unknown>>;
+    set(items: Record<string, unknown>): Promise<void>;
+  } | null;
 }
 
 type VersionedDocument = { schemaVersion?: unknown };
@@ -74,6 +79,7 @@ export class BackupService {
   readonly #database: Promise<DeckDatabaseHandle>;
   readonly #now: () => number;
   readonly #createId: () => string;
+  readonly #snapshotStorage: BackupOptions['snapshotStorage'];
 
   constructor(
     repository: DeckRepository,
@@ -84,6 +90,12 @@ export class BackupService {
     this.#database = database;
     this.#now = options.now ?? Date.now;
     this.#createId = options.createId ?? (() => crypto.randomUUID());
+    this.#snapshotStorage =
+      options.snapshotStorage === undefined
+        ? typeof chrome !== 'undefined'
+          ? chrome.storage?.local
+          : null
+        : options.snapshotStorage;
   }
 
   async createSnapshot(): Promise<Snapshot> {
@@ -97,13 +109,24 @@ export class BackupService {
     const database = await this.#database;
     await database.put('snapshots', snapshot);
     await this.#trimSnapshots(database);
+    await this.#snapshotStorage?.set({ [INDEPENDENT_SNAPSHOT_KEY]: snapshot });
     return structuredClone(snapshot);
   }
 
   async ensureDailySnapshot(): Promise<boolean> {
     const latest = await this.#latestSnapshots();
-    if (latest[0] && this.#now() - latest[0].ts < SNAPSHOT_INTERVAL_MS)
+    const valid = latest.find((snapshot) => {
+      try {
+        parseDocumentJson(snapshot.blob);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    if (valid && this.#now() - valid.ts < SNAPSHOT_INTERVAL_MS) {
+      await this.#snapshotStorage?.set({ [INDEPENDENT_SNAPSHOT_KEY]: valid });
       return false;
+    }
     await this.createSnapshot();
     return true;
   }
@@ -115,11 +138,30 @@ export class BackupService {
   }
 
   async restoreSnapshot(id: string): Promise<void> {
-    const database = await this.#database;
-    const rawSnapshot = await database.get('snapshots', id);
-    const snapshot = SnapshotSchema.parse(rawSnapshot);
+    const snapshot = (await this.#latestSnapshots()).find(
+      (item) => item.id === id,
+    );
+    if (!snapshot) throw new Error('Snapshot not found');
     const document = migrateDocument(JSON.parse(snapshot.blob) as unknown);
     await this.#repository.replaceDocument(document);
+  }
+
+  async restoreToFreshDatabase(id: string): Promise<void> {
+    if (!this.#snapshotStorage)
+      throw new Error('Independent snapshot storage is unavailable');
+    const snapshot = (await this.#latestSnapshots()).find(
+      (item) => item.id === id,
+    );
+    if (!snapshot) throw new Error('Snapshot not found');
+    const document = migrateDocument(JSON.parse(snapshot.blob) as unknown);
+    const name = `deck-recovery-${this.#createId()}`;
+    const repository = new DeckRepository({ databaseName: name });
+    try {
+      await repository.replaceDocument(document);
+      await this.#snapshotStorage.set({ [ACTIVE_DATABASE_KEY]: name });
+    } finally {
+      await repository.close();
+    }
   }
 
   async exportData(): Promise<ExportResult> {
@@ -127,7 +169,16 @@ export class BackupService {
       const document = await this.#repository.readDocument(this.#now());
       return { document, json: serializeDocument(document), source: 'live' };
     } catch (liveError) {
-      const snapshots = await this.#latestSnapshots();
+      let snapshots: Snapshot[];
+      try {
+        snapshots = await this.#latestSnapshots();
+      } catch (snapshotAccessError) {
+        throw new AggregateError(
+          [liveError, snapshotAccessError],
+          'Live data and snapshots cannot be read',
+          { cause: snapshotAccessError },
+        );
+      }
       const failures: unknown[] = [liveError];
       for (const snapshot of snapshots) {
         try {
@@ -213,12 +264,39 @@ export class BackupService {
   }
 
   async #latestSnapshots(): Promise<Snapshot[]> {
-    const database = await this.#database;
-    const values = await database.getAllFromIndex('snapshots', 'by-ts');
+    let values: unknown[] = [];
+    let databaseError: unknown;
+    try {
+      const database = await this.#database;
+      values = await database.getAllFromIndex('snapshots', 'by-ts');
+    } catch (error) {
+      databaseError = error;
+    }
+    if (this.#snapshotStorage) {
+      try {
+        const stored = await this.#snapshotStorage.get(
+          INDEPENDENT_SNAPSHOT_KEY,
+        );
+        if (stored[INDEPENDENT_SNAPSHOT_KEY])
+          values = [...values, stored[INDEPENDENT_SNAPSHOT_KEY]];
+      } catch (error) {
+        if (databaseError)
+          throw new AggregateError(
+            [databaseError, error],
+            'Neither snapshot store can be read',
+            { cause: error },
+          );
+      }
+    }
+    if (databaseError && values.length === 0) throw databaseError;
     return values
       .map((value) => SnapshotSchema.safeParse(value))
       .filter((result) => result.success)
       .map((result) => result.data)
+      .filter(
+        (snapshot, index, snapshots) =>
+          snapshots.findIndex((item) => item.id === snapshot.id) === index,
+      )
       .toSorted((a, b) => b.ts - a.ts);
   }
 

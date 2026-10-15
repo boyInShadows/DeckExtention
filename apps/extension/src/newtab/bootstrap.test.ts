@@ -1,10 +1,17 @@
 import 'fake-indexeddb/auto';
 
-import { INBOX_DECK_ID, type Card, type Deck, type Page } from 'deck-schema';
+import {
+  INBOX_DECK_ID,
+  SETTINGS_DEFAULTS,
+  type Card,
+  type Deck,
+  type Page,
+} from 'deck-schema';
 import { deleteDB } from 'idb';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { DeckRepository } from '../storage/repository';
+import { openDeckDatabase } from '../storage/database';
 import { hydrateSurface } from './bootstrap';
 
 const DATABASE_NAME = 'deck-bootstrap-test';
@@ -122,5 +129,44 @@ describe('hydrateSurface', () => {
     expect(pages).toContainEqual({ ...page, deletedAt: 9 });
     const deck = data.decks.find(({ id }) => id === data.defaultDeckId);
     expect(pages.find(({ id }) => id === deck?.pageId)?.deletedAt).toBeNull();
+  });
+
+  it('renders valid records and reports a corrupt card without deleting it', async () => {
+    const store = openRepository();
+    await store.upsertPage(page);
+    await store.upsertDeck({ ...trashedDeck, deletedAt: null });
+    const database = await openDeckDatabase(DATABASE_NAME);
+    const corrupt = { ...editedExample, id: 'seed0' };
+    await database.put('cards', corrupt as never);
+
+    const data = await hydrateSurface(store);
+
+    expect(data.pages).toEqual([page]);
+    expect(data.cards).toEqual([]);
+    expect(store.getRecoveryIssueCount()).toBe(1);
+    expect(await database.get('cards', 'seed0')).toEqual(corrupt);
+    database.close();
+  });
+
+  it('uses safe settings and a valid page when stored settings and a deck are corrupt', async () => {
+    const store = openRepository();
+    await store.upsertPage(page);
+    await store.upsertDeck({ ...trashedDeck, deletedAt: null });
+    const database = await openDeckDatabase(DATABASE_NAME);
+    await database.put('decks', { ...trashedDeck, title: 42 } as never);
+    await database.put('meta', {
+      key: 'settings',
+      value: { ...SETTINGS_DEFAULTS, ownerName: 42 },
+    });
+
+    const data = await hydrateSurface(store);
+
+    expect(data.pages).toContainEqual(page);
+    expect(data.settings).toEqual(SETTINGS_DEFAULTS);
+    expect(store.getRecoveryIssueCount()).toBe(2);
+    expect(await database.get('decks', trashedDeck.id)).toMatchObject({
+      title: 42,
+    });
+    database.close();
   });
 });

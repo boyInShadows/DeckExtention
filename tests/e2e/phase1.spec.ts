@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { SETTINGS_DEFAULTS } from '../../packages/schema/src/settings';
 
 import { expectWithinBudget } from './coverage';
 import { launchExtension } from './extension';
@@ -60,6 +61,129 @@ test('surface persists a pin, exports data, and stays fast when warm', async ({
     const sortedTimings = timings.toSorted((left, right) => left - right);
     const medianTiming = sortedTimings[Math.floor(sortedTimings.length / 2)];
     expectWithinBudget('surface median ms', medianTiming, { max: 60 });
+  } finally {
+    await context.close();
+  }
+});
+
+test('a corrupt card leaves the new tab usable and exportable', async () => {
+  const context = await launchExtension();
+  try {
+    const page = await context.newPage();
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector(READY_SELECTOR);
+    await page.evaluate(async (defaultSettings) => {
+      const request = <T>(operation: IDBRequest<T>) =>
+        new Promise<T>((resolve, reject) => {
+          operation.onsuccess = () => resolve(operation.result);
+          operation.onerror = () => reject(operation.error);
+        });
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const operation = indexedDB.open('deck');
+        operation.onsuccess = () => resolve(operation.result);
+        operation.onerror = () => reject(operation.error);
+      });
+      const [pages, decks, cards, settings] = await Promise.all([
+        request(database.transaction('pages').objectStore('pages').getAll()),
+        request(database.transaction('decks').objectStore('decks').getAll()),
+        request(database.transaction('cards').objectStore('cards').getAll()),
+        request(
+          database.transaction('meta').objectStore('meta').get('settings'),
+        ),
+      ]);
+      const now = Date.now();
+      await chrome.storage.local.set({
+        deckLatestSnapshot: {
+          id: 'snapshot_e2e',
+          ts: now,
+          schemaVersion: 1,
+          blob: JSON.stringify({
+            schemaVersion: 1,
+            exportedAt: now,
+            pages,
+            decks,
+            cards,
+            settings: settings?.value ?? defaultSettings,
+          }),
+        },
+      });
+      const transaction = database.transaction('cards', 'readwrite');
+      await request(
+        transaction.objectStore('cards').put({
+          ...cards[0],
+          id: 'seed0',
+        }),
+      );
+      database.close();
+    }, SETTINGS_DEFAULTS);
+
+    await page.reload();
+    await page.waitForSelector(READY_SELECTOR);
+    await expect(page.locator('[data-deck="clock"]')).toBeVisible();
+    await expect(page.locator('[data-deck="recovery-notice"]')).toBeVisible();
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByLabel('Settings').click();
+    await page.getByRole('button', { name: 'Export data' }).click();
+    expect((await downloadPromise).suggestedFilename()).toMatch(
+      /^deck-.*\.json$/,
+    );
+    page.once('dialog', (dialog) => void dialog.accept());
+    const restored = page.waitForEvent('load').then(() => null);
+    const restoreFailure = page
+      .locator('[data-deck="settings"] [role="alert"]')
+      .waitFor()
+      .then(() =>
+        page.locator('[data-deck="settings"] [role="alert"]').textContent(),
+      );
+    await page
+      .getByRole('button', { name: /^Restore ·/ })
+      .first()
+      .click({ noWaitAfter: true });
+    expect(await Promise.race([restored, restoreFailure])).toBeNull();
+    await expect(page.locator('[data-deck="clock"]')).toBeVisible();
+    await expect(page.locator('[data-deck="recovery-notice"]')).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
+
+test('an unavailable IndexedDB opens recovery and exports the independent snapshot', async () => {
+  const context = await launchExtension();
+  try {
+    const page = await context.newPage();
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector(READY_SELECTOR);
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const stored = await chrome.storage.local.get('deckLatestSnapshot');
+          return Boolean(stored.deckLatestSnapshot);
+        }),
+      )
+      .toBe(true);
+    await page.addInitScript(() => {
+      const originalOpen = indexedDB.open.bind(indexedDB);
+      indexedDB.open = ((name: string, version?: number) => {
+        if (name === 'deck') throw new Error('IndexedDB unavailable');
+        return originalOpen(name, version);
+      }) as typeof indexedDB.open;
+    });
+
+    await page.reload();
+    await expect(page.locator('[data-deck="recovery"]')).toBeVisible();
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Export now' }).click();
+    expect((await downloadPromise).suggestedFilename()).toMatch(
+      /^deck-.*\.json$/,
+    );
+    await page
+      .getByRole('button', { name: 'Restore this snapshot' })
+      .first()
+      .click({ noWaitAfter: true });
+    await expect(page.locator('[data-deck="clock"]')).toBeVisible();
+    const restored = await context.newPage();
+    await restored.goto('chrome://newtab/');
+    await expect(restored.locator('[data-deck="clock"]')).toBeVisible();
   } finally {
     await context.close();
   }
