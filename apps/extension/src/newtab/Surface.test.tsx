@@ -40,7 +40,7 @@ vi.mock('../drawer/drawer', () => ({ default: StubDrawer }));
  */
 vi.mock('../drawer/WorkspaceDnd', () => ({ WorkspaceDnd: StubDnd }));
 
-const DRAWER_EXIT_MS = 320;
+const DRAWER_EXIT_MS = 480;
 const CLOCK_TICK_MS = 1_000;
 const MORNING = new Date(2026, 0, 2, 9, 0, 0);
 const EVENING = new Date(2026, 0, 2, 20, 0, 0);
@@ -215,7 +215,12 @@ function surfaceData(
 const frames = new Map<number, FrameRequestCallback>();
 const idles = new Map<number, IdleRequestCallback>();
 let nextHandle = 1;
-let messageListeners: ((message: unknown) => void)[] = [];
+type MessageListener = (
+  message: unknown,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response: boolean) => void,
+) => boolean | undefined;
+let messageListeners: MessageListener[] = [];
 let storageGet = vi.fn(() => Promise.resolve<Record<string, unknown>>({}));
 const storageRemove = vi.fn(() => Promise.resolve());
 const cancelIdle = vi.fn((handle: number) => idles.delete(handle));
@@ -233,13 +238,14 @@ function stubBrowser(): void {
   });
   vi.stubGlobal('cancelIdleCallback', cancelIdle);
   vi.stubGlobal('chrome', {
+    tabs: { getCurrent: () => Promise.resolve({ id: 7 }) },
     storage: { local: { get: storageGet, remove: storageRemove } },
     runtime: {
       onMessage: {
-        addListener: (listener: (message: unknown) => void) => {
+        addListener: (listener: MessageListener) => {
           messageListeners = [...messageListeners, listener];
         },
-        removeListener: (listener: (message: unknown) => void) => {
+        removeListener: (listener: MessageListener) => {
           messageListeners = messageListeners.filter(
             (item) => item !== listener,
           );
@@ -597,19 +603,23 @@ describe('Surface drawer', () => {
 
   it('toggles on the background toggle message and ignores others', async () => {
     const view = await mount(surfaceData());
+    const replies: boolean[] = [];
     const send = async (message: unknown) => {
       await view.act(() => {
-        for (const listener of messageListeners) listener(message);
+        for (const listener of messageListeners)
+          listener(message, {}, (reply: boolean) => replies.push(reply));
       });
       await settle(view);
     };
-    for (const ignored of [null, 'deck:toggle-drawer', {}, { type: 'other' }])
+    for (const ignored of [null, 'deck:d', {}, { type: 'other' }])
       await send(ignored);
+    await send({ drawer: 8 });
     expect(drawer(view)).toBeNull();
 
-    await send({ type: 'deck:toggle-drawer' });
+    await send({ drawer: 7 });
     await flushFrames(view);
     expect(drawer(view)?.dataset.open).toBe('true');
+    expect(replies).toEqual([true]);
     view.unmount();
     expect(messageListeners).toHaveLength(0);
   });

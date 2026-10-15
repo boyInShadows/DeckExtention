@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { isTypingTarget } from '../keys/keymap';
+import { playSpring } from '../motion/spring';
 
 const TOAST_DURATION_MS = 4_000;
 
@@ -79,6 +80,12 @@ function Toast({
   dismiss: (id: string) => void;
   run: (notice: Notice) => Promise<void>;
 }) {
+  const toastRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const animation =
+      toastRef.current && playSpring(toastRef.current, true, '1rem', true);
+    return () => animation?.cancel();
+  }, []);
   useEffect(() => {
     if (notice.kind === 'error') return;
     const timer = window.setTimeout(
@@ -90,6 +97,7 @@ function Toast({
 
   return (
     <div
+      ref={toastRef}
       data-deck="toast"
       data-kind={notice.kind}
       role={notice.kind === 'error' ? 'alert' : 'status'}

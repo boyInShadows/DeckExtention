@@ -12,11 +12,13 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
 import { focusOnMount } from '../newtab/focusOnMount';
+import { playSpring } from '../motion/spring';
 import type { UndoAction } from './UndoToast';
 import {
   activePages,
   DRAWER_PAGE_KEY,
   DRAWER_SCROLL_KEY,
+  DRAWER_CONTENT_SCROLL_KEY,
   INBOX_PAGE_ID,
   TRASH_PAGE_ID,
   pageIdFromHash,
@@ -38,6 +40,11 @@ import { WORKSPACE_DROP_EVENT, type WorkspaceDropDetail } from './WorkspaceDnd';
 
 function currentTimestamp(): number {
   return Date.now();
+}
+
+function focusPageName(element: HTMLInputElement | null): void {
+  element?.focus();
+  element?.select();
 }
 
 interface DrawerProps {
@@ -63,12 +70,22 @@ function SortablePage({
   onSelect,
   onRename,
   onDelete,
+  isEditing,
+  editValue,
+  onEditValue,
+  onCommit,
+  onCancel,
 }: {
   page: Page;
   isSelected: boolean;
   onSelect: () => void;
   onRename: () => void;
   onDelete: () => void;
+  isEditing: boolean;
+  editValue: string;
+  onEditValue: (value: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
 }) {
   const {
     attributes,
@@ -79,6 +96,21 @@ function SortablePage({
     isDragging,
     isOver,
   } = useSortable({ id: dragId('page', page.id) });
+  if (isEditing)
+    return (
+      <input
+        ref={focusPageName}
+        data-deck="page-name"
+        aria-label={strings.renamePagePrompt}
+        value={editValue}
+        onChange={(event) => onEditValue(event.currentTarget.value)}
+        onBlur={onCommit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') onCommit();
+          if (event.key === 'Escape') onCancel();
+        }}
+      />
+    );
   return (
     <button
       ref={setNodeRef}
@@ -90,6 +122,16 @@ function SortablePage({
       data-drag-over={isOver || undefined}
       onClick={onSelect}
       onDoubleClick={onRename}
+      onKeyDown={(event) => {
+        if (event.key === 'F2') {
+          event.preventDefault();
+          onRename();
+        }
+        if (event.key === 'Delete') {
+          event.preventDefault();
+          onDelete();
+        }
+      }}
       onContextMenu={(event) => {
         event.preventDefault();
         onDelete();
@@ -137,11 +179,23 @@ export default function Drawer({
   );
   const [isPagesLoaded, setIsPagesLoaded] = useState(false);
   const [deletingPage, setDeletingPage] = useState<Page | null>(null);
+  const [editingPageId, setEditingPageId] = useState<string | null>(null);
+  const [pageTitle, setPageTitle] = useState('');
   const orderedPages = useMemo(() => activePages(pages), [pages]);
   const [selectedId, setSelectedId] = useState(() =>
     selectedPageId(pages, requestedPageId()),
   );
   const scrollRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const drawerAnimation = useRef<Animation | null>(null);
+
+  useLayoutEffect(() => {
+    drawerAnimation.current?.cancel();
+    if (drawerRef.current)
+      drawerAnimation.current = playSpring(drawerRef.current, isOpen, '100%');
+  }, [isOpen]);
+
+  useEffect(() => () => drawerAnimation.current?.cancel(), []);
   const inbox = decks.find((deck) => deck.kind === 'inbox');
   const inboxCount = cards.filter(
     (card) =>
@@ -153,7 +207,7 @@ export default function Drawer({
 
   const selectPage = (id: string) => {
     setSelectedId(id);
-    sessionStorage.setItem(DRAWER_PAGE_KEY, id);
+    localStorage.setItem(DRAWER_PAGE_KEY, id);
   };
 
   // Opening hands the drawer the keyboard (a key typed next must reach the
@@ -171,7 +225,7 @@ export default function Drawer({
   useEffect(() => {
     const linked = pageIdFromHash(location.hash);
     if (!linked) return;
-    sessionStorage.setItem(DRAWER_PAGE_KEY, linked);
+    if (linked !== 'last') localStorage.setItem(DRAWER_PAGE_KEY, linked);
     history.replaceState(null, '', location.pathname);
   }, []);
 
@@ -224,8 +278,17 @@ export default function Drawer({
     const container = scrollRef.current;
     if (!container || !isPagesLoaded) return;
     container.scrollTop = restoredScroll(
-      sessionStorage.getItem(DRAWER_SCROLL_KEY),
+      localStorage.getItem(DRAWER_SCROLL_KEY),
     );
+  }, [isPagesLoaded]);
+
+  useEffect(() => {
+    if (!isPagesLoaded) return;
+    const content = document.querySelector<HTMLElement>('[data-deck="decks"]');
+    if (content)
+      content.scrollTop = restoredScroll(
+        localStorage.getItem(DRAWER_CONTENT_SCROLL_KEY),
+      );
   }, [isPagesLoaded]);
 
   useLayoutEffect(() => {
@@ -255,14 +318,14 @@ export default function Drawer({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  });
+  }, [isOpen, keymap, orderedPages, selectedId]);
 
   const addPage = async () => {
     try {
       const now = currentTimestamp();
       const page = await data.repository.upsertPage({
         id: crypto.randomUUID(),
-        title: strings.newPage,
+        title: strings.untitledPage(orderedPages.length + 1),
         order: generateKeyBetween(orderedPages.at(-1)?.order ?? null, null),
         createdAt: now,
         updatedAt: now,
@@ -270,14 +333,16 @@ export default function Drawer({
       });
       onPagesChange([...pages, page]);
       selectPage(page.id);
+      setEditingPageId(page.id);
+      setPageTitle(page.title);
       onSuccess?.(strings.pageSaved);
     } catch (pageError) {
       onError(errorMessage(pageError));
     }
   };
 
-  const renamePage = async (page: Page) => {
-    const title = window.prompt(strings.renamePagePrompt, page.title)?.trim();
+  const renamePage = async (page: Page, proposedTitle: string) => {
+    const title = proposedTitle.trim();
     if (!title || title === page.title) return;
     try {
       const saved = await data.repository.upsertPage({
@@ -290,6 +355,16 @@ export default function Drawer({
     } catch (pageError) {
       onError(errorMessage(pageError));
     }
+  };
+
+  const beginRename = (page: Page) => {
+    setEditingPageId(page.id);
+    setPageTitle(page.title);
+  };
+
+  const commitRename = (page: Page) => {
+    setEditingPageId(null);
+    void renamePage(page, pageTitle);
   };
 
   const refreshWorkspace = async () => {
@@ -369,22 +444,31 @@ export default function Drawer({
 
   return (
     <section
+      ref={drawerRef}
       data-deck="drawer"
       className="deck-drawer"
       data-open={isOpen || undefined}
       aria-label={strings.drawer}
+      onScrollCapture={(event) => {
+        if ((event.target as HTMLElement).dataset.deck === 'decks')
+          localStorage.setItem(
+            DRAWER_CONTENT_SCROLL_KEY,
+            String((event.target as HTMLElement).scrollTop),
+          );
+      }}
     >
       <PinDropZone />
+      <button
+        type="button"
+        data-deck="drawer-close"
+        onClick={onClose}
+        aria-label={strings.closeDrawer}
+      >
+        ×
+      </button>
       <aside data-deck="pages" className="deck-pages">
         <header>
           <h2>{strings.pages}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={strings.closeDrawer}
-          >
-            ×
-          </button>
         </header>
         <button
           type="button"
@@ -409,7 +493,7 @@ export default function Drawer({
           ref={scrollRef}
           className="deck-pages__scroll"
           onScroll={(event) =>
-            sessionStorage.setItem(
+            localStorage.setItem(
               DRAWER_SCROLL_KEY,
               String(event.currentTarget.scrollTop),
             )
@@ -425,7 +509,12 @@ export default function Drawer({
                 page={page}
                 isSelected={selectedId === page.id}
                 onSelect={() => selectPage(page.id)}
-                onRename={() => void renamePage(page)}
+                onRename={() => beginRename(page)}
+                isEditing={editingPageId === page.id}
+                editValue={pageTitle}
+                onEditValue={setPageTitle}
+                onCommit={() => commitRename(page)}
+                onCancel={() => setEditingPageId(null)}
                 onDelete={() => setDeletingPage(page)}
               />
             ))}
@@ -560,9 +649,10 @@ function PageDeleteSheet({
 
 /** A `#page=<id>` link (from Quick Save's "open Deck") beats the last page. */
 function requestedPageId(): string | null {
-  return (
-    pageIdFromHash(location.hash) ?? sessionStorage.getItem(DRAWER_PAGE_KEY)
-  );
+  const linked = pageIdFromHash(location.hash);
+  return linked && linked !== 'last'
+    ? linked
+    : localStorage.getItem(DRAWER_PAGE_KEY);
 }
 
 function errorMessage(error: unknown): string {

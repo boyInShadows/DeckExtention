@@ -349,14 +349,17 @@ test('drawer triggers and page state survive repeated open and close cycles', as
     await expect(drawer).toBeVisible();
     await expect(page.locator('[data-deck="pages"]')).toContainText('Inbox');
     await page.getByLabel('Add page').click();
+    await expect(page.locator('[data-deck="page-name"]')).toHaveValue('Page 2');
+    await page.locator('[data-deck="page-name"]').press('Enter');
     const selectedPage = page.locator('[data-deck="page"][data-selected]');
-    await expect(selectedPage).toContainText('New page');
+    await expect(selectedPage).toContainText('Page 2');
     await page.getByLabel('Close Deck drawer').click();
     await page.getByLabel('Open Deck drawer').click();
-    await expect(selectedPage).toContainText('New page');
+    await expect(selectedPage).toContainText('Page 2');
 
     for (let index = 0; index < 18; index += 1) {
       await page.getByLabel('Add page').click();
+      await page.locator('[data-deck="page-name"]').press('Enter');
     }
     const pageRail = page.locator('.deck-pages__scroll');
     await pageRail.evaluate((element) => {

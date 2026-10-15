@@ -147,6 +147,7 @@
   --deck-drawer-rail: 13.75rem;
   --deck-drawer-peek: 3rem;
   --deck-drawer-blur: 0.5rem;
+  --deck-drawer-scrim: rgb(0 0 0 / 40%);
   --deck-drawer-duration: 320ms;
   --deck-drawer-ease: cubic-bezier(0.2, 0.9, 0.25, 1);
 }

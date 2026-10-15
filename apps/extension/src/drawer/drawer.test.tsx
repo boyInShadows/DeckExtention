@@ -29,6 +29,7 @@ import type { UndoAction } from './UndoToast';
 import {
   DRAWER_PAGE_KEY,
   DRAWER_SCROLL_KEY,
+  DRAWER_CONTENT_SCROLL_KEY,
   INBOX_PAGE_ID,
 } from './drawerModel';
 import { WORKSPACE_DROP_EVENT } from './WorkspaceDnd';
@@ -285,7 +286,7 @@ describe('Drawer - loading', () => {
   });
 
   it('reopens the page remembered for this tab', async () => {
-    sessionStorage.setItem(DRAWER_PAGE_KEY, 'page_2');
+    localStorage.setItem(DRAWER_PAGE_KEY, 'page_2');
     const { view } = await mount();
     await eventually(view, () => expect(selectedTitle(view)).toBe('Home'));
     view.unmount();
@@ -299,20 +300,35 @@ describe('Drawer - loading', () => {
     );
     const { view } = await mount();
     await eventually(view, () => expect(selectedTitle(view)).toBe('Home'));
-    expect(sessionStorage.getItem(DRAWER_PAGE_KEY)).toBe('page_2');
+    expect(localStorage.getItem(DRAWER_PAGE_KEY)).toBe('page_2');
     expect(location.hash).toBe('');
     view.unmount();
   });
 
   it('restores the rail scroll and remembers new scrolling', async () => {
-    sessionStorage.setItem(DRAWER_SCROLL_KEY, String(SAVED_SCROLL));
+    localStorage.setItem(DRAWER_SCROLL_KEY, String(SAVED_SCROLL));
     const { view } = await mount();
     const rail = view.get('.deck-pages__scroll');
     await eventually(view, () => expect(rail.scrollTop).toBe(SAVED_SCROLL));
 
     rail.scrollTop = SAVED_SCROLL * 2;
     rail.dispatchEvent(new Event('scroll'));
-    expect(sessionStorage.getItem(DRAWER_SCROLL_KEY)).toBe(
+    expect(localStorage.getItem(DRAWER_SCROLL_KEY)).toBe(
+      String(SAVED_SCROLL * 2),
+    );
+    view.unmount();
+  });
+
+  it('restores the main workspace scroll across drawer mounts', async () => {
+    localStorage.setItem(DRAWER_CONTENT_SCROLL_KEY, String(SAVED_SCROLL));
+    const { view } = await mount();
+    const workspace = view.get('[data-deck="decks"]');
+    await eventually(view, () =>
+      expect(workspace.scrollTop).toBe(SAVED_SCROLL),
+    );
+    workspace.scrollTop = SAVED_SCROLL * 2;
+    workspace.dispatchEvent(new Event('scroll', { bubbles: true }));
+    expect(localStorage.getItem(DRAWER_CONTENT_SCROLL_KEY)).toBe(
       String(SAVED_SCROLL * 2),
     );
     view.unmount();
@@ -344,12 +360,12 @@ describe('Drawer - rail', () => {
     const { view } = await mount();
     await view.act(() => click(view.getByText('Home')));
     expect(selectedTitle(view)).toBe('Home');
-    expect(sessionStorage.getItem(DRAWER_PAGE_KEY)).toBe('page_2');
+    expect(localStorage.getItem(DRAWER_PAGE_KEY)).toBe('page_2');
     expect(view.get('[data-deck="deck"]').textContent).toContain('Chores');
 
     await view.act(() => click(inboxButton(view)));
     expect(inboxButton(view).dataset.selected).toBe('true');
-    expect(sessionStorage.getItem(DRAWER_PAGE_KEY)).toBe(INBOX_PAGE_ID);
+    expect(localStorage.getItem(DRAWER_PAGE_KEY)).toBe(INBOX_PAGE_ID);
     expect(view.query('[data-deck="inbox"]')).not.toBeNull();
     expect(view.query('[data-deck="decks"]')).toBeNull();
     view.unmount();
@@ -374,17 +390,29 @@ describe('Drawer - rail', () => {
     view.unmount();
   });
 
-  it('adds a page at the end of the rail and opens it', async () => {
+  it('adds a page at the end of the rail in edit mode', async () => {
     const { view } = await mount();
     await view.act(() => click(view.getByLabel(strings.addPage)));
     await eventually(view, () =>
-      expect(railTitles(view)).toEqual(['Work', 'Home', strings.newPage]),
+      expect(view.get('[data-deck="page-name"]')).toBe(document.activeElement),
     );
-    expect(selectedTitle(view)).toBe(strings.newPage);
-    const stored = await repository.listPages();
     expect(
-      stored.filter(({ title }) => title === strings.newPage),
-    ).toHaveLength(1);
+      (view.get('[data-deck="page-name"]') as HTMLInputElement).value,
+    ).toBe('Page 3');
+    await view.act(() => {
+      const input = view.get('[data-deck="page-name"]') as HTMLInputElement;
+      input.value = 'Projects';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await view.act(() => {
+      keyDown(view.get('[data-deck="page-name"]'), 'Enter');
+    });
+    await eventually(view, () =>
+      expect(railTitles(view)).toEqual(['Work', 'Home', 'Projects']),
+    );
+    expect(selectedTitle(view)).toBe('Projects');
+    const stored = await repository.listPages();
+    expect(stored.some(({ title }) => title === 'Projects')).toBe(true);
     view.unmount();
   });
 
@@ -397,7 +425,9 @@ describe('Drawer - rail', () => {
     );
     await view.act(() => click(view.getByLabel(strings.addPage)));
     await eventually(view, () =>
-      expect(railTitles(view)).toEqual([strings.newPage]),
+      expect(
+        (view.get('[data-deck="page-name"]') as HTMLInputElement).value,
+      ).toBe('Page 1'),
     );
     view.unmount();
   });
@@ -504,6 +534,15 @@ describe('Drawer - Trash', () => {
 });
 
 describe('Drawer - page deletion', () => {
+  it('opens the page delete sheet from the keyboard', async () => {
+    const { view } = await mount();
+    const page = view.getByText('Home');
+    await view.act(() => page.focus());
+    await press(view, 'Delete');
+    expect(view.get('[data-deck="page-delete-sheet"]')).not.toBeNull();
+    view.unmount();
+  });
+
   it('moves a page’s decks to another page before deleting it', async () => {
     const { view, offerUndo } = await mount();
     await view.act(() => {
@@ -576,20 +615,32 @@ describe('Drawer - renaming pages', () => {
     element.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
   }
 
-  it('renames on double-click and ignores a cancelled or unchanged name', async () => {
-    const prompt = vi.fn<(message: string, value: string) => string | null>();
-    vi.stubGlobal('prompt', prompt);
+  it('renames inline on double-click or F2 and ignores a cancelled or unchanged name', async () => {
     const { view, onPagesChange } = await mount();
     const calls = onPagesChange.mock.calls.length;
 
-    prompt.mockReturnValueOnce(null).mockReturnValueOnce('Work ');
     await view.act(() => doubleClick(view.getByText('Work')));
-    await view.act(() => doubleClick(view.getByText('Work')));
-    expect(prompt).toHaveBeenCalledWith(strings.renamePagePrompt, 'Work');
+    expect(document.activeElement).toBe(view.get('[data-deck="page-name"]'));
+    await view.act(() => {
+      keyDown(view.get('[data-deck="page-name"]'), 'Escape');
+    });
+    await view.act(() => {
+      keyDown(view.getByText('Work'), 'F2');
+    });
+    await view.act(() => {
+      keyDown(view.get('[data-deck="page-name"]'), 'Enter');
+    });
     expect(onPagesChange).toHaveBeenCalledTimes(calls);
 
-    prompt.mockReturnValueOnce(' Office ');
     await view.act(() => doubleClick(view.getByText('Work')));
+    await view.act(() => {
+      const input = view.get('[data-deck="page-name"]') as HTMLInputElement;
+      input.value = ' Office ';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await view.act(() => {
+      keyDown(view.get('[data-deck="page-name"]'), 'Enter');
+    });
     await eventually(view, () =>
       expect(railTitles(view)).toEqual(['Office', 'Home']),
     );
@@ -599,13 +650,17 @@ describe('Drawer - renaming pages', () => {
   });
 
   it('reports a rename the repository refuses', async () => {
-    vi.stubGlobal(
-      'prompt',
-      vi.fn(() => 'Office'),
-    );
     const { view, onError } = await mount();
     vi.spyOn(repository, 'upsertPage').mockRejectedValue(FAILURE);
     await view.act(() => doubleClick(view.getByText('Work')));
+    await view.act(() => {
+      const input = view.get('[data-deck="page-name"]') as HTMLInputElement;
+      input.value = 'Office';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await view.act(() => {
+      keyDown(view.get('[data-deck="page-name"]'), 'Enter');
+    });
     await eventually(view, () =>
       expect(onError).toHaveBeenCalledWith(FAILED_MESSAGE),
     );

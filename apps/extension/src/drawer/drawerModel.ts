@@ -4,6 +4,7 @@ import { compareOrder } from './workspaceModel';
 
 export const DRAWER_PAGE_KEY = 'deck:last-page';
 export const DRAWER_SCROLL_KEY = 'deck:drawer-scroll';
+export const DRAWER_CONTENT_SCROLL_KEY = 'deck:drawer-content-scroll';
 export const INBOX_PAGE_ID = 'inbox';
 export const TRASH_PAGE_ID = 'trash';
 

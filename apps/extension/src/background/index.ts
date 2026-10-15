@@ -17,6 +17,7 @@ import { ACTIVE_DATABASE_KEY, openDeckDatabase } from '../storage/database';
 import { DeckRepository } from '../storage/repository';
 import { purgeDeleted } from '../storage/trashMaintenance';
 import { handleToastDecision, quickSave } from './quickSave';
+import { toggleDrawer } from './toggleDrawer';
 
 let repository = new DeckRepository();
 let backups = new BackupService(repository, openDeckDatabase());
@@ -89,15 +90,5 @@ chrome.commands.onCommand.addListener((command, tab) => {
     return;
   }
   if (command !== 'toggle-drawer') return;
-  void chrome.runtime
-    .sendMessage({ type: 'deck:toggle-drawer' })
-    .catch(async (messageError: unknown) => {
-      const message =
-        messageError instanceof Error
-          ? messageError.message
-          : String(messageError);
-      await chrome.storage.local.set({
-        drawerCommandError: { message, occurredAt: Date.now() },
-      });
-    });
+  void toggleDrawer(tab);
 });

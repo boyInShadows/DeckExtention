@@ -33,6 +33,7 @@ beforeEach(() => {
   vi.stubGlobal('requestIdleCallback', schedule);
   vi.stubGlobal('cancelIdleCallback', vi.fn());
   vi.stubGlobal('chrome', {
+    tabs: { getCurrent: () => Promise.resolve({ id: 7 }) },
     storage: { local: { get: () => Promise.resolve({}), remove: vi.fn() } },
     runtime: { onMessage: { addListener: vi.fn(), removeListener: vi.fn() } },
   });

@@ -38,7 +38,8 @@ test('pins have inline editing, an anchored keyboard menu, and a letter fallback
 
     await pin.press('Space');
     await expect(pin).toHaveAttribute('data-dragging', 'true');
-    await page.keyboard.press('Escape');
+    await expect(pin).toBeFocused();
+    await pin.press('Escape');
     await expect(pin).not.toHaveAttribute('data-dragging', 'true');
 
     await pin.press('ContextMenu');

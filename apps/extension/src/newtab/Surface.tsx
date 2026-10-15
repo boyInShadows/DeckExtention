@@ -32,7 +32,7 @@ const loadDrawer = () => import('../drawer/drawer');
 const Drawer = lazy(loadDrawer);
 const ToastStack = lazy(() => import('./ToastStack'));
 const CLOCK_UPDATE_MS = 1_000;
-const DRAWER_EXIT_MS = 320;
+const DRAWER_EXIT_MS = 480;
 const BRIGHT_WALLPAPER_THRESHOLD = 0.18;
 
 export interface SurfaceProps {
@@ -91,15 +91,14 @@ export function Surface({ initialData }: SurfaceProps) {
     [notify],
   );
   const drawerExitTimer = useRef<number | null>(null);
+  const tabId = useRef(0);
 
   const openDrawer = useCallback(() => {
-    if (drawerExitTimer.current !== null) {
-      window.clearTimeout(drawerExitTimer.current);
-      drawerExitTimer.current = null;
-    }
+    clearTimeout(drawerExitTimer.current ?? 0);
+    drawerExitTimer.current = null;
     setIsSettingsOpen(false);
     setIsDrawerMounted(true);
-    window.requestAnimationFrame(() => setIsDrawerOpen(true));
+    requestAnimationFrame(() => setIsDrawerOpen(true));
   }, []);
 
   const closeDrawer = useCallback(() => {
@@ -112,9 +111,7 @@ export function Surface({ initialData }: SurfaceProps) {
 
   useEffect(
     () => () => {
-      if (drawerExitTimer.current !== null) {
-        window.clearTimeout(drawerExitTimer.current);
-      }
+      clearTimeout(drawerExitTimer.current ?? 0);
     },
     [],
   );
@@ -186,25 +183,25 @@ export function Surface({ initialData }: SurfaceProps) {
   }, [closeDrawer, isDrawerOpen]);
 
   useLayoutEffect(() => {
-    const toggleDrawer = () => {
-      if (isDrawerOpen) closeDrawer();
-      else openDrawer();
-    };
+    if (!tabId.current)
+      void chrome.tabs
+        .getCurrent()
+        .then((tab) => (tabId.current = tab?.id ?? 0), notifyFailure);
+    const toggleDrawer = isDrawerOpen ? closeDrawer : openDrawer;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key.toLocaleLowerCase() === 'j') {
+      if (event.ctrlKey && event.key.toLowerCase() === 'j') {
         event.preventDefault();
         toggleDrawer();
       }
     };
-    const onMessage = (message: unknown) => {
-      if (
-        typeof message === 'object' &&
-        message !== null &&
-        'type' in message &&
-        message.type === 'deck:toggle-drawer'
-      ) {
-        toggleDrawer();
-      }
+    const onMessage = (
+      message: { drawer?: number } | null,
+      _sender: chrome.runtime.MessageSender,
+      sendResponse: (response: boolean) => void,
+    ) => {
+      if (message?.drawer !== tabId.current) return;
+      toggleDrawer();
+      sendResponse(true);
     };
     window.addEventListener('keydown', onKeyDown);
     chrome.runtime.onMessage.addListener(onMessage);
@@ -212,7 +209,7 @@ export function Surface({ initialData }: SurfaceProps) {
       window.removeEventListener('keydown', onKeyDown);
       chrome.runtime.onMessage.removeListener(onMessage);
     };
-  }, [closeDrawer, isDrawerOpen, openDrawer]);
+  }, [closeDrawer, isDrawerOpen, notifyFailure, openDrawer]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {

@@ -138,20 +138,26 @@
   }
 
   .deck-surface__column {
+    position: relative;
     inline-size: min(100%, var(--deck-surface-column));
     text-align: center;
   }
 
   .deck-surface[data-drawer-open]
-    :is(
-      [data-deck='greeting'],
-      [data-deck='line-shell'],
-      [data-deck='pins'],
-      [data-deck='surface-controls'],
-      [data-deck='wallpaper']
-    ) {
+    [data-deck='surface-column']
+    > :not([data-deck='clock']),
+  .deck-surface[data-drawer-open] [data-deck='surface-controls'],
+  .deck-surface[data-drawer-open] [data-deck='wallpaper'] {
     filter: blur(var(--deck-drawer-blur));
-    opacity: 0.6;
+  }
+
+  .deck-surface[data-drawer-open] [data-deck='surface-column']::after {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    background: var(--deck-drawer-scrim);
+    content: '';
+    pointer-events: none;
   }
 
   .deck-clock {
@@ -491,7 +497,8 @@
     grid-template-columns: var(--deck-drawer-rail) 1fr;
     overflow: hidden;
     border-block-start: 1px solid var(--deck-color-hairline);
-    background: var(--deck-color-canvas-raised);
+    background: var(--deck-color-glass);
+    backdrop-filter: blur(var(--deck-drawer-blur));
     box-shadow: 0 -1rem 3rem var(--deck-color-shadow);
     transform: translateY(100%);
     animation: deck-drawer-exit var(--deck-drawer-duration)
@@ -500,6 +507,18 @@
 
   .deck-drawer[data-open] {
     animation-name: deck-drawer-enter;
+  }
+
+  [data-deck='drawer-close'] {
+    position: absolute;
+    inset-block-start: var(--deck-space-1);
+    inset-inline-end: var(--deck-space-1);
+    z-index: 1;
+    border: 0;
+    background: var(--deck-color-glass);
+    color: var(--deck-color-text);
+    font-size: 1.5rem;
+    cursor: pointer;
   }
 
   @keyframes deck-drawer-enter {
@@ -584,6 +603,16 @@
 
   .deck-pages__scroll :where(button) {
     inline-size: 100%;
+  }
+
+  [data-deck='page-name'] {
+    inline-size: 100%;
+    min-block-size: 2.5rem;
+    border: 1px solid var(--deck-color-focus);
+    border-radius: var(--deck-radius-panel);
+    padding-inline: var(--deck-space-1);
+    background: var(--deck-color-canvas-raised);
+    color: var(--deck-color-text);
   }
 
   .deck-drawer__content {
@@ -677,6 +706,20 @@
     background: var(--deck-color-canvas-raised);
     color: var(--deck-color-text);
     box-shadow: 0 1rem 2rem var(--deck-color-shadow);
+    animation: deck-toast-enter var(--deck-drawer-duration)
+      var(--deck-drawer-ease) both;
+  }
+
+  @keyframes deck-toast-enter {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .deck-toast[data-kind='error'] {

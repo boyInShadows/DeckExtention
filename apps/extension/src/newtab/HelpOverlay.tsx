@@ -44,10 +44,12 @@ export default function HelpOverlay({
     [keymapOverrides],
   );
   const [commands, setCommands] = useState<BrowserCommand[]>([]);
+  const [showShortcutHint, setShowShortcutHint] = useState(false);
+  const [shortcutError, setShortcutError] = useState('');
 
   useEffect(() => {
     chrome.commands.getAll().then(
-      (all) =>
+      (all) => {
         setCommands(
           all
             .filter(({ name }) => name && name !== '_execute_action')
@@ -56,7 +58,17 @@ export default function HelpOverlay({
               description: description ?? '',
               shortcut: shortcut || strings.keyNotSet,
             })),
-        ),
+        );
+        if (
+          all.some(
+            ({ name, shortcut }) => name === 'toggle-drawer' && !shortcut,
+          ) &&
+          !localStorage.getItem('deck:shortcut-hint-shown')
+        ) {
+          localStorage.setItem('deck:shortcut-hint-shown', 'true');
+          setShowShortcutHint(true);
+        }
+      },
       (error: unknown) =>
         setCommands([
           { name: 'error', description: String(error), shortcut: '' },
@@ -101,9 +113,16 @@ export default function HelpOverlay({
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     // Esc closes the sheet only - not the drawer underneath it.
     event.stopPropagation();
-    // aria-modal: Close is the only focusable element, so Tab stays on it.
+    // Keep both controls in the modal's keyboard loop when the hint appears.
     if (event.key === 'Tab') {
       event.preventDefault();
+      const buttons = [...event.currentTarget.querySelectorAll('button')];
+      const current = buttons.indexOf(
+        document.activeElement as HTMLButtonElement,
+      );
+      const next =
+        (current + (event.shiftKey ? buttons.length - 1 : 1)) % buttons.length;
+      buttons[next]?.focus();
       return;
     }
     if (event.key === 'Escape' || event.key === '?') {
@@ -147,6 +166,26 @@ export default function HelpOverlay({
                   </div>
                 ))}
               </dl>
+              {title === strings.keysBrowser && showShortcutHint ? (
+                <p data-deck="shortcut-hint">
+                  {strings.drawerShortcutHint}{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void chrome.tabs
+                        .create({ url: 'chrome://extensions/shortcuts' })
+                        .catch((error: unknown) =>
+                          setShortcutError(String(error)),
+                        );
+                    }}
+                  >
+                    {strings.openShortcutSettings}
+                  </button>
+                  {shortcutError ? (
+                    <span role="alert">{shortcutError}</span>
+                  ) : null}
+                </p>
+              ) : null}
             </div>
           ))}
         </div>
