@@ -29,6 +29,10 @@ export interface ImportPreview {
   skipped: number;
 }
 
+export interface ImportResult extends ImportPreview {
+  snapshotId: string;
+}
+
 export interface ExportResult {
   document: DeckDocument;
   json: string;
@@ -205,17 +209,17 @@ export class BackupService {
     return this.#preview(incoming, mode);
   }
 
-  async importData(value: unknown, mode: ImportMode): Promise<ImportPreview> {
+  async importData(value: unknown, mode: ImportMode): Promise<ImportResult> {
     const incoming = migrateDocument(value);
     const preview = await this.#preview(incoming, mode);
-    await this.createSnapshot();
+    const snapshot = await this.createSnapshot();
     if (mode === 'replace') {
       await this.#repository.replaceDocument(incoming);
-      return preview;
+      return { ...preview, snapshotId: snapshot.id };
     }
     await this.#merge(incoming);
     await this.#repository.setSettings(incoming.settings);
-    return preview;
+    return { ...preview, snapshotId: snapshot.id };
   }
 
   async #preview(

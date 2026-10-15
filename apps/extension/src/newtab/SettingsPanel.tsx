@@ -17,9 +17,12 @@ import {
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { BackupService } from '../storage/backup';
+import type { ImportMode, ImportPreview } from '../storage/backup';
 import { openDeckDatabase } from '../storage/database';
+import { parseDocumentJson } from '../storage/document';
 import { processWallpaper } from '../wallpaper/processWallpaper';
 import type { SurfaceData } from './bootstrap';
+import { downloadExport } from './downloadExport';
 import { BookmarkImport } from './BookmarkImport';
 import { GrantedAccess } from './GrantedAccess';
 import { KeymapEditor } from './KeymapEditor';
@@ -51,6 +54,21 @@ const WALLPAPER_COLORS = [
 ] as const;
 const currentTimestamp = () => Date.now();
 
+function snapshotSummary(snapshot: Snapshot): string {
+  const size = `${Math.ceil(new Blob([snapshot.blob]).size / 1024)} KB`;
+  try {
+    const document = parseDocumentJson(snapshot.blob);
+    return strings.backupSummary({
+      pages: document.pages.length,
+      decks: document.decks.length,
+      cards: document.cards.length,
+      size,
+    });
+  } catch {
+    return strings.backupUnreadable(size);
+  }
+}
+
 export default function SettingsPanel({
   settings,
   repository,
@@ -59,7 +77,7 @@ export default function SettingsPanel({
   onClose,
   notify,
 }: SettingsPanelProps) {
-  const [hasBackupError, setHasBackupError] = useState(false);
+  const [backupError, setBackupError] = useState<string | null>(null);
   const [ownerName, setOwnerName] = useState(settings.ownerName);
   const [customCss, setCustomCss] = useState(settings.customCss);
   const [searchUrlTemplate, setSearchUrlTemplate] = useState(
@@ -70,6 +88,13 @@ export default function SettingsPanel({
   const wallpaperInput = useRef<HTMLInputElement>(null);
   const importInput = useRef<HTMLInputElement>(null);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [importDraft, setImportDraft] = useState<{
+    document: unknown;
+    mode: ImportMode;
+    preview: ImportPreview;
+  } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const importRequest = useRef(0);
   const [backups] = useState(
     () => new BackupService(repository, openDeckDatabase()),
   );
@@ -130,11 +155,10 @@ export default function SettingsPanel({
   useEffect(() => {
     void chrome.storage.local
       .get(BACKUP_ERROR_KEY)
-      .then((items) =>
-        setHasBackupError(
-          BackgroundErrorSchema.safeParse(items[BACKUP_ERROR_KEY]).success,
-        ),
-      )
+      .then((items) => {
+        const result = BackgroundErrorSchema.safeParse(items[BACKUP_ERROR_KEY]);
+        setBackupError(result.success ? result.data.message : null);
+      })
       .catch(showError);
   }, [showError]);
 
@@ -143,7 +167,19 @@ export default function SettingsPanel({
       await backups.createSnapshot();
       await repository.purge();
       await chrome.storage.local.remove(BACKUP_ERROR_KEY);
-      setHasBackupError(false);
+      setBackupError(null);
+      loadSnapshots();
+      notify({ kind: 'success', text: strings.backupSaved });
+    } catch (error) {
+      showError(error);
+    }
+  };
+
+  const snapshotNow = async () => {
+    try {
+      await backups.createSnapshot();
+      await chrome.storage.local.remove(BACKUP_ERROR_KEY);
+      setBackupError(null);
       loadSnapshots();
       notify({ kind: 'success', text: strings.backupSaved });
     } catch (error) {
@@ -162,39 +198,69 @@ export default function SettingsPanel({
 
   const exportData = async () => {
     try {
-      const result = await backups.exportData();
-      const url = URL.createObjectURL(
-        new Blob([result.json], { type: 'application/json' }),
-      );
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `deck-${new Date().toISOString().slice(0, 10)}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
+      await downloadExport(repository);
       notify({ kind: 'success', text: strings.exportSaved });
     } catch (exportError) {
       showError(exportError);
     }
   };
 
-  const importData = async (event: ChangeEvent<HTMLInputElement>) => {
+  const readImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     if (!file) return;
+    const request = ++importRequest.current;
+    setImportDraft(null);
+    event.currentTarget.value = '';
     try {
       const document = JSON.parse(await file.text()) as unknown;
-      await backups.previewImport(document, 'replace');
-      if (!window.confirm(strings.importConfirm)) return;
-      await backups.importData(document, 'replace');
-      await chrome.storage.local.set({
-        [SETTINGS_NOTICE_KEY]: {
-          message: strings.importSaved,
-          createdAt: Date.now(),
-          kind: 'success',
-        },
-      });
-      window.location.reload();
+      const preview = await backups.previewImport(document, 'merge');
+      if (request === importRequest.current)
+        setImportDraft({ document, mode: 'merge', preview });
     } catch (importError) {
       showError(importError);
+    }
+  };
+
+  const chooseImportMode = async (mode: ImportMode) => {
+    if (!importDraft) return;
+    const request = ++importRequest.current;
+    const document = importDraft.document;
+    setImportDraft(null);
+    try {
+      const preview = await backups.previewImport(document, mode);
+      if (request === importRequest.current)
+        setImportDraft({ document, mode, preview });
+    } catch (error) {
+      showError(error);
+    }
+  };
+
+  const applyImport = async () => {
+    if (!importDraft || isImporting) return;
+    setIsImporting(true);
+    try {
+      const { snapshotId, cards } = await backups.importData(
+        importDraft.document,
+        importDraft.mode,
+      );
+      onDataChange();
+      onClose();
+      notify({
+        kind: 'success',
+        text: strings.importedCards(cards),
+        action: {
+          label: strings.undo,
+          run: async () => {
+            await backups.restoreSnapshot(snapshotId);
+            onDataChange();
+            notify({ kind: 'success', text: strings.restoreSaved });
+          },
+        },
+      });
+    } catch (error) {
+      showError(error);
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -386,7 +452,12 @@ export default function SettingsPanel({
         </SettingsGroup>
         <SettingsGroup title={strings.backups}>
           <p>{strings.backupHint}</p>
-          {hasBackupError ? (
+          {backupError ? (
+            <p role="alert" data-deck="backup-error">
+              {strings.backupError(backupError)}
+            </p>
+          ) : null}
+          {backupError ? (
             <button
               type="button"
               data-deck="backup-retry"
@@ -395,19 +466,33 @@ export default function SettingsPanel({
               {strings.backupRetry}
             </button>
           ) : null}
-          {snapshots.length > 0 ? (
-            snapshots.map((snapshot) => (
-              <button
-                key={snapshot.id}
-                type="button"
-                onClick={() => void restore(snapshot)}
-              >
-                {strings.restore} · {new Date(snapshot.ts).toLocaleDateString()}
-              </button>
-            ))
-          ) : (
-            <p>{strings.noBackups}</p>
-          )}
+          <button
+            type="button"
+            data-deck="snapshot-now"
+            onClick={() => void snapshotNow()}
+          >
+            {strings.snapshotNow}
+          </button>
+          <p data-deck="last-backup">
+            {snapshots[0]
+              ? strings.lastBackup(new Date(snapshots[0].ts).toLocaleString())
+              : strings.noBackups}
+          </p>
+          {snapshots.length > 0
+            ? snapshots.map((snapshot) => (
+                <div
+                  key={snapshot.id}
+                  data-deck="snapshot"
+                  className="deck-settings__snapshot"
+                >
+                  <span>{new Date(snapshot.ts).toLocaleString()}</span>
+                  <small>{snapshotSummary(snapshot)}</small>
+                  <button type="button" onClick={() => void restore(snapshot)}>
+                    {strings.restore}
+                  </button>
+                </div>
+              ))
+            : null}
           <button type="button" onClick={() => void exportData()}>
             {strings.exportData}
           </button>
@@ -420,8 +505,43 @@ export default function SettingsPanel({
             type="file"
             aria-label={strings.importData}
             accept="application/json,.json"
-            onChange={(event) => void importData(event)}
+            onChange={(event) => void readImport(event)}
           />
+          {importDraft ? (
+            <div
+              data-deck="data-import-preview"
+              className="deck-settings__import-preview"
+            >
+              <p>{strings.dataImportPreview(importDraft.preview)}</p>
+              <div role="group" aria-label={strings.importMode}>
+                {(['merge', 'replace'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={importDraft.mode === mode}
+                    onClick={() => void chooseImportMode(mode)}
+                  >
+                    {mode === 'merge' ? strings.merge : strings.replace}
+                  </button>
+                ))}
+              </div>
+              <p>
+                {importDraft.mode === 'merge'
+                  ? strings.mergeHint
+                  : strings.replaceHint}
+              </p>
+              <button
+                type="button"
+                disabled={isImporting}
+                onClick={() => void applyImport()}
+              >
+                {isImporting ? strings.importing : strings.importConfirmButton}
+              </button>
+              <button type="button" onClick={() => setImportDraft(null)}>
+                {strings.cancel}
+              </button>
+            </div>
+          ) : null}
         </SettingsGroup>
         <SettingsGroup title={strings.import}>
           <BookmarkImport

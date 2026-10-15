@@ -459,12 +459,56 @@ describe('SettingsPanel - keys and advanced', () => {
 });
 
 describe('SettingsPanel - backups', () => {
+  it('lists seven dated snapshots with counts and restores the chosen one', async () => {
+    const blob = JSON.stringify({
+      schemaVersion: 1,
+      exportedAt: NOW,
+      pages: [],
+      decks: [],
+      cards: [],
+      settings: SETTINGS_DEFAULTS,
+    });
+    backups.listSnapshots.mockResolvedValue(
+      Array.from({ length: 7 }, (_, index) => ({
+        ...SNAPSHOT,
+        id: `snap_${index}`,
+        ts: NOW - index * 1000,
+        blob,
+      })),
+    );
+    backups.restoreSnapshot.mockResolvedValue(undefined);
+    vi.stubGlobal('confirm', () => true);
+    const { view } = await mount();
+    const rows = view.getAll('[data-deck="snapshot"]');
+    expect(rows).toHaveLength(7);
+    expect(rows[0]?.textContent).toContain('0 pages · 0 decks · 0 cards');
+    expect(view.get('[data-deck="last-backup"]').textContent).toContain(
+      strings.lastBackup(''),
+    );
+    const restore = nth(rows, 6).querySelector('button');
+    if (!restore) throw new Error('Restore button is missing');
+    await clickAndSettle(view, restore);
+    expect(backups.restoreSnapshot).toHaveBeenCalledWith('snap_6');
+    view.unmount();
+  });
+
+  it('makes a snapshot without purging data', async () => {
+    const { view, repository } = await mount();
+    await clickAndSettle(view, view.get('[data-deck="snapshot-now"]'));
+    expect(backups.createSnapshot).toHaveBeenCalledOnce();
+    expect(repository.purge).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
   it('offers retry while backup maintenance failed and clears the key after a successful retry', async () => {
     const { view, repository, chromeFake } = await mount(SETTINGS_DEFAULTS, {
       backupMaintenanceError: { message: 'quota', occurredAt: NOW },
     });
     const retry = view.get('[data-deck="backup-retry"]');
     expect(retry.textContent).toBe(strings.backupRetry);
+    expect(view.get('[data-deck="backup-error"]').textContent).toContain(
+      'quota',
+    );
     await clickAndSettle(view, retry);
     expect(backups.createSnapshot).toHaveBeenCalledOnce();
     expect(repository.purge).toHaveBeenCalledOnce();
@@ -577,29 +621,50 @@ describe('SettingsPanel - importing data', () => {
   const exportFile = () =>
     new File([EXPORT_JSON], 'deck.json', { type: 'application/json' });
 
-  it('previews, then replaces data only after confirmation', async () => {
-    backups.previewImport.mockResolvedValue({});
-    backups.importData.mockResolvedValue({});
-    const confirm = vi.fn(() => false);
-    vi.stubGlobal('confirm', confirm);
-    const { view } = await mount();
-
-    await chooseFile(view, strings.importData, exportFile());
-    expect(backups.previewImport).toHaveBeenCalledWith(
-      JSON.parse(EXPORT_JSON),
-      'replace',
+  it('previews both modes, imports the selected mode, and offers the pre-import backup as Undo', async () => {
+    backups.previewImport.mockImplementation(async (_value, mode) =>
+      mode === 'merge'
+        ? { pages: 1, decks: 2, cards: 3, skipped: 4 }
+        : { pages: 5, decks: 6, cards: 7, skipped: 0 },
     );
-    expect(confirm).toHaveBeenCalledWith(strings.importConfirm);
-    expect(backups.importData).not.toHaveBeenCalled();
-    expect(reload).not.toHaveBeenCalled();
+    backups.importData.mockResolvedValue({
+      pages: 5,
+      decks: 6,
+      cards: 7,
+      skipped: 0,
+      snapshotId: 'before-import',
+    });
+    backups.restoreSnapshot.mockResolvedValue(undefined);
+    const { view, onDataChange, onClose } = await mount();
 
-    confirm.mockReturnValue(true);
     await chooseFile(view, strings.importData, exportFile());
+    expect(view.get('[data-deck="data-import-preview"]').textContent).toContain(
+      '1 pages · 2 decks · 3 cards · 4 duplicates',
+    );
+    expect(backups.importData).not.toHaveBeenCalled();
+    await clickAndSettle(view, buttonWithText(view, strings.replace));
+    expect(view.get('[data-deck="data-import-preview"]').textContent).toContain(
+      '5 pages · 6 decks · 7 cards · 0 duplicates',
+    );
+    await clickAndSettle(
+      view,
+      view.get('[data-deck="data-import-preview"] > button'),
+    );
+
     expect(backups.importData).toHaveBeenCalledWith(
       JSON.parse(EXPORT_JSON),
       'replace',
     );
-    expect(reload).toHaveBeenCalledTimes(1);
+    expect(onDataChange).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(reload).not.toHaveBeenCalled();
+    expect(latestNotice).toMatchObject({
+      text: strings.importedCards(7),
+      action: { label: strings.undo },
+    });
+    await latestNotice?.action?.run();
+    expect(backups.restoreSnapshot).toHaveBeenCalledWith('before-import');
+    expect(onDataChange).toHaveBeenCalledTimes(2);
     view.unmount();
   });
 
@@ -607,6 +672,27 @@ describe('SettingsPanel - importing data', () => {
     const { view } = await mount();
     await chooseFile(view, strings.importData, null);
     expect(backups.previewImport).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('keeps the preview available when the import write fails', async () => {
+    backups.previewImport.mockResolvedValue({
+      pages: 0,
+      decks: 0,
+      cards: 1,
+      skipped: 0,
+    });
+    backups.importData.mockRejectedValue(new Error('disk full'));
+    const { view, onDataChange, onClose } = await mount();
+    await chooseFile(view, strings.importData, exportFile());
+    await clickAndSettle(
+      view,
+      view.get('[data-deck="data-import-preview"] > button'),
+    );
+    expect(alertText(view)).toContain('disk full');
+    expect(view.query('[data-deck="data-import-preview"]')).not.toBeNull();
+    expect(onDataChange).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
     view.unmount();
   });
 

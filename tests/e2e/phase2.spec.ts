@@ -236,7 +236,9 @@ test('phase 2 journey: quick save, triage, drag, export', async ({
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Settings' }).click();
     const download = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Export data' }).click();
+    await page
+      .getByRole('button', { name: 'Export data', exact: true })
+      .click();
     const file = await (await download).path();
     const exported = JSON.parse(await readFile(file, 'utf8')) as {
       decks: { id: string; title: string }[];

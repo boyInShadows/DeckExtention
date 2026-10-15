@@ -299,13 +299,37 @@ describe('DeckRepository', () => {
 describe('BackupService', () => {
   it('round-trips export, wipe, and replace import without losing data', async () => {
     const { repository, database, backups } = await createServices();
-    await repository.replaceDocument(populatedDocument());
+    await repository.replaceDocument({
+      ...populatedDocument(),
+      decks: [{ ...deck, note: '# Reading', isCollapsed: true }],
+      cards: [
+        {
+          ...card,
+          note: 'A saved note',
+          done: true,
+          pinned: true,
+          pinLabel: 'Read',
+        },
+      ],
+    });
     const original = await backups.exportData();
 
     await repository.replaceDocument(emptyDocument());
     await backups.importData(JSON.parse(original.json) as unknown, 'replace');
 
     expect((await backups.exportData()).document).toEqual(original.document);
+    await repository.close();
+    (await database).close();
+  });
+
+  it('restores the exact pre-import workspace using the returned snapshot ID', async () => {
+    const { repository, database, backups } = await createServices();
+    await repository.replaceDocument(populatedDocument());
+    const before = await repository.readDocument(NOW);
+    const { snapshotId } = await backups.importData(emptyDocument(), 'replace');
+    expect(await repository.listCards()).toHaveLength(0);
+    await backups.restoreSnapshot(snapshotId);
+    expect(await repository.readDocument(NOW)).toEqual(before);
     await repository.close();
     (await database).close();
   });
@@ -638,7 +662,13 @@ describe('BackupService - import', () => {
 
     const preview = await backups.importData(incoming, 'merge');
 
-    expect(preview).toEqual({ pages: 1, decks: 1, cards: 1, skipped: 0 });
+    expect(preview).toEqual({
+      pages: 1,
+      decks: 1,
+      cards: 1,
+      skipped: 0,
+      snapshotId: expect.any(String),
+    });
     expect((await repository.listPages())[0]?.title).toBe('Renamed');
     expect((await repository.listDecks())[0]?.title).toBe('Renamed deck');
     expect(await repository.listCards()).toEqual([card]);

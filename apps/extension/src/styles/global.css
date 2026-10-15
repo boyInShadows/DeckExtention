@@ -814,6 +814,29 @@
     display: none;
   }
 
+  .deck-settings__snapshot,
+  .deck-settings__import-preview {
+    display: grid;
+    gap: var(--deck-space-1);
+    padding: var(--deck-space-2);
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+  }
+
+  .deck-settings__snapshot small {
+    color: var(--deck-color-text-muted);
+  }
+
+  .deck-settings__import-preview [role='group'] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--deck-space-1);
+  }
+
+  .deck-settings__import-preview [aria-pressed='true'] {
+    border-color: var(--deck-color-focus);
+  }
+
   .deck-settings__swatches {
     display: flex;
     flex-wrap: wrap;

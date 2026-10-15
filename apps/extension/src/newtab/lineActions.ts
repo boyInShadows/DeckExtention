@@ -1,9 +1,8 @@
 import type { Settings } from 'deck-schema';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
-import { BackupService } from '../storage/backup';
-import { openDeckDatabase } from '../storage/database';
 import type { SurfaceData } from './bootstrap';
+import { downloadExport } from './downloadExport';
 import type { ActionId } from './lineActionCatalog';
 
 interface ActionContext {
@@ -43,16 +42,7 @@ export async function executeAction(
     context.notify(strings.stashComing);
     return;
   }
-  const backups = new BackupService(context.repository, openDeckDatabase());
-  const result = await backups.exportData();
-  const url = URL.createObjectURL(
-    new Blob([result.json], { type: 'application/json' }),
-  );
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `deck-${new Date().toISOString().slice(0, 10)}.json`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  await downloadExport(context.repository);
   context.notifySuccess?.(strings.exportSaved);
 }
 

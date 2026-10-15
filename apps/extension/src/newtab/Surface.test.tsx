@@ -182,6 +182,7 @@ const DECK: Deck = {
 function fakeRepository() {
   return {
     getRecoveryIssueCount: () => 0,
+    getSettings: vi.fn(() => Promise.resolve(SETTINGS_DEFAULTS)),
     setSettings: vi.fn((next: Settings) => Promise.resolve(next)),
     listPages: vi.fn(() => Promise.resolve([PAGE])),
     listDecks: vi.fn(() => Promise.resolve([DECK])),
@@ -765,10 +766,15 @@ describe('Surface settings and keys', () => {
 
   it('re-reads the workspace after a bulk import', async () => {
     const repository = fakeRepository();
+    repository.getSettings.mockResolvedValue({
+      ...SETTINGS_DEFAULTS,
+      theme: 'day',
+    });
     const view = await mount(surfaceData({}, repository));
     await clickOn(view, view.getByLabel(strings.settings));
     await clickOn(view, view.getByText('reload'));
     expect(view.get('[data-deck="pins-stub"]').dataset.count).toBe('3');
+    expect(document.documentElement.dataset.theme).toBe('day');
     await clickOn(view, view.getByLabel(strings.openDrawer));
     expect(view.get('[data-deck="drawer-stub"]').dataset.shape).toBe('1/1/3');
     view.unmount();

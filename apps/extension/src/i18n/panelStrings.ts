@@ -58,6 +58,21 @@ export const panelStrings = {
   customCssHint: 'Targets stable [data-deck] attributes.',
   backupHint: 'Keeps seven local snapshots.',
   backupRetry: 'Backup failed yesterday — Retry',
+  backupError: (message: string) => `Last backup failed: ${message}`,
+  snapshotNow: 'Snapshot now',
+  lastBackup: (date: string) => `Last backup: ${date}`,
+  backupSummary: ({
+    pages,
+    decks,
+    cards,
+    size,
+  }: {
+    pages: number;
+    decks: number;
+    cards: number;
+    size: string;
+  }) => `${pages} pages · ${decks} decks · ${cards} cards · ${size}`,
+  backupUnreadable: (size: string) => `Unreadable snapshot · ${size}`,
   backupSaved: 'Backup saved',
   drawerCommandFailed: 'Could not open the drawer.',
   drawerShortcutHint: 'Ctrl+J is not assigned. Assign it in Chrome shortcuts.',
@@ -72,6 +87,25 @@ export const panelStrings = {
   trashEmptied: 'Trash emptied',
   exportSaved: 'Export downloaded',
   importSaved: 'Import complete',
+  importedCards: (cards: number) => `Imported ${cards} cards`,
+  dataImportPreview: ({
+    pages,
+    decks,
+    cards,
+    skipped,
+  }: {
+    pages: number;
+    decks: number;
+    cards: number;
+    skipped: number;
+  }) =>
+    `${pages} pages · ${decks} decks · ${cards} cards · ${skipped} duplicates`,
+  importMode: 'Import mode',
+  merge: 'Merge',
+  replace: 'Replace',
+  mergeHint:
+    'Keep existing items unless imported ones are newer; use imported settings.',
+  replaceHint: 'Replace all current pages, decks, cards and settings.',
   restoreSaved: 'Backup restored',
   noBackups: 'No snapshots yet.',
   restore: 'Restore',
@@ -221,6 +255,7 @@ export const panelStrings = {
     pin: 'Pin',
     addLink: 'Add link',
     addDeck: 'Add deck',
+    export: 'Export data',
   },
 } as const;
 

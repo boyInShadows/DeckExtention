@@ -41,17 +41,17 @@ export interface SurfaceProps {
 
 export function Surface({ initialData }: SurfaceProps) {
   const recoveryIssueCount = initialData.repository.getRecoveryIssueCount();
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(new Date());
   const [cards, setCards] = useState(initialData.cards);
   const [decks, setDecks] = useState(initialData.decks);
   const [pages, setPages] = useState(initialData.pages);
   const [settings, setSettings] = useState(initialData.settings);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(
-    () => location.hash === OPEN_SETTINGS_HASH,
+    location.hash === OPEN_SETTINGS_HASH,
   );
   // A `#page=` link (Quick Save's "open Deck") arrives with the drawer open.
-  const [isDrawerOpen, setIsDrawerOpen] = useState(() =>
+  const [isDrawerOpen, setIsDrawerOpen] = useState(
     location.hash.startsWith(OPEN_PAGE_HASH_PREFIX),
   );
   const [isDrawerMounted, setIsDrawerMounted] = useState(isDrawerOpen);
@@ -126,18 +126,20 @@ export function Surface({ initialData }: SurfaceProps) {
     [initialData.repository, notify, notifyFailure],
   );
 
-  // A bulk write from Settings (bookmark import) - re-read what changed.
+  // A bulk write from Settings can also replace appearance and key bindings.
   const reloadWorkspace = useCallback(() => {
-    const { repository } = initialData;
     void Promise.all([
-      repository.listPages(),
-      repository.listDecks(),
-      repository.listCards(),
+      initialData.repository.listPages(),
+      initialData.repository.listDecks(),
+      initialData.repository.listCards(),
+      initialData.repository.getSettings(),
     ])
-      .then(([storedPages, storedDecks, storedCards]) => {
+      .then(([storedPages, storedDecks, storedCards, storedSettings]) => {
         setPages(storedPages);
         setDecks(storedDecks);
         setCards(storedCards);
+        setSettings(storedSettings);
+        document.documentElement.dataset.theme = storedSettings.theme;
       })
       .catch(notifyFailure);
   }, [initialData, notifyFailure]);

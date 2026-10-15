@@ -27,7 +27,8 @@ export type KeyActionId =
   | 'note'
   | 'pin'
   | 'addLink'
-  | 'addDeck';
+  | 'addDeck'
+  | 'export';
 
 export interface KeyAction {
   id: KeyActionId;
@@ -71,6 +72,7 @@ export const KEY_ACTIONS: readonly KeyAction[] = [
   { id: 'pin', scopes: ['drawer', 'inbox'], defaultChord: 'p' },
   { id: 'addLink', scopes: ['drawer'], defaultChord: 'a' },
   { id: 'addDeck', scopes: ['drawer'], defaultChord: 'd' },
+  { id: 'export', scopes: ['drawer', 'inbox'], defaultChord: 'Ctrl+e' },
 ];
 
 /**

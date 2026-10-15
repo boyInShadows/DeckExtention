@@ -20,6 +20,7 @@ import {
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
 import { focusOnMount } from '../newtab/focusOnMount';
+import { downloadExport } from '../newtab/downloadExport';
 import { playSpring } from '../motion/spring';
 import type { UndoAction } from './UndoToast';
 import {
@@ -293,6 +294,7 @@ export default function Drawer({
     if (!isOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || isTypingTarget(event.target)) return;
+      if (document.querySelector('[data-dragging]')) return;
       if ((event.target as HTMLElement)?.dataset?.deck?.endsWith('-drag'))
         return;
       void onClose();
@@ -389,6 +391,15 @@ export default function Drawer({
       const chord = chordFromEvent(event);
       const scope = selectedId === INBOX_PAGE_ID ? 'inbox' : 'drawer';
       const action = chord ? actionForChord(keymap, scope, chord) : null;
+      if (action === 'export') {
+        event.preventDefault();
+        void downloadExport(data.repository)
+          .then(() => onSuccess?.(strings.exportSaved))
+          .catch((error: unknown) =>
+            onError(error instanceof Error ? error.message : String(error)),
+          );
+        return;
+      }
       if (action !== 'nextPage' && action !== 'previousPage') return;
       event.preventDefault();
       const index = selectedId === null ? -1 : railIds.indexOf(selectedId);
@@ -399,7 +410,16 @@ export default function Drawer({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, keymap, orderedPages, selectedId, selectPage]);
+  }, [
+    data.repository,
+    isOpen,
+    keymap,
+    onError,
+    onSuccess,
+    orderedPages,
+    selectedId,
+    selectPage,
+  ]);
 
   const addPage = async () => {
     try {

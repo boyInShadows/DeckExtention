@@ -169,7 +169,9 @@ test('surface persists a pin, exports data, and stays fast when warm', async ({
 
     const downloadPromise = page.waitForEvent('download');
     await page.getByLabel('Settings').click();
-    await page.getByRole('button', { name: 'Export data' }).click();
+    await page
+      .getByRole('button', { name: 'Export data', exact: true })
+      .click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(
       /^deck-\d{4}-\d{2}-\d{2}\.json$/,
@@ -256,7 +258,9 @@ test('a corrupt card leaves the new tab usable and exportable', async () => {
     await expect(page.locator('[data-deck="recovery-notice"]')).toBeVisible();
     const downloadPromise = page.waitForEvent('download');
     await page.getByLabel('Settings').click();
-    await page.getByRole('button', { name: 'Export data' }).click();
+    await page
+      .getByRole('button', { name: 'Export data', exact: true })
+      .click();
     expect((await downloadPromise).suggestedFilename()).toMatch(
       /^deck-.*\.json$/,
     );
@@ -269,7 +273,7 @@ test('a corrupt card leaves the new tab usable and exportable', async () => {
         page.locator('[data-deck="settings"] [role="alert"]').textContent(),
       );
     await page
-      .getByRole('button', { name: /^Restore ·/ })
+      .locator('[data-deck="snapshot"] button')
       .first()
       .click({ noWaitAfter: true });
     expect(await Promise.race([restored, restoreFailure])).toBeNull();
