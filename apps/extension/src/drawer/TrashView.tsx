@@ -17,6 +17,7 @@ interface TrashViewProps {
   repository: DeckRepository;
   onChange: () => Promise<void>;
   onError: (message: string) => void;
+  onSuccess?: ((message: string) => void) | undefined;
 }
 
 function trashItems(pages: Page[], decks: Deck[], cards: Card[]): TrashItem[] {
@@ -82,16 +83,18 @@ export function TrashView(props: TrashViewProps) {
     groups.set(day, [...(groups.get(day) ?? []), item]);
   }
 
-  const run = async (action: () => Promise<void>) => {
+  const run = async (action: () => Promise<void>, success: string) => {
     try {
       await action();
       await props.onChange();
+      props.onSuccess?.(success);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       props.onError(`${strings.updateFailed} ${detail}`);
     }
   };
-  const restore = (item: TrashItem) => run(() => restoreItem(item, props));
+  const restore = (item: TrashItem) =>
+    run(() => restoreItem(item, props), strings.itemRestored);
   const onItemKeyDown = (
     event: KeyboardEvent<HTMLLIElement>,
     item: TrashItem,
@@ -166,7 +169,7 @@ export function TrashView(props: TrashViewProps) {
               setIsConfirming(false);
               void run(async () => {
                 await props.repository.purge(Infinity);
-              });
+              }, strings.trashEmptied);
             }}
           >
             {strings.emptyTrash}

@@ -4,6 +4,15 @@ import { generateKeyBetween } from 'fractional-indexing';
 import type { UndoAction } from '../drawer/UndoToast';
 import { strings } from '../i18n/strings';
 import type { SurfaceData } from './bootstrap';
+import { openCard } from '../drawer/inboxActions';
+
+export async function openPin(
+  repository: SurfaceData['repository'],
+  card: Card,
+  isNewTab: boolean,
+): Promise<void> {
+  await openCard(repository, card, isNewTab);
+}
 
 export async function createPin(
   repository: SurfaceData['repository'],

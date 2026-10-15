@@ -635,25 +635,41 @@
     color: inherit;
   }
 
-  .deck-undo-toast {
+  .deck-toast-stack {
     position: fixed;
     inset-block-end: var(--deck-space-3);
     inset-inline: 0;
     z-index: 10;
     display: flex;
+    flex-direction: column;
     align-items: center;
     gap: var(--deck-space-2);
     inline-size: max-content;
-    max-inline-size: 90vw;
     margin-inline: auto;
+  }
+
+  .deck-toast {
+    display: flex;
+    align-items: center;
+    gap: var(--deck-space-2);
+    max-inline-size: min(40rem, 90vw);
     padding: var(--deck-space-2);
     border: 1px solid var(--deck-color-hairline);
     border-radius: var(--deck-radius-panel);
     background: var(--deck-color-canvas-raised);
+    color: var(--deck-color-text);
     box-shadow: 0 1rem 2rem var(--deck-color-shadow);
   }
 
-  .deck-undo-toast :where(button) {
+  .deck-toast[data-kind='error'] {
+    border-color: var(--deck-color-danger);
+  }
+
+  .deck-toast[data-kind='success'] {
+    border-color: var(--deck-color-focus);
+  }
+
+  .deck-toast :where(button) {
     border: 0;
     background: transparent;
     color: var(--deck-color-focus);
@@ -781,14 +797,6 @@
     margin: 0;
     color: var(--deck-color-text-muted);
     font-size: 0.75rem;
-  }
-
-  .deck-error {
-    position: fixed;
-    inset-inline-start: var(--deck-space-3);
-    inset-block-end: var(--deck-space-3);
-    max-inline-size: 30rem;
-    color: var(--deck-color-danger);
   }
 
   .deck-recovery-notice {

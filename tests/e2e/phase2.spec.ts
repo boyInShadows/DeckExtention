@@ -166,9 +166,9 @@ test('phase 2 journey: quick save, triage, drag, export', async ({
     await article.bringToFront();
     await dispatchQuickSave(context);
     const page = await openDeck(context);
-    await expect(page.getByRole('alert')).toHaveText(
-      `Saved to Inbox: ${ARTICLE_TITLE}`,
-    );
+    await expect(
+      page.locator('[data-deck="toast"][data-kind="success"]'),
+    ).toContainText(`Saved to Inbox: ${ARTICLE_TITLE}`);
 
     // Drawer open time, keydown to painted frame.
     const openTimes: number[] = [];

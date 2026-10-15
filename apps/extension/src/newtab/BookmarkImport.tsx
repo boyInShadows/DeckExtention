@@ -30,7 +30,7 @@ type ImportState =
 interface BookmarkImportProps {
   repository: DeckRepository;
   backups: BackupService;
-  onImported: () => void;
+  onImported: (isSuccess: boolean) => void;
   onError: (error: unknown) => void;
 }
 
@@ -116,11 +116,11 @@ export function BookmarkImport({
         setState({ step: 'importing', progress }),
       );
       setState({ step: 'done', links: planned.cards.length });
-      onImported();
+      onImported(true);
     } catch (importError) {
       setState({ step: 'idle' });
       onError(importError);
-      onImported();
+      onImported(false);
     }
   };
 

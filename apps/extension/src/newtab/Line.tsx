@@ -19,6 +19,8 @@ interface LineProps {
   openSettings: () => void;
   saveSettings: (settings: Settings) => Promise<void>;
   notify: (message: string) => void;
+  notifyInfo: (message: string) => void;
+  notifySuccess: (message: string) => void;
   canSpaceOpenDrawer: boolean;
   openDrawer: () => void;
   openHelp: () => void;
@@ -164,7 +166,8 @@ export function Line(props: LineProps) {
           repository: props.repository,
           saveSettings: props.saveSettings,
           openSettings: props.openSettings,
-          notify: props.notify,
+          notify: props.notifyInfo,
+          notifySuccess: props.notifySuccess,
         });
         setQuery('');
         return;

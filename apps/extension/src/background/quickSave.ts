@@ -99,6 +99,7 @@ async function runQuickSave(
   if (result.kind === 'saved') {
     await leaveNotice(
       `${captureStrings.savedWithoutToast} ${result.card.title}`,
+      'success',
     );
   }
 }
@@ -168,8 +169,11 @@ async function flashBadge(text: string): Promise<void> {
   }, BADGE_FLASH_MS);
 }
 
-async function leaveNotice(message: string): Promise<void> {
-  const notice: CaptureNotice = { message, createdAt: Date.now() };
+async function leaveNotice(
+  message: string,
+  kind: 'success' | 'error' = 'error',
+): Promise<void> {
+  const notice: CaptureNotice = { message, createdAt: Date.now(), kind };
   await chrome.storage.local.set({ [CAPTURE_NOTICE_KEY]: notice });
 }
 

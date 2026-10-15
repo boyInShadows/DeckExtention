@@ -22,10 +22,19 @@ export const CAPTURE_PERMISSIONS = ['activeTab', 'scripting'] as const;
  * the service worker leaves a notice for the next new tab to display.
  */
 export const CAPTURE_NOTICE_KEY = 'deck:capture-notice';
+export const SETTINGS_NOTICE_KEY = 'deck:settings-notice';
+export const BACKUP_ERROR_KEY = 'backupMaintenanceError';
+export const DRAWER_COMMAND_ERROR_KEY = 'drawerCommandError';
+
+export const BackgroundErrorSchema = z.strictObject({
+  message: z.string().min(1).max(400),
+  occurredAt: TimestampSchema,
+});
 
 export const CaptureNoticeSchema = z.strictObject({
   message: z.string().min(1).max(400),
   createdAt: TimestampSchema,
+  kind: z.enum(['success', 'error']).optional(),
 });
 
 /** `#page=<id>` opens the drawer on that page; `#settings` opens Settings. */

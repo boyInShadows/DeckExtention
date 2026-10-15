@@ -103,7 +103,13 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
     await expect(
       page.locator(`[data-deck="card"][data-card-id="${trashed}"]`),
     ).toHaveCount(0);
-    await expect(page.locator('[data-deck="undo-toast"]')).toBeVisible();
+    await expect(
+      page
+        .locator('[data-deck="toast"]', {
+          has: page.getByRole('button', { name: 'Undo' }),
+        })
+        .last(),
+    ).toBeVisible();
     await keys.press('Control+Z');
     await expect(
       page.locator(`[data-deck="card"][data-card-id="${trashed}"]`),
@@ -169,9 +175,9 @@ test('keys: rebind in Settings, refuse a conflict, and the new key works', async
 
     await page.getByRole('button', { name: 'Trash: x' }).click();
     await page.keyboard.press('j');
-    await expect(page.getByRole('alert')).toHaveText(
-      'Already used by Next card.',
-    );
+    await expect(
+      page.locator('[data-deck="settings"] [role="alert"]'),
+    ).toHaveText('Already used by Next card.');
     await page.keyboard.press('Delete');
     await expect(
       page.getByRole('button', { name: 'Trash: Delete' }),

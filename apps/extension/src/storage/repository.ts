@@ -23,12 +23,14 @@ import {
   type DeckDatabaseHandle,
 } from './database';
 import { parseDocument, type DeckDocument } from './document';
+import type { purgeDeleted as PurgeDeletedFunction } from './trashMaintenance';
 
 const SETTINGS_KEY = 'settings';
 const CLIENT_ID_KEY = 'clientId';
 const WALLPAPER_BLOB_PREFIX = 'wallpaper:';
 const QUARANTINE_PREFIX = 'quarantine:';
 const PURGE_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
+type PurgeDeleted = typeof PurgeDeletedFunction;
 
 type EntityRecord = Page | Deck | Card;
 type EntityStore = Extract<
@@ -311,8 +313,12 @@ export class DeckRepository {
     );
   }
 
-  async purge(cutoff = this.#now() - PURGE_AFTER_MS): Promise<number> {
-    const { purgeDeleted } = await import('./trashMaintenance');
+  async purge(
+    cutoff = this.#now() - PURGE_AFTER_MS,
+    workerPurge?: PurgeDeleted,
+  ): Promise<number> {
+    const purgeDeleted =
+      workerPurge ?? (await import('./trashMaintenance')).purgeDeleted;
     return purgeDeleted(
       await this.#database,
       cutoff,

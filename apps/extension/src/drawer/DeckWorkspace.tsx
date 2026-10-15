@@ -46,6 +46,7 @@ interface Props {
   onCardsChange: (cards: Card[]) => void;
   onDecksChange: (decks: Deck[]) => void;
   onError: (message: string) => void;
+  onSuccess?: ((message: string) => void) | undefined;
   offerUndo?: (action: UndoAction) => void;
   keymap: Keymap;
   /** False while the drawer animates closed: keys must not act then. */
@@ -80,6 +81,7 @@ export function DeckWorkspace(props: Props) {
     isPaused: !props.isOpen || noteEntity !== null || movingCard !== null,
     onCardsChange: props.onCardsChange,
     onError: (error) => props.onError(message(error)),
+    onSuccess: props.onSuccess,
     onNote: setNoteEntity,
     onMove: setMovingCard,
     offerUndo: props.offerUndo,
@@ -140,6 +142,7 @@ export function DeckWorkspace(props: Props) {
         deletedAt: null,
       });
       props.onDecksChange([...props.decks, saved]);
+      props.onSuccess?.(strings.deckSaved);
     } catch (error) {
       props.onError(message(error));
     }
@@ -186,6 +189,7 @@ export function DeckWorkspace(props: Props) {
               props.onCardsChange(replaceEntity(props.cards, saved));
             else props.onDecksChange(replaceEntity(props.decks, saved));
             setNoteEntity(saved);
+            props.onSuccess?.(strings.noteSaved);
           }}
         />
       ) : null}
@@ -253,6 +257,7 @@ function DeckColumn({
             props.onDecksChange(await props.data.repository.listDecks());
           },
         });
+      else props.onSuccess?.(strings.deckSaved);
     } catch (error) {
       props.onError(message(error));
     }
@@ -276,6 +281,7 @@ function DeckColumn({
       props.onCardsChange([...props.cards, saved]);
       setUrl('');
       setIsAdding(false);
+      props.onSuccess?.(strings.cardSaved);
     } catch (error) {
       props.onError(message(error));
     }
@@ -428,6 +434,7 @@ function CardRow({
           }),
         ),
       );
+      props.onSuccess?.(strings.cardSaved);
     } catch (error) {
       props.onError(message(error));
     }

@@ -52,6 +52,7 @@ interface DrawerProps {
   onClose: () => void;
   onDecksChange: (decks: Deck[]) => void;
   onError: (message: string) => void;
+  onSuccess?: (message: string) => void;
   onPagesChange: (pages: Page[]) => void;
   offerUndo: (action: UndoAction) => void;
 }
@@ -124,6 +125,7 @@ export default function Drawer({
   isOpen,
   onClose,
   onError,
+  onSuccess,
   onPagesChange,
   onDecksChange,
   onCardsChange,
@@ -181,6 +183,7 @@ export default function Drawer({
         onDecksChange,
         onPagesChange,
         onError,
+        onSuccess,
       });
     };
     window.addEventListener(WORKSPACE_DROP_EVENT, onDrop);
@@ -192,6 +195,7 @@ export default function Drawer({
     onCardsChange,
     onDecksChange,
     onError,
+    onSuccess,
     onPagesChange,
     pages,
   ]);
@@ -262,6 +266,7 @@ export default function Drawer({
       });
       onPagesChange([...pages, page]);
       selectPage(page.id);
+      onSuccess?.(strings.pageSaved);
     } catch (pageError) {
       onError(errorMessage(pageError));
     }
@@ -277,6 +282,7 @@ export default function Drawer({
         updatedAt: currentTimestamp(),
       });
       onPagesChange(pages.map((item) => (item.id === saved.id ? saved : item)));
+      onSuccess?.(strings.pageSaved);
     } catch (pageError) {
       onError(errorMessage(pageError));
     }
@@ -438,6 +444,7 @@ export default function Drawer({
           repository={data.repository}
           onChange={refreshWorkspace}
           onError={onError}
+          onSuccess={onSuccess}
         />
       ) : selectedId === INBOX_PAGE_ID ? (
         <InboxTriage
@@ -449,6 +456,7 @@ export default function Drawer({
           cards={cards}
           onCardsChange={onCardsChange}
           onError={onError}
+          onSuccess={onSuccess}
           offerUndo={offerUndo}
         />
       ) : (
@@ -464,6 +472,7 @@ export default function Drawer({
           onDecksChange={onDecksChange}
           onCardsChange={onCardsChange}
           onError={onError}
+          onSuccess={onSuccess}
           offerUndo={offerUndo}
         />
       )}

@@ -17,19 +17,19 @@ import {
 
 import { strings } from '../i18n/strings';
 import type { UndoAction } from '../drawer/UndoToast';
-import { dragId, parseDragId } from '../drawer/dragIdentity';
-import { fractionalOrderForMove } from '../drawer/fractionalOrder';
+import { dragId } from '../drawer/dragIdentity';
 import { compareOrder } from '../drawer/workspaceModel';
 import {
   WORKSPACE_DROP_EVENT,
   type WorkspaceDropDetail,
 } from '../drawer/WorkspaceDnd';
 import type { SurfaceData } from './bootstrap';
-import { focusOnMount } from './focusOnMount';
+import type { NoticeInput } from './ToastStack';
 
 const MAX_PINS = 12;
 const FAVICON_SIZE = 64;
 const PinMenu = lazy(() => import('./PinMenu'));
+const PinAddForm = lazy(() => import('./PinAddForm'));
 
 interface PinsProps {
   cards: Card[];
@@ -37,6 +37,7 @@ interface PinsProps {
   repository: SurfaceData['repository'];
   onCardsChange: (cards: Card[]) => void;
   offerUndo?: (action: UndoAction) => void;
+  notify: (notice: NoticeInput) => void;
 }
 
 function faviconUrl(url: string): string {
@@ -112,10 +113,9 @@ export function Pins({
   repository,
   onCardsChange,
   offerUndo,
+  notify,
 }: PinsProps) {
   const [isAdding, setIsAdding] = useState(false);
-  const [urlInput, setUrlInput] = useState('');
-  const [error, setError] = useState('');
   const [menuCard, setMenuCard] = useState<Card | null>(null);
   const { isOver, setNodeRef } = useDroppable({ id: dragId('pin', 'strip') });
   const pins = useMemo(
@@ -125,55 +125,39 @@ export function Pins({
         .toSorted((a, b) => compareOrder(a.order, b.order)),
     [cards],
   );
-
-  const saveCard = async (card: Card) => {
-    const saved = await repository.upsertCard(card);
-    onCardsChange(cards.map((item) => (item.id === saved.id ? saved : item)));
+  const reportWriteError = (error: unknown) => {
+    const detail = error instanceof Error ? error.message : String(error);
+    notify({ kind: 'error', text: `${strings.updateFailed} ${detail}` });
   };
+
   const open = async (card: Card, isNewTab: boolean) => {
     try {
-      const { openCard } = await import('../drawer/inboxActions');
-      await openCard(repository, card, isNewTab);
+      const { openPin } = await import('./pinUndo');
+      await openPin(repository, card, isNewTab);
     } catch (openError) {
-      setError(`${strings.updateFailed} ${String(openError)}`);
+      reportWriteError(openError);
     }
   };
 
   useEffect(() => {
     const onDrop = (event: Event) => {
       if (!(event instanceof CustomEvent)) return;
-      const { activeId, overId } = event.detail as WorkspaceDropDetail;
-      const active = parseDragId(activeId);
-      const over = parseDragId(overId);
-      if (active?.entity !== 'pin' || over?.entity !== 'pin') return;
-      const moved = pins.find(({ id }) => id === active.id);
-      if (!moved) return;
-      void saveCard({
-        ...moved,
-        order: fractionalOrderForMove(pins, active.id, over.id),
-        updatedAt: Date.now(),
-      }).catch((saveError: unknown) => {
-        const detail =
-          saveError instanceof Error ? saveError.message : String(saveError);
-        setError(`${strings.updateFailed} ${detail}`);
-      });
+      void import('./reorderPin')
+        .then(({ reorderPin }) =>
+          reorderPin(repository, pins, event.detail as WorkspaceDropDetail),
+        )
+        .then((saved) => {
+          if (!saved) return;
+          onCardsChange(
+            cards.map((item) => (item.id === saved.id ? saved : item)),
+          );
+          notify({ kind: 'success', text: strings.saved });
+        })
+        .catch(reportWriteError);
     };
     window.addEventListener(WORKSPACE_DROP_EVENT, onDrop);
     return () => window.removeEventListener(WORKSPACE_DROP_EVENT, onDrop);
   });
-
-  const addPin = async () => {
-    try {
-      const { createPin } = await import('./pinUndo');
-      const saved = await createPin(repository, urlInput, defaultDeckId, pins);
-      onCardsChange([...cards, saved]);
-      setUrlInput('');
-      setError('');
-      setIsAdding(false);
-    } catch (addError) {
-      setError(addError instanceof Error ? addError.message : String(addError));
-    }
-  };
 
   const updateMenuCard = async (change: Partial<Card>) => {
     if (!menuCard) return;
@@ -188,8 +172,10 @@ export function Pins({
         offerUndo,
       );
       setMenuCard(null);
+      if (!('pinned' in change && change.pinned === false))
+        notify({ kind: 'success', text: strings.saved });
     } catch (saveError) {
-      setError(`${strings.updateFailed} ${String(saveError)}`);
+      reportWriteError(saveError);
     }
   };
 
@@ -216,21 +202,17 @@ export function Pins({
       </SortableContext>
       {pins.length < MAX_PINS ? (
         isAdding ? (
-          <div className="deck-pin-add-form">
-            <input
-              className="deck-pin-url-input"
-              ref={focusOnMount}
-              value={urlInput}
-              placeholder={strings.pinUrlPlaceholder}
-              aria-label={strings.pinUrlPlaceholder}
-              onChange={(event) => setUrlInput(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') void addPin();
-                if (event.key === 'Escape') setIsAdding(false);
-              }}
+          <Suspense fallback={null}>
+            <PinAddForm
+              cards={cards}
+              pins={pins}
+              defaultDeckId={defaultDeckId}
+              repository={repository}
+              onCardsChange={onCardsChange}
+              onClose={() => setIsAdding(false)}
+              notify={notify}
             />
-            {error ? <span role="alert">{error}</span> : null}
-          </div>
+          </Suspense>
         ) : (
           <button
             data-deck="pin-add"

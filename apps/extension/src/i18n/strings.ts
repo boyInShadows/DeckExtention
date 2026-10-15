@@ -31,6 +31,8 @@ export const strings = {
   iconPrompt: 'Emoji (empty uses favicon)',
   settings: 'Settings',
   updateFailed: 'Deck could not complete this action.',
+  saved: 'Saved',
+  undo: 'Undo',
   openDrawer: 'Open Deck drawer',
   inbox: 'Inbox',
   newPage: 'New page',

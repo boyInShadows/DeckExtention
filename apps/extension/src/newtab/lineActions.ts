@@ -12,6 +12,7 @@ interface ActionContext {
   saveSettings: (settings: Settings) => Promise<void>;
   openSettings: () => void;
   notify: (message: string) => void;
+  notifySuccess?: (message: string) => void;
 }
 
 export async function executeAction(
@@ -52,6 +53,7 @@ export async function executeAction(
   anchor.download = `deck-${new Date().toISOString().slice(0, 10)}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
+  context.notifySuccess?.(strings.exportSaved);
 }
 
 export async function searchWeb(

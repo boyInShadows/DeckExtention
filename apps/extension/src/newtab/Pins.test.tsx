@@ -96,20 +96,23 @@ interface Mounted {
   view: RenderResult;
   upsertCard: ReturnType<typeof fakeRepository>['upsertCard'];
   onCardsChange: ReturnType<typeof vi.fn<(cards: Card[]) => void>>;
+  notify: ReturnType<typeof vi.fn>;
 }
 
 async function mountPins(cards: Card[]): Promise<Mounted> {
   const { upsertCard, repository } = fakeRepository();
   const onCardsChange = vi.fn<(cards: Card[]) => void>();
+  const notify = vi.fn();
   const view = await render(
     <Pins
       cards={cards}
       defaultDeckId={DEFAULT_DECK_ID}
       repository={repository}
       onCardsChange={onCardsChange}
+      notify={notify}
     />,
   );
-  return { view, upsertCard, onCardsChange };
+  return { view, upsertCard, onCardsChange, notify };
 }
 
 function pinLabels(view: RenderResult): string[] {
@@ -135,10 +138,20 @@ it('stamps a pin before opening its link', async () => {
 
 async function openAddForm(view: RenderResult): Promise<HTMLInputElement> {
   await view.act(() => click(view.getByLabel(strings.addPin)));
+  await vi.waitFor(async () => {
+    await view.act(async () => {
+      await vi.dynamicImportSettled();
+    });
+    expect(view.query('.deck-pin-url-input')).not.toBeNull();
+  });
   return view.get<HTMLInputElement>('.deck-pin-url-input');
 }
 
-async function submitUrl(view: RenderResult, url: string): Promise<void> {
+async function submitUrl(
+  view: RenderResult,
+  url: string,
+  notify: ReturnType<typeof vi.fn>,
+): Promise<void> {
   const input = await openAddForm(view);
   await view.act(() => type(input, url));
   await view.act(() => {
@@ -146,10 +159,7 @@ async function submitUrl(view: RenderResult, url: string): Promise<void> {
   });
   await vi.waitFor(async () => {
     await view.act(async () => {});
-    expect(
-      view.query('.deck-pin-url-input') === null ||
-        view.query('[role="alert"]'),
-    ).toBeTruthy();
+    expect(notify).toHaveBeenCalled();
   });
 }
 
@@ -181,6 +191,9 @@ async function drop(
 ): Promise<void> {
   await view.act(() => {
     window.dispatchEvent(new CustomEvent(WORKSPACE_DROP_EVENT, { detail }));
+  });
+  await view.act(async () => {
+    await vi.dynamicImportSettled();
   });
 }
 
@@ -299,8 +312,10 @@ describe('Pins - adding', () => {
   it('saves a typed http(s) URL as a pin after the last one', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(NOW);
     const existing = makeCard('a', { order: 'a5' });
-    const { view, upsertCard, onCardsChange } = await mountPins([existing]);
-    await submitUrl(view, '  https://news.example.org/today  ');
+    const { view, upsertCard, onCardsChange, notify } = await mountPins([
+      existing,
+    ]);
+    await submitUrl(view, '  https://news.example.org/today  ', notify);
 
     expect(upsertCard).toHaveBeenCalledTimes(1);
     const saved = nth(upsertCard.mock.calls)[0];
@@ -322,8 +337,8 @@ describe('Pins - adding', () => {
   });
 
   it('orders the first pin without a predecessor', async () => {
-    const { view, upsertCard } = await mountPins([]);
-    await submitUrl(view, 'http://first.example.com');
+    const { view, upsertCard, notify } = await mountPins([]);
+    await submitUrl(view, 'http://first.example.com', notify);
     expect(nth(upsertCard.mock.calls)[0].order).toEqual(expect.any(String));
     expect(nth(upsertCard.mock.calls)[0].url).toBe('http://first.example.com/');
     view.unmount();
@@ -332,9 +347,12 @@ describe('Pins - adding', () => {
   it.each(['not a url', 'ftp://files.example.com/x', ''])(
     'refuses %j with a visible error and saves nothing',
     async (value) => {
-      const { view, upsertCard } = await mountPins([]);
-      await submitUrl(view, value);
-      expect(view.get('[role="alert"]').textContent).toBe(strings.invalidUrl);
+      const { view, upsertCard, notify } = await mountPins([]);
+      await submitUrl(view, value, notify);
+      expect(notify).toHaveBeenCalledWith({
+        kind: 'error',
+        text: strings.invalidUrl,
+      });
       expect(upsertCard).not.toHaveBeenCalled();
       expect(view.query('.deck-pin-url-input')).not.toBeNull();
       view.unmount();
@@ -482,16 +500,17 @@ describe('Pins - reordering', () => {
     [new Error('disk full'), 'disk full'],
     ['quota', 'quota'],
   ])('reports a failed reorder save (%s)', async (failure, detail) => {
-    const { view, upsertCard } = await mountPins([first, second]);
+    const { view, upsertCard, notify } = await mountPins([first, second]);
     upsertCard.mockRejectedValueOnce(failure);
     await openAddForm(view);
     await drop(view, {
       activeId: dragId('pin', 'b'),
       overId: dragId('pin', 'a'),
     });
-    expect(view.get('[role="alert"]').textContent).toBe(
-      `${strings.updateFailed} ${detail}`,
-    );
+    expect(notify).toHaveBeenCalledWith({
+      kind: 'error',
+      text: `${strings.updateFailed} ${detail}`,
+    });
     view.unmount();
   });
 });

@@ -40,6 +40,7 @@ interface WorkspaceKeysOptions {
   isPaused: boolean;
   onCardsChange: (cards: Card[]) => void;
   onError: (error: unknown) => void;
+  onSuccess?: ((message: string) => void) | undefined;
   onNote: (card: Card) => void;
   onMove: (card: Card) => void;
   offerUndo: ((action: UndoAction) => void) | undefined;
@@ -146,7 +147,16 @@ export function useWorkspaceKeys(options: WorkspaceKeysOptions): void {
           }),
         );
       } else if (action === 'pin') {
-        enqueue((cards) => pinCards(repository, cards, [card.id], card.deckId));
+        enqueue(async (cards) => {
+          const next = await pinCards(
+            repository,
+            cards,
+            [card.id],
+            card.deckId,
+          );
+          latest.current.onSuccess?.(strings.pinSaved);
+          return next;
+        });
       } else if (action === 'note') onNote(card);
       else if (action === 'move') onMove(card);
       else return false;

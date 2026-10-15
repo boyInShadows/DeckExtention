@@ -67,9 +67,9 @@ describe('Surface drawer preload failure', () => {
       await view.act(async () => {
         await vi.dynamicImportSettled();
       });
-      expect(view.get('[data-deck="error"]').textContent).toContain(
-        strings.updateFailed,
-      );
+      expect(
+        view.get('[data-deck="toast"][data-kind="error"]').textContent,
+      ).toContain(strings.updateFailed);
     });
     view.unmount();
   });

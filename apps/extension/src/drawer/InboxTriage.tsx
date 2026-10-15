@@ -41,6 +41,7 @@ interface InboxTriageProps {
   data: SurfaceData;
   onCardsChange: (cards: Card[]) => void;
   onError: (message: string) => void;
+  onSuccess?: ((message: string) => void) | undefined;
   offerUndo?: (action: UndoAction) => void;
 }
 
@@ -140,7 +141,11 @@ export function InboxTriage(props: InboxTriageProps) {
 
   const pin = () => {
     if (!homeDeckId) return props.onError(strings.noDecks);
-    enqueue((cards, ids) => pinCards(repository, cards, ids, homeDeckId));
+    enqueue(async (cards, ids) => {
+      const next = await pinCards(repository, cards, ids, homeDeckId);
+      props.onSuccess?.(strings.pinSaved);
+      return next;
+    });
   };
 
   const open = async (card: Card, isNewTab: boolean) => {
@@ -280,6 +285,7 @@ export function InboxTriage(props: InboxTriageProps) {
             if ('deckId' in saved) {
               props.onCardsChange(replaceEntity(props.cards, saved));
               setNoteCard(saved);
+              props.onSuccess?.(strings.noteSaved);
             }
           }}
         />

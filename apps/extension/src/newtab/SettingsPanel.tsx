@@ -1,4 +1,11 @@
-import type { Settings, Snapshot, Theme } from 'deck-schema';
+import {
+  BACKUP_ERROR_KEY,
+  BackgroundErrorSchema,
+  SETTINGS_NOTICE_KEY,
+  type Settings,
+  type Snapshot,
+  type Theme,
+} from 'deck-schema';
 import {
   useCallback,
   useEffect,
@@ -17,6 +24,7 @@ import { BookmarkImport } from './BookmarkImport';
 import { GrantedAccess } from './GrantedAccess';
 import { KeymapEditor } from './KeymapEditor';
 import { QuickSavePermission } from './QuickSavePermission';
+import type { NoticeInput } from './ToastStack';
 
 interface SettingsPanelProps {
   settings: Settings;
@@ -25,6 +33,7 @@ interface SettingsPanelProps {
   /** Pages, decks or cards were written behind the surface's back. */
   onDataChange: () => void;
   onClose: () => void;
+  notify: (notice: NoticeInput) => void;
 }
 
 const THEMES: { value: Theme; label: string }[] = [
@@ -40,6 +49,7 @@ const WALLPAPER_COLORS = [
   'sand',
   'moss',
 ] as const;
+const currentTimestamp = () => Date.now();
 
 export default function SettingsPanel({
   settings,
@@ -47,8 +57,9 @@ export default function SettingsPanel({
   onChange,
   onDataChange,
   onClose,
+  notify,
 }: SettingsPanelProps) {
-  const [error, setError] = useState('');
+  const [hasBackupError, setHasBackupError] = useState(false);
   const [ownerName, setOwnerName] = useState(settings.ownerName);
   const [customCss, setCustomCss] = useState(settings.customCss);
   const [searchUrlTemplate, setSearchUrlTemplate] = useState(
@@ -62,11 +73,16 @@ export default function SettingsPanel({
   const [backups] = useState(
     () => new BackupService(repository, openDeckDatabase()),
   );
-  const showError = useCallback((actionError: unknown) => {
-    const detail =
-      actionError instanceof Error ? actionError.message : String(actionError);
-    setError(`${strings.updateFailed} ${detail}`);
-  }, []);
+  const showError = useCallback(
+    (actionError: unknown) => {
+      const detail =
+        actionError instanceof Error
+          ? actionError.message
+          : String(actionError);
+      notify({ kind: 'error', text: `${strings.updateFailed} ${detail}` });
+    },
+    [notify],
+  );
   const update = (change: Partial<Settings>) => {
     const next = { ...latestSettings.current, ...change };
     latestSettings.current = next;
@@ -111,11 +127,38 @@ export default function SettingsPanel({
   }, [backups, showError]);
 
   useEffect(loadSnapshots, [loadSnapshots]);
+  useEffect(() => {
+    void chrome.storage.local
+      .get(BACKUP_ERROR_KEY)
+      .then((items) =>
+        setHasBackupError(
+          BackgroundErrorSchema.safeParse(items[BACKUP_ERROR_KEY]).success,
+        ),
+      )
+      .catch(showError);
+  }, [showError]);
 
-  const afterImport = useCallback(() => {
-    loadSnapshots();
-    onDataChange();
-  }, [loadSnapshots, onDataChange]);
+  const retryBackup = async () => {
+    try {
+      await backups.createSnapshot();
+      await repository.purge();
+      await chrome.storage.local.remove(BACKUP_ERROR_KEY);
+      setHasBackupError(false);
+      loadSnapshots();
+      notify({ kind: 'success', text: strings.backupSaved });
+    } catch (error) {
+      showError(error);
+    }
+  };
+
+  const afterImport = useCallback(
+    (isSuccess: boolean) => {
+      loadSnapshots();
+      onDataChange();
+      if (isSuccess) notify({ kind: 'success', text: strings.importSaved });
+    },
+    [loadSnapshots, notify, onDataChange],
+  );
 
   const exportData = async () => {
     try {
@@ -128,6 +171,7 @@ export default function SettingsPanel({
       anchor.download = `deck-${new Date().toISOString().slice(0, 10)}.json`;
       anchor.click();
       URL.revokeObjectURL(url);
+      notify({ kind: 'success', text: strings.exportSaved });
     } catch (exportError) {
       showError(exportError);
     }
@@ -141,13 +185,16 @@ export default function SettingsPanel({
       await backups.previewImport(document, 'replace');
       if (!window.confirm(strings.importConfirm)) return;
       await backups.importData(document, 'replace');
+      await chrome.storage.local.set({
+        [SETTINGS_NOTICE_KEY]: {
+          message: strings.importSaved,
+          createdAt: Date.now(),
+          kind: 'success',
+        },
+      });
       window.location.reload();
     } catch (importError) {
-      const detail =
-        importError instanceof Error
-          ? importError.message
-          : String(importError);
-      setError(`${strings.updateFailed} ${detail}`);
+      showError(importError);
     }
   };
 
@@ -155,6 +202,13 @@ export default function SettingsPanel({
     if (!window.confirm(strings.restoreConfirm)) return;
     try {
       await backups.restoreSnapshot(snapshot.id);
+      await chrome.storage.local.set({
+        [SETTINGS_NOTICE_KEY]: {
+          message: strings.restoreSaved,
+          createdAt: currentTimestamp(),
+          kind: 'success',
+        },
+      });
       window.location.reload();
     } catch (restoreError) {
       showError(restoreError);
@@ -173,13 +227,8 @@ export default function SettingsPanel({
         wallpaperGradient: gradient,
         wallpaperLuminance: luminance,
       });
-      setError('');
     } catch (wallpaperError) {
-      const detail =
-        wallpaperError instanceof Error
-          ? wallpaperError.message
-          : String(wallpaperError);
-      setError(`${strings.updateFailed} ${detail}`);
+      showError(wallpaperError);
     }
   };
 
@@ -337,6 +386,15 @@ export default function SettingsPanel({
         </SettingsGroup>
         <SettingsGroup title={strings.backups}>
           <p>{strings.backupHint}</p>
+          {hasBackupError ? (
+            <button
+              type="button"
+              data-deck="backup-retry"
+              onClick={() => void retryBackup()}
+            >
+              {strings.backupRetry}
+            </button>
+          ) : null}
           {snapshots.length > 0 ? (
             snapshots.map((snapshot) => (
               <button
@@ -395,7 +453,6 @@ export default function SettingsPanel({
           </label>
           <p>{strings.customCssHint}</p>
         </SettingsGroup>
-        {error ? <p role="alert">{error}</p> : null}
       </aside>
     </>
   );

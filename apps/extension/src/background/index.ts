@@ -10,13 +10,14 @@
  *          the feature exists rather than wired to an empty lie
  */
 
+import { BACKUP_ERROR_KEY } from 'deck-schema';
 import { captureStrings } from '../i18n/captureStrings';
 import { BackupService } from '../storage/backup';
 import { ACTIVE_DATABASE_KEY, openDeckDatabase } from '../storage/database';
 import { DeckRepository } from '../storage/repository';
+import { purgeDeleted } from '../storage/trashMaintenance';
 import { handleToastDecision, quickSave } from './quickSave';
 
-const BACKUP_ERROR_KEY = 'backupMaintenanceError';
 let repository = new DeckRepository();
 let backups = new BackupService(repository, openDeckDatabase());
 
@@ -29,7 +30,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 async function runBackupMaintenance(): Promise<void> {
   try {
-    if (await backups.ensureDailySnapshot()) await repository.purge();
+    // Chrome extension workers cannot import() the repository's lazy purge chunk.
+    if (await backups.ensureDailySnapshot())
+      await repository.purge(undefined, purgeDeleted);
     await chrome.storage.local.remove(BACKUP_ERROR_KEY);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

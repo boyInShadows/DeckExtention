@@ -21,6 +21,7 @@ import {
   type RenderResult,
 } from '../testing/render';
 import SettingsPanel from './SettingsPanel';
+import type { NoticeInput } from './ToastStack';
 
 /*
  * The panel builds its own BackupService on IndexedDB; the service has its
@@ -91,10 +92,11 @@ function createRepository() {
     listDecks: vi.fn(() => Promise.resolve([])),
     listCards: vi.fn(() => Promise.resolve([])),
     upsertMany: vi.fn(() => Promise.resolve()),
+    purge: vi.fn(() => Promise.resolve(0)),
   };
 }
 
-function stubChrome() {
+function stubChrome(storageItems: Record<string, unknown> = {}) {
   const chromeFake = {
     permissions: {
       contains: vi.fn(() => Promise.resolve(false)),
@@ -104,6 +106,13 @@ function stubChrome() {
     },
     tabs: { create: vi.fn(() => Promise.resolve()) },
     bookmarks: { getTree: vi.fn(() => Promise.resolve(BOOKMARK_TREE)) },
+    storage: {
+      local: {
+        get: vi.fn(() => Promise.resolve(storageItems)),
+        set: vi.fn(() => Promise.resolve()),
+        remove: vi.fn(() => Promise.resolve()),
+      },
+    },
   };
   vi.stubGlobal('chrome', chromeFake);
   return chromeFake;
@@ -115,9 +124,17 @@ interface Mounted {
   onChange: ReturnType<typeof vi.fn<(settings: Settings) => Promise<void>>>;
   onDataChange: ReturnType<typeof vi.fn>;
   onClose: ReturnType<typeof vi.fn>;
+  chromeFake: ReturnType<typeof stubChrome>;
 }
 
-async function mount(settings: Settings = SETTINGS_DEFAULTS): Promise<Mounted> {
+async function mount(
+  settings: Settings = SETTINGS_DEFAULTS,
+  storageItems?: Record<string, unknown>,
+): Promise<Mounted> {
+  latestNotice = null;
+  const chromeFake = storageItems
+    ? stubChrome(storageItems)
+    : (chrome as unknown as ReturnType<typeof stubChrome>);
   const repository = createRepository();
   const onChange = vi.fn<(next: Settings) => Promise<void>>(() =>
     Promise.resolve(),
@@ -131,10 +148,13 @@ async function mount(settings: Settings = SETTINGS_DEFAULTS): Promise<Mounted> {
       onChange={onChange}
       onDataChange={onDataChange}
       onClose={onClose}
+      notify={(notice: NoticeInput) => {
+        latestNotice = notice;
+      }}
     />,
   );
   await settle(view);
-  return { view, repository, onChange, onDataChange, onClose };
+  return { view, repository, onChange, onDataChange, onClose, chromeFake };
 }
 
 async function settle(view: RenderResult): Promise<void> {
@@ -181,8 +201,9 @@ async function chooseFile(
   await change(view, input);
 }
 
-function alertText(view: RenderResult): string | null {
-  return view.query('[role="alert"]')?.textContent ?? null;
+let latestNotice: NoticeInput | null = null;
+function alertText(_view: RenderResult): string | null {
+  return latestNotice?.kind === 'error' ? latestNotice.text : null;
 }
 
 function buttonWithText(view: RenderResult, text: string): HTMLButtonElement {
@@ -363,7 +384,7 @@ describe('SettingsPanel - appearance', () => {
     view.unmount();
   });
 
-  it('shows why a wallpaper failed, and clears it after a success', async () => {
+  it('shows why a wallpaper failed', async () => {
     const { view, repository } = await mount();
     const file = new File(['image'], 'wall.png', { type: 'image/png' });
     processWallpaper.mockRejectedValueOnce(new Error('cannot decode'));
@@ -376,7 +397,7 @@ describe('SettingsPanel - appearance', () => {
     expect(alertText(view)).toBe(`${strings.updateFailed} quota`);
 
     await chooseFile(view, strings.wallpaperLocal, file);
-    expect(alertText(view)).toBeNull();
+    expect(alertText(view)).toBe(`${strings.updateFailed} quota`);
     view.unmount();
   });
 });
@@ -438,6 +459,38 @@ describe('SettingsPanel - keys and advanced', () => {
 });
 
 describe('SettingsPanel - backups', () => {
+  it('offers retry while backup maintenance failed and clears the key after a successful retry', async () => {
+    const { view, repository, chromeFake } = await mount(SETTINGS_DEFAULTS, {
+      backupMaintenanceError: { message: 'quota', occurredAt: NOW },
+    });
+    const retry = view.get('[data-deck="backup-retry"]');
+    expect(retry.textContent).toBe(strings.backupRetry);
+    await clickAndSettle(view, retry);
+    expect(backups.createSnapshot).toHaveBeenCalledOnce();
+    expect(repository.purge).toHaveBeenCalledOnce();
+    expect(chromeFake.storage.local.remove).toHaveBeenCalledWith(
+      'backupMaintenanceError',
+    );
+    expect(view.query('[data-deck="backup-retry"]')).toBeNull();
+    expect(latestNotice).toEqual({
+      kind: 'success',
+      text: strings.backupSaved,
+    });
+    view.unmount();
+  });
+
+  it('keeps backup retry available when snapshot creation fails', async () => {
+    backups.createSnapshot.mockRejectedValueOnce(new Error('disk full'));
+    const { view, repository, chromeFake } = await mount(SETTINGS_DEFAULTS, {
+      backupMaintenanceError: { message: 'quota', occurredAt: NOW },
+    });
+    await clickAndSettle(view, view.get('[data-deck="backup-retry"]'));
+    expect(alertText(view)).toContain('disk full');
+    expect(view.query('[data-deck="backup-retry"]')).not.toBeNull();
+    expect(repository.purge).not.toHaveBeenCalled();
+    expect(chromeFake.storage.local.remove).not.toHaveBeenCalled();
+    view.unmount();
+  });
   it('says when there are no snapshots yet', async () => {
     const { view } = await mount();
     expect(view.container.textContent).toContain(strings.noBackups);

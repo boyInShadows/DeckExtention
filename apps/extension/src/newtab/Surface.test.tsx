@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import {
   CAPTURE_NOTICE_KEY,
+  BACKUP_ERROR_KEY,
+  DRAWER_COMMAND_ERROR_KEY,
   SETTINGS_DEFAULTS,
   type Card,
   type Deck,
@@ -286,7 +288,12 @@ function surface(view: RenderResult): HTMLElement {
 }
 
 function alertText(view: RenderResult): string | null {
-  return view.query('[data-deck="error"]')?.textContent ?? null;
+  return (
+    view
+      .getAll('[data-deck="toast"][data-kind="error"]')
+      .at(-1)
+      ?.querySelector('span')?.textContent ?? null
+  );
 }
 
 async function press(
@@ -430,9 +437,48 @@ describe('Surface hand-over from Quick Save', () => {
     );
     stubBrowser();
     const view = await mount(surfaceData());
-    expect(storageGet).toHaveBeenCalledWith(CAPTURE_NOTICE_KEY);
+    expect(storageGet).toHaveBeenCalledWith(
+      expect.arrayContaining([CAPTURE_NOTICE_KEY]),
+    );
     expect(alertText(view)).toBe('Could not show the toast');
-    expect(storageRemove).toHaveBeenCalledWith(CAPTURE_NOTICE_KEY);
+    expect(storageRemove).toHaveBeenCalledWith([CAPTURE_NOTICE_KEY]);
+    view.unmount();
+  });
+
+  it('shows Quick Save success as success and consumes drawer errors', async () => {
+    storageGet = vi.fn(() =>
+      Promise.resolve<Record<string, unknown>>({
+        [CAPTURE_NOTICE_KEY]: {
+          message: 'Saved to Inbox',
+          createdAt: 1,
+          kind: 'success',
+        },
+        [DRAWER_COMMAND_ERROR_KEY]: { message: 'offline', occurredAt: 1 },
+      }),
+    );
+    stubBrowser();
+    const view = await mount(surfaceData());
+    expect(
+      view.get('[data-deck="toast"][data-kind="success"]').textContent,
+    ).toContain('Saved to Inbox');
+    expect(alertText(view)).toContain('offline');
+    expect(storageRemove).toHaveBeenCalledWith([
+      CAPTURE_NOTICE_KEY,
+      DRAWER_COMMAND_ERROR_KEY,
+    ]);
+    view.unmount();
+  });
+
+  it('shows a backup maintenance error without consuming its retry key', async () => {
+    storageGet = vi.fn(() =>
+      Promise.resolve<Record<string, unknown>>({
+        [BACKUP_ERROR_KEY]: { message: 'quota', occurredAt: 1 },
+      }),
+    );
+    stubBrowser();
+    const view = await mount(surfaceData());
+    expect(alertText(view)).toContain('quota');
+    expect(storageRemove).not.toHaveBeenCalled();
     view.unmount();
   });
 
@@ -698,7 +744,7 @@ describe('Surface settings and keys', () => {
     view.unmount();
   });
 
-  it('reports a failed save and clears the alert after the next success', async () => {
+  it('reports failed saves and confirms the next success', async () => {
     const repository = fakeRepository();
     repository.setSettings
       .mockRejectedValueOnce(new Error('quota exceeded'))
@@ -711,7 +757,12 @@ describe('Surface settings and keys', () => {
     await clickOn(view, toggle);
     expect(alertText(view)).toBe(`${strings.updateFailed} locked`);
     await clickOn(view, toggle);
-    expect(alertText(view)).toBeNull();
+    expect(
+      view
+        .getAll('[data-deck="toast"][data-kind="success"]')
+        .at(-1)
+        ?.querySelector('span')?.textContent,
+    ).toBe(strings.saved);
     expect(surface(view).dataset.blurred).toBe('true');
     view.unmount();
   });

@@ -9,16 +9,12 @@ import {
   type CSSProperties,
 } from 'react';
 
-import {
-  CAPTURE_NOTICE_KEY,
-  CaptureNoticeSchema,
-  OPEN_PAGE_HASH_PREFIX,
-  OPEN_SETTINGS_HASH,
-} from 'deck-schema';
+import { OPEN_PAGE_HASH_PREFIX, OPEN_SETTINGS_HASH } from 'deck-schema';
 
 import { strings } from '../i18n/strings';
 import { WorkspaceDnd } from '../drawer/WorkspaceDnd';
 import type { UndoAction } from '../drawer/UndoToast';
+import type { Notice, NoticeInput } from './ToastStack';
 import { blackScrimForWhiteText } from '../wallpaper/contrast';
 import type { SurfaceData } from './bootstrap';
 import { Line } from './Line';
@@ -34,7 +30,7 @@ const RecoveryNotice = lazy(() =>
 );
 const loadDrawer = () => import('../drawer/drawer');
 const Drawer = lazy(loadDrawer);
-const UndoToast = lazy(() => import('../drawer/UndoToast'));
+const ToastStack = lazy(() => import('./ToastStack'));
 const CLOCK_UPDATE_MS = 1_000;
 const DRAWER_EXIT_MS = 320;
 const BRIGHT_WALLPAPER_THRESHOLD = 0.18;
@@ -63,8 +59,37 @@ export function Surface({ initialData }: SurfaceProps) {
     key: string;
     url: string;
   } | null>(null);
-  const [error, setError] = useState('');
-  const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const notify = useCallback((notice: NoticeInput) => {
+    setNotices((current) => [
+      ...current,
+      { ...notice, id: crypto.randomUUID() },
+    ]);
+  }, []);
+  const notifyError = useCallback(
+    (text: string) => notify({ kind: 'error', text }),
+    [notify],
+  );
+  const notifyFailure = useCallback(
+    (error: unknown) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      notifyError(`${strings.updateFailed} ${detail}`);
+    },
+    [notifyError],
+  );
+  const dismissNotice = useCallback((id: string) => {
+    setNotices((current) => current.filter((notice) => notice.id !== id));
+  }, []);
+  const offerUndo = useCallback(
+    (action: UndoAction) => {
+      notify({
+        kind: 'success',
+        text: action.label,
+        action: { label: strings.undo, run: action.undo },
+      });
+    },
+    [notify],
+  );
   const drawerExitTimer = useRef<number | null>(null);
 
   const openDrawer = useCallback(() => {
@@ -101,14 +126,12 @@ export function Surface({ initialData }: SurfaceProps) {
         setSettings(saved);
         document.documentElement.dataset.theme = saved.theme;
         document.body.style.backgroundImage = saved.wallpaperGradient ?? '';
-        setError('');
+        notify({ kind: 'success', text: strings.saved });
       } catch (saveError) {
-        const detail =
-          saveError instanceof Error ? saveError.message : String(saveError);
-        setError(`${strings.updateFailed} ${detail}`);
+        notifyFailure(saveError);
       }
     },
-    [initialData.repository],
+    [initialData.repository, notify, notifyFailure],
   );
 
   // A bulk write from Settings (bookmark import) - re-read what changed.
@@ -124,45 +147,31 @@ export function Surface({ initialData }: SurfaceProps) {
         setDecks(storedDecks);
         setCards(storedCards);
       })
-      .catch((loadError: unknown) => {
-        const detail =
-          loadError instanceof Error ? loadError.message : String(loadError);
-        setError(`${strings.updateFailed} ${detail}`);
-      });
-  }, [initialData]);
+      .catch(notifyFailure);
+  }, [initialData, notifyFailure]);
 
   // Quick Save hands over here when its toast could not show (P2.S4).
   useEffect(() => {
     // Consumed once: a reload of this tab should start calm again.
     if (location.hash === OPEN_SETTINGS_HASH)
       history.replaceState(null, '', location.pathname);
-    chrome.storage.local
-      .get(CAPTURE_NOTICE_KEY)
-      .then((items) => {
-        const notice = CaptureNoticeSchema.safeParse(items[CAPTURE_NOTICE_KEY]);
-        if (!notice.success) return;
-        setError(notice.data.message);
-        return chrome.storage.local.remove(CAPTURE_NOTICE_KEY);
-      })
-      .catch((noticeError: unknown) => setError(String(noticeError)));
-  }, []);
+    void import('./pendingNotices')
+      .then(({ readPendingNotices }) => readPendingNotices(notify))
+      .catch((noticeError: unknown) => notifyError(String(noticeError)));
+  }, [notify, notifyError]);
 
   useEffect(() => {
     let idle: number | null = null;
     const frame = window.requestAnimationFrame(() => {
       idle = window.requestIdleCallback(() => {
-        void loadDrawer().catch((loadError: unknown) => {
-          const detail =
-            loadError instanceof Error ? loadError.message : String(loadError);
-          setError(`${strings.updateFailed} ${detail}`);
-        });
+        void loadDrawer().catch(notifyFailure);
       });
     });
     return () => {
       window.cancelAnimationFrame(frame);
       if (idle !== null) window.cancelIdleCallback(idle);
     };
-  }, []);
+  }, [notifyFailure]);
 
   useLayoutEffect(() => {
     if (!isDrawerOpen) return;
@@ -243,17 +252,13 @@ export function Surface({ initialData }: SurfaceProps) {
               url: objectUrl,
             });
         })
-        .catch((loadError: unknown) => {
-          const detail =
-            loadError instanceof Error ? loadError.message : String(loadError);
-          setError(`${strings.updateFailed} ${detail}`);
-        });
+        .catch(notifyFailure);
     }
     return () => {
       isCurrent = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [initialData.repository, settings.wallpaper]);
+  }, [initialData.repository, notifyFailure, settings.wallpaper]);
 
   useLayoutEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -334,7 +339,9 @@ export function Surface({ initialData }: SurfaceProps) {
             repository={initialData.repository}
             openSettings={() => setIsSettingsOpen(true)}
             saveSettings={saveSettings}
-            notify={setError}
+            notify={notifyError}
+            notifyInfo={(text) => notify({ kind: 'info', text })}
+            notifySuccess={(text) => notify({ kind: 'success', text })}
             canSpaceOpenDrawer={settings.canSpaceOpenDrawer}
             openHelp={() => setIsHelpOpen(true)}
             openDrawer={openDrawer}
@@ -344,7 +351,8 @@ export function Surface({ initialData }: SurfaceProps) {
             defaultDeckId={initialData.defaultDeckId}
             repository={initialData.repository}
             onCardsChange={setCards}
-            offerUndo={setUndoAction}
+            offerUndo={offerUndo}
+            notify={notify}
           />
         </div>
         <nav data-deck="surface-controls" className="deck-surface-controls">
@@ -376,11 +384,6 @@ export function Surface({ initialData }: SurfaceProps) {
         >
           {strings.drawerHandle}
         </button>
-        {error ? (
-          <p data-deck="error" className="deck-error" role="alert">
-            {error}
-          </p>
-        ) : null}
         <Suspense fallback={null}>
           {recoveryIssueCount ? (
             <RecoveryNotice
@@ -397,6 +400,7 @@ export function Surface({ initialData }: SurfaceProps) {
               onChange={saveSettings}
               onDataChange={reloadWorkspace}
               onClose={() => setIsSettingsOpen(false)}
+              notify={notify}
             />
           ) : null}
         </Suspense>
@@ -413,8 +417,9 @@ export function Surface({ initialData }: SurfaceProps) {
               onCardsChange={setCards}
               onDecksChange={setDecks}
               onPagesChange={setPages}
-              onError={setError}
-              offerUndo={setUndoAction}
+              onError={notifyError}
+              onSuccess={(text) => notify({ kind: 'success', text })}
+              offerUndo={offerUndo}
             />
           ) : null}
         </Suspense>
@@ -427,11 +432,11 @@ export function Surface({ initialData }: SurfaceProps) {
           ) : null}
         </Suspense>
         <Suspense fallback={null}>
-          {undoAction ? (
-            <UndoToast
-              action={undoAction}
-              onDismiss={setUndoAction}
-              onError={setError}
+          {notices.length ? (
+            <ToastStack
+              notices={notices}
+              dismiss={dismissNotice}
+              notify={notify}
             />
           ) : null}
         </Suspense>

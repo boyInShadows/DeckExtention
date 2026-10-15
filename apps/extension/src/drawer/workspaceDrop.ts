@@ -20,6 +20,7 @@ export interface WorkspaceDropState {
   onDecksChange: (decks: Deck[]) => void;
   onPagesChange: (pages: Page[]) => void;
   onError: (message: string) => void;
+  onSuccess?: ((message: string) => void) | undefined;
 }
 
 export async function handleWorkspaceDrop(
@@ -56,6 +57,7 @@ async function persistPageMove(
     updatedAt: Date.now(),
   });
   state.onPagesChange(replaceEntity(state.pages, saved));
+  state.onSuccess?.(strings.pageSaved);
 }
 
 async function persistDeckMove(
@@ -81,6 +83,7 @@ async function persistDeckMove(
     updatedAt: Date.now(),
   });
   state.onDecksChange(replaceEntity(state.decks, saved));
+  state.onSuccess?.(strings.deckSaved);
 }
 
 async function persistCardMove(
@@ -107,6 +110,7 @@ async function persistCardMove(
     updatedAt: Date.now(),
   });
   state.onCardsChange(replaceEntity(state.cards, saved));
+  state.onSuccess?.(strings.cardSaved);
 }
 
 async function persistCardPin(activeId: string, state: WorkspaceDropState) {
@@ -121,6 +125,7 @@ async function persistCardPin(activeId: string, state: WorkspaceDropState) {
     updatedAt: Date.now(),
   });
   state.onCardsChange(replaceEntity(state.cards, saved));
+  state.onSuccess?.(strings.pinSaved);
 }
 
 function activeRecords<T extends { deletedAt: number | null; order: string }>(
