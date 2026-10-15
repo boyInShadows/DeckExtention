@@ -19,6 +19,9 @@ const DRAWER_EXIT_MS = 320;
 /** Headless Chromium paints at 60 Hz; a drag below 50 fps is visible jank. */
 const DRAG_MIN_FPS = 50;
 const DRAG_STEPS = 40;
+const WORKSPACE_DECKS = 20;
+const WORKSPACE_CARDS = 300;
+const SCROLL_FRAMES = 90;
 
 async function serveArticle(context: BrowserContext): Promise<void> {
   await context.route('http://deck.test/**', (route) =>
@@ -184,8 +187,7 @@ test('phase 2 journey: quick save, triage, drag, export', async ({
 
     // Create a deck on the Examples page.
     const decks = page.locator('[data-deck="deck"]');
-    await page.keyboard.press('j');
-    await page.keyboard.press('d');
+    await page.locator('[data-deck="deck-add"]').click();
     await expect(decks).toHaveCount(2);
 
     // Triage: the saved page is in the Inbox; m, type, Enter.
@@ -215,9 +217,16 @@ test('phase 2 journey: quick save, triage, drag, export', async ({
     const examples = deckTitled('Examples');
     const savedCard = newDeck.locator('[data-deck="card"]').first();
     await expect(savedCard).toBeVisible();
+    await savedCard.locator('[data-deck="card-drag"]').focus();
+    await page.keyboard.press('Space');
+    await expect(savedCard).toHaveAttribute('data-dragging', 'true');
+    await page.keyboard.press('Escape');
+    await expect(savedCard).not.toHaveAttribute('data-dragging', 'true');
+    await expect(drawer).toBeVisible();
+    await page.waitForTimeout(DRAWER_EXIT_MS);
     const drag = await dragWithFrameCount(
       page,
-      await centre(page, savedCard),
+      await centre(page, savedCard.locator('[data-deck="card-drag"]')),
       await centre(page, examples),
     );
     await expect(examples.locator('[data-deck="card"]')).toHaveCount(7);
@@ -292,6 +301,180 @@ test('access granted in context is listed in Settings and can be revoked', async
         chrome.permissions.contains({ permissions: ['search'] }),
       ),
     ).toBe(false);
+  } finally {
+    await context.close();
+  }
+});
+
+test('incognito action respects Chrome access without requesting tabs', async () => {
+  const context = await launchExtension();
+  try {
+    const page = await openDeck(context);
+    const access = await page.evaluate(async () => ({
+      hasTabs: await chrome.permissions.contains({ permissions: ['tabs'] }),
+      isAllowed: await chrome.extension.isAllowedIncognitoAccess(),
+    }));
+    expect(access.hasTabs).toBe(false);
+    if (!access.isAllowed) {
+      await page.keyboard.press('Control+J');
+      await page
+        .locator('[data-deck="card"]')
+        .first()
+        .getByRole('button', { name: 'Card menu' })
+        .click();
+      await page.getByRole('menuitem', { name: 'Open in incognito' }).click();
+      await expect(
+        page.locator('[data-deck="toast"][data-kind="error"]'),
+      ).toContainText('Allow Deck in Incognito');
+      return;
+    }
+    const isIncognito = await page.evaluate(async () => {
+      const created = await chrome.windows.create({
+        url: 'about:blank',
+        incognito: true,
+      });
+      if (created?.id === undefined) throw new Error('No window was created');
+      try {
+        const windows = await chrome.windows.getAll();
+        return windows.some((item) => item.id === created.id && item.incognito);
+      } finally {
+        await chrome.windows.remove(created.id);
+      }
+    });
+    expect(isIncognito).toBe(true);
+  } finally {
+    await context.close();
+  }
+});
+
+test('300 cards across 20 decks scroll smoothly and deck colour is visible in both themes', async ({
+  browserName,
+}, testInfo) => {
+  expect(browserName).toBe('chromium');
+  const context = await launchExtension();
+  try {
+    const page = await openDeck(context);
+    await page.evaluate(
+      async ({ deckCount, cardCount }) => {
+        const open = indexedDB.open('deck');
+        const database = await new Promise<IDBDatabase>((resolve, reject) => {
+          open.onsuccess = () => resolve(open.result);
+          open.onerror = () => reject(open.error);
+        });
+        const tx = database.transaction(
+          ['pages', 'decks', 'cards'],
+          'readwrite',
+        );
+        const now = Date.now();
+        tx.objectStore('pages').put({
+          id: 'page_perf',
+          title: 'Load test',
+          order: 'zz',
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        });
+        for (let deck = 0; deck < deckCount; deck += 1) {
+          const deckId = `deck_perf_${String(deck).padStart(2, '0')}`;
+          tx.objectStore('decks').put({
+            id: deckId,
+            pageId: 'page_perf',
+            title: `Deck ${deck}`,
+            kind: 'normal',
+            order: `b${String(deck).padStart(2, '0')}`,
+            color: deck === 0 ? 'blue' : null,
+            isCollapsed: false,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null,
+          });
+          for (let card = 0; card < cardCount / deckCount; card += 1) {
+            const index = deck * (cardCount / deckCount) + card;
+            tx.objectStore('cards').put({
+              id: `card_perf_${index}`,
+              deckId,
+              title: `Link ${index}`,
+              url: `https://example.com/perf/${index}`,
+              hostname: 'example.com',
+              order: `b${String(card).padStart(2, '0')}`,
+              pinned: false,
+              lastOpenedAt: null,
+              createdAt: now,
+              updatedAt: now,
+              deletedAt: null,
+            });
+          }
+        }
+        await new Promise<void>((resolve, reject) => {
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+        database.close();
+      },
+      { deckCount: WORKSPACE_DECKS, cardCount: WORKSPACE_CARDS },
+    );
+    await page.reload();
+    await page.waitForSelector(READY_SELECTOR);
+    await page.keyboard.press('Control+J');
+    await page.getByRole('button', { name: 'Load test' }).click();
+    await expect(page.locator('[data-deck="deck"]')).toHaveCount(
+      WORKSPACE_DECKS,
+    );
+    await expect(page.locator('[data-deck="card"]')).toHaveCount(
+      WORKSPACE_CARDS,
+    );
+    const accent = page.locator('[data-deck-id="deck_perf_00"]');
+    const colors: string[] = [];
+    for (const theme of ['night', 'day']) {
+      await page.evaluate((value) => {
+        document.documentElement.dataset.theme = value;
+      }, theme);
+      const pair = await accent.evaluate((element) => {
+        const title = element.querySelector('.deck-column__title');
+        if (!title) throw new Error('Deck title missing');
+        return {
+          border: getComputedStyle(element).borderBlockStartColor,
+          title: getComputedStyle(title).color,
+        };
+      });
+      expect(pair.title).toBe(pair.border);
+      colors.push(pair.border);
+    }
+    expect(colors[0]).not.toBe(colors[1]);
+    const scroll = await page
+      .locator('[data-deck="decks"]')
+      .evaluate(async (element, frames) => {
+        if (element.scrollHeight <= element.clientHeight)
+          throw new Error('Workspace does not scroll');
+        const stamps: number[] = [];
+        await new Promise<void>((resolve) => {
+          const tick = (time: number) => {
+            stamps.push(time);
+            element.scrollTop += 12;
+            if (stamps.length < frames) requestAnimationFrame(tick);
+            else resolve();
+          };
+          requestAnimationFrame(tick);
+        });
+        const gaps = stamps
+          .slice(1)
+          .map((time, index) => time - (stamps[index] ?? time));
+        const span = (stamps.at(-1) ?? 0) - (stamps[0] ?? 0);
+        return {
+          fps: (gaps.length * 1000) / span,
+          worstFrameMs: Math.max(...gaps),
+        };
+      }, SCROLL_FRAMES);
+    await testInfo.attach('workspace-scroll.json', {
+      body: JSON.stringify({
+        decks: WORKSPACE_DECKS,
+        cards: WORKSPACE_CARDS,
+        scroll,
+        colors,
+      }),
+      contentType: 'application/json',
+    });
+    expectWithinBudget('workspace scroll fps', scroll.fps, { min: 59 });
   } finally {
     await context.close();
   }

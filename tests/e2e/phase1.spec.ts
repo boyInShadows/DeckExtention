@@ -402,7 +402,9 @@ test('drawer cards move between decks and onto the Pins strip', async ({
     const sourceDeck = decks.nth(0);
     const targetDeck = decks.nth(1);
     const sourceCard = sourceDeck.locator('[data-deck="card"]').first();
-    const sourceCardBox = await sourceCard.boundingBox();
+    const sourceCardBox = await sourceCard
+      .locator('[data-deck="card-drag"]')
+      .boundingBox();
     const targetDeckBox = await targetDeck.boundingBox();
     if (!sourceCardBox || !targetDeckBox)
       throw new Error('Card drag endpoints are not visible');
@@ -427,7 +429,9 @@ test('drawer cards move between decks and onto the Pins strip', async ({
     await expect(targetDeck.locator('[data-deck="card"]')).toHaveCount(1);
 
     const movedCard = targetDeck.locator('[data-deck="card"]').first();
-    const sourceBox = await movedCard.boundingBox();
+    const sourceBox = await movedCard
+      .locator('[data-deck="card-drag"]')
+      .boundingBox();
     if (!sourceBox) throw new Error('Moved card is not visible');
     await page.mouse.move(
       sourceBox.x + sourceBox.width / 2,

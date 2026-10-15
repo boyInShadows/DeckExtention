@@ -43,6 +43,8 @@ interface WorkspaceKeysOptions {
   onSuccess?: ((message: string) => void) | undefined;
   onNote: (card: Card) => void;
   onMove: (card: Card) => void;
+  onEdit: (card: Card) => void;
+  onDone: (card: Card) => void;
   offerUndo: ((action: UndoAction) => void) | undefined;
 }
 
@@ -195,12 +197,41 @@ export function useWorkspaceKeys(options: WorkspaceKeysOptions): void {
       if (!isInGrid || main.querySelector('[data-dragging]')) return;
       const chord = chordFromEvent(event);
       const action = chord ? actionForChord(keymap, 'drawer', chord) : null;
-      if (!action) return;
       const grid = readGrid(main);
       const cardId =
         document.activeElement?.closest<HTMLElement>('[data-deck="card"]')
           ?.dataset.cardId;
       const card = cards.find(({ id }) => id === cardId);
+      if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+        if (card && (event.key === 'e' || event.key === 'F2')) {
+          latest.current.onEdit(card);
+          event.preventDefault();
+          return;
+        }
+        if (card && event.key === 'd') {
+          latest.current.onDone(card);
+          event.preventDefault();
+          return;
+        }
+        const deck =
+          document.activeElement?.closest<HTMLElement>('[data-deck="deck"]');
+        if (!card && deck && (event.key === 'e' || event.key === 'F2')) {
+          deck.querySelector<HTMLElement>('[data-deck="deck-title"]')?.click();
+          event.preventDefault();
+          return;
+        }
+        if (!card && deck && event.key === 'n') {
+          const openAll = deck.querySelector<HTMLElement>(
+            '[data-deck="deck-open-all"]',
+          );
+          if (openAll) {
+            openAll.click();
+            event.preventDefault();
+            return;
+          }
+        }
+      }
+      if (!action) return;
       const isHandled =
         runDeckAction(action, grid, main) ||
         (card !== undefined && runCardAction(action, card, grid));

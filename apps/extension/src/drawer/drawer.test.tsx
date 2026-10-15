@@ -378,6 +378,24 @@ describe('Drawer - rail', () => {
     view.unmount();
   });
 
+  it('closes on Escape except while typing or canceling a keyboard drag', async () => {
+    const { view, onClose } = await mount();
+    await view.act(() => click(view.get('[data-deck="add-card"]')));
+    await view.act(() => {
+      keyDown(view.getByLabel(strings.pasteUrl), 'Escape');
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    await view.act(() => {
+      keyDown(view.get('[data-deck="card-drag"]'), 'Escape');
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    await view.act(() => {
+      keyDown(document.body, 'Escape');
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    view.unmount();
+  });
+
   it('marks the page being dragged and the pin zone it is over', async () => {
     dnd.draggingId = 'page:page_2';
     dnd.overId = 'pin:drawer';

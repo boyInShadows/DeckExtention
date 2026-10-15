@@ -20,8 +20,6 @@ export interface WorkspaceDropDetail {
   overId: string | number;
 }
 
-const PIN_DROP_ID = 'pin:drawer';
-
 /**
  * Space lifts and drops (FableTasks P2.S3). dnd-kit also lifts on Enter by
  * default; that key opens the focused card instead (P2.S6).
@@ -35,11 +33,14 @@ const KEYBOARD_DRAG_CODES = {
 const collisionDetection: CollisionDetection = (arguments_) => {
   const pointerCollisions = pointerWithin(arguments_);
   const rectangleCollisions = rectIntersection(arguments_);
-  const pinCollision = [...pointerCollisions, ...rectangleCollisions].find(
-    ({ id }) => id === PIN_DROP_ID,
-  );
-  if (pinCollision) return [pinCollision];
-  return pointerCollisions.length ? pointerCollisions : rectangleCollisions;
+  const pinCollision = pointerCollisions
+    .concat(rectangleCollisions)
+    .find((item) => item.id === 'pin:drawer');
+  return pinCollision
+    ? [pinCollision]
+    : pointerCollisions.length
+      ? pointerCollisions
+      : rectangleCollisions;
 };
 
 export function WorkspaceDnd({ children }: { children: ReactNode }) {

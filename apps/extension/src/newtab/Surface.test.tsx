@@ -624,20 +624,6 @@ describe('Surface drawer', () => {
     expect(messageListeners).toHaveLength(0);
   });
 
-  it('closes on Escape, but not while typing in a field', async () => {
-    const view = await mount(surfaceData());
-    await clickOn(view, view.getByLabel(strings.openDrawer));
-    await flushFrames(view);
-
-    await press(view, view.get('[data-deck="drawer-input"]'), 'Escape');
-    await press(view, document.body, 'Enter');
-    expect(drawer(view)?.dataset.open).toBe('true');
-
-    await press(view, document.body, 'Escape');
-    expect(drawer(view)?.dataset.open).toBe('false');
-    view.unmount();
-  });
-
   it('opens from Space in an empty Line and closes Settings first', async () => {
     const view = await mount(surfaceData());
     await clickOn(view, view.getByLabel(strings.settings));

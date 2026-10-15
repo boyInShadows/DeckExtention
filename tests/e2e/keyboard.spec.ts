@@ -55,8 +55,11 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
     expect(await focusedCardId(page)).toBe('example_mdn');
 
     // Create: a deck, then a link in the focused deck.
+    await keys.press('k');
     await keys.press('d');
     await expect(page.locator('[data-deck="deck"]')).toHaveCount(2);
+    await expect(page.getByLabel('Deck name')).toBeFocused();
+    await keys.press('Enter');
     await keys.press('j');
     await keys.press('a');
     await expect(page.getByLabel('Paste a URL')).toBeFocused();

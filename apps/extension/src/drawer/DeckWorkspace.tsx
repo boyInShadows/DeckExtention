@@ -1,6 +1,6 @@
 import type { Card, Deck, Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
-import { useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   SortableContext,
   rectSortingStrategy,
@@ -19,7 +19,7 @@ import {
   replaceEntity,
 } from './workspaceModel';
 import { dragId } from './dragIdentity';
-import { markOpened, moveCards, openCard } from './inboxActions';
+import { moveCards } from './inboxActions';
 import {
   moveTargets,
   parseRecentTargets,
@@ -31,13 +31,13 @@ import { useWorkspaceKeys } from './useWorkspaceKeys';
 import type { Keymap } from '../keys/keymap';
 import { NotePanel } from './NotePanel';
 import { focusOnMount } from '../newtab/focusOnMount';
-import FaviconTile from '../newtab/FaviconTile';
+import { CardRow } from './CardRow';
+import { DeckMenu } from './DeckMenu';
 
-const DECK_COLORS = ['slate', 'blue', 'green', 'amber', 'rose'] as const;
 const DROP_SETTLE_MS = 160;
 const DROP_SETTLE_EASING = 'var(--deck-ease-hover)';
 
-interface Props {
+export interface WorkspaceProps {
   cards: Card[];
   data: SurfaceData;
   decks: Deck[];
@@ -55,10 +55,14 @@ interface Props {
 }
 
 const now = () => Date.now();
+const focusTitle = (element: HTMLInputElement | null) => {
+  element?.focus();
+  element?.select();
+};
 const message = (error: unknown) =>
   `${strings.updateFailed} ${error instanceof Error ? error.message : String(error)}`;
 
-export function DeckWorkspace(props: Props) {
+export function DeckWorkspace(props: WorkspaceProps) {
   const visible = useMemo(
     () =>
       activeDecks(props.decks, props.selectedPageId, props.selectedDeckKind),
@@ -66,6 +70,7 @@ export function DeckWorkspace(props: Props) {
   );
   const [noteEntity, setNoteEntity] = useState<Deck | Card | null>(null);
   const [movingCard, setMovingCard] = useState<Card | null>(null);
+  const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
   const [recentTargets, setRecentTargets] = useState(() =>
     parseRecentTargets(localStorage.getItem(RECENT_TARGETS_KEY)),
   );
@@ -85,6 +90,20 @@ export function DeckWorkspace(props: Props) {
     onSuccess: props.onSuccess,
     onNote: setNoteEntity,
     onMove: setMovingCard,
+    onEdit: (card) => {
+      mainRef.current
+        ?.querySelector<HTMLElement>(
+          `[data-card-id="${window.CSS.escape(card.id)}"] [data-deck="card-edit"]`,
+        )
+        ?.click();
+    },
+    onDone: (card) => {
+      mainRef.current
+        ?.querySelector<HTMLElement>(
+          `[data-card-id="${window.CSS.escape(card.id)}"] [aria-label="${strings.markDone}"]`,
+        )
+        ?.click();
+    },
     offerUndo: props.offerUndo,
   });
   // After a panel closes, keyboard focus goes back to the card it was about.
@@ -142,6 +161,7 @@ export function DeckWorkspace(props: Props) {
         updatedAt: time,
         deletedAt: null,
       });
+      setEditingDeckId(saved.id);
       props.onDecksChange([...props.decks, saved]);
       props.onSuccess?.(strings.deckSaved);
     } catch (error) {
@@ -162,6 +182,7 @@ export function DeckWorkspace(props: Props) {
               key={deck.id}
               {...props}
               deck={deck}
+              isNew={editingDeckId === deck.id}
               visibleCards={activeCards(props.cards, deck.id)}
               onEditNote={setNoteEntity}
             />
@@ -211,11 +232,13 @@ export function DeckWorkspace(props: Props) {
 
 function DeckColumn({
   deck,
+  isNew,
   visibleCards,
   onEditNote,
   ...props
-}: Props & {
+}: WorkspaceProps & {
   deck: Deck;
+  isNew: boolean;
   visibleCards: Card[];
   onEditNote: (entity: Deck | Card) => void;
 }) {
@@ -223,6 +246,7 @@ function DeckColumn({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -232,8 +256,19 @@ function DeckColumn({
     transition: { duration: DROP_SETTLE_MS, easing: DROP_SETTLE_EASING },
   });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
+  const [menuStart, setMenuStart] = useState<'permission' | null>(null);
+  const [isEditing, setIsEditing] = useState(isNew);
+  const [title, setTitle] = useState(deck.title);
+  const menuButton = useRef<HTMLButtonElement>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [url, setUrl] = useState('');
+  const commitTitle = () => {
+    const trimmed = title.trim();
+    setIsEditing(false);
+    if (trimmed && trimmed !== deck.title) void saveDeck({ title: trimmed });
+    else setTitle(deck.title);
+  };
   const saveDeck = async (change: Partial<Deck>) => {
     try {
       const saved = await props.data.repository.upsertDeck({
@@ -302,7 +337,28 @@ function DeckColumn({
       data-drag-over={isOver || undefined}
       {...attributes}
     >
-      <header className="deck-column__header" {...listeners}>
+      <header className="deck-column__header">
+        <button
+          hidden
+          type="button"
+          data-deck="deck-open-all"
+          onClick={() => {
+            setMenuStart('permission');
+            setMenuAnchor(menuButton.current);
+            setIsMenuOpen(true);
+          }}
+        />
+        <button
+          ref={setActivatorNodeRef}
+          type="button"
+          data-deck="deck-drag"
+          className="deck-column__drag"
+          aria-label={strings.dragDeck}
+          {...attributes}
+          {...listeners}
+        >
+          ⋮⋮
+        </button>
         <button
           type="button"
           aria-label={strings.collapseDeck}
@@ -310,24 +366,54 @@ function DeckColumn({
         >
           {deck.isCollapsed ? '›' : '⌄'}
         </button>
-        <button
-          type="button"
-          className="deck-column__title"
-          onDoubleClick={() => void renameDeck(deck, saveDeck)}
-        >
-          {deck.title}
-        </button>
+        {isEditing ? (
+          <input
+            ref={focusTitle}
+            className="deck-column__title"
+            aria-label={strings.renameDeckPrompt}
+            value={title}
+            onChange={(event) => setTitle(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') commitTitle();
+              if (event.key === 'Escape') {
+                setTitle(deck.title);
+                setIsEditing(false);
+              }
+            }}
+            onBlur={commitTitle}
+          />
+        ) : (
+          <button
+            type="button"
+            data-deck="deck-title"
+            className="deck-column__title"
+            onClick={() => {
+              setTitle(deck.title);
+              setIsEditing(true);
+            }}
+          >
+            {deck.title}
+          </button>
+        )}
         <small>{visibleCards.length}</small>
         <button
+          ref={menuButton}
           type="button"
           aria-label={strings.deckMenu}
-          onClick={() => setIsMenuOpen((value) => !value)}
+          aria-expanded={isMenuOpen}
+          onClick={(event) => {
+            setMenuStart(null);
+            setMenuAnchor(event.currentTarget);
+            setIsMenuOpen((value) => !value);
+          }}
         >
           •••
         </button>
       </header>
-      {isMenuOpen ? (
+      {isMenuOpen && menuAnchor ? (
         <DeckMenu
+          anchor={menuAnchor}
+          initialSubMenu={menuStart}
           deck={deck}
           pages={props.pages}
           cards={visibleCards}
@@ -335,9 +421,14 @@ function DeckColumn({
           repository={props.data.repository}
           onCardsChange={props.onCardsChange}
           saveDeck={saveDeck}
+          onRename={() => {
+            setTitle(deck.title);
+            setIsEditing(true);
+          }}
           onEditNote={onEditNote}
           onTrash={() => void trashDeck(deck, props)}
           onError={props.onError}
+          onClose={() => setIsMenuOpen(false)}
         />
       ) : null}
       {!deck.isCollapsed ? (
@@ -372,6 +463,10 @@ function DeckColumn({
             {!visibleCards.length ? <p>{strings.emptyDeck}</p> : null}
           </div>
           <footer>
+            {visibleCards.length > 0 &&
+            visibleCards.every((card) => card.done) ? (
+              <span data-deck="all-done">{strings.allDone}</span>
+            ) : null}
             {isAdding ? (
               <form
                 onSubmit={(event) => {
@@ -403,222 +498,7 @@ function DeckColumn({
   );
 }
 
-function CardRow({
-  card,
-  onEditNote,
-  ...props
-}: Omit<Props, 'selectedPageId'> & {
-  card: Card;
-  onEditNote: (entity: Deck | Card) => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-    isOver,
-  } = useSortable({
-    id: dragId('card', card.id),
-    transition: { duration: DROP_SETTLE_MS, easing: DROP_SETTLE_EASING },
-  });
-  const update = async (change: Partial<Card>) => {
-    try {
-      props.onCardsChange(
-        replaceEntity(
-          props.cards,
-          await props.data.repository.upsertCard({
-            ...card,
-            ...change,
-            updatedAt: now(),
-          }),
-        ),
-      );
-      props.onSuccess?.(strings.cardSaved);
-    } catch (error) {
-      props.onError(message(error));
-    }
-  };
-  const trash = async () => {
-    try {
-      await props.data.repository.softDelete('card', card.id);
-      props.onCardsChange(await props.data.repository.listCards());
-      props.offerUndo?.({
-        label: strings.trashedCards(1),
-        undo: async () => {
-          await props.data.repository.restore('card', card.id);
-          props.onCardsChange(await props.data.repository.listCards());
-        },
-      });
-    } catch (error) {
-      props.onError(message(error));
-    }
-  };
-  const open = async (event: MouseEvent<HTMLAnchorElement>) => {
-    if (event.type === 'auxclick' && event.button !== 1) return;
-    event.preventDefault();
-    try {
-      const opened = await openCard(
-        props.data.repository,
-        card,
-        event.button === 1 || event.ctrlKey || event.metaKey || event.shiftKey,
-      );
-      props.onCardsChange(replaceEntity(props.cards, opened));
-    } catch (error) {
-      props.onError(message(error));
-    }
-  };
-  return (
-    <article
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
-      data-deck="card"
-      data-card-id={card.id}
-      className="deck-card"
-      data-done={card.done || undefined}
-      data-dragging={isDragging || undefined}
-      data-drag-over={isOver || undefined}
-      {...attributes}
-      {...listeners}
-    >
-      <FaviconTile url={card.url} hostname={card.hostname} />
-      <a
-        href={card.url}
-        onClick={(event) => void open(event)}
-        onAuxClick={(event) => void open(event)}
-      >
-        <strong>{card.title}</strong>
-        <small>{card.hostname}</small>
-      </a>
-      <div className="deck-card__actions">
-        <button
-          type="button"
-          aria-label={strings.editNote}
-          onClick={() => onEditNote(card)}
-        >
-          {card.note ? '●' : '✎'}
-        </button>
-        <button
-          type="button"
-          aria-label={strings.markDone}
-          onClick={() => void update({ done: !card.done })}
-        >
-          ✓
-        </button>
-        <button
-          type="button"
-          aria-label={strings.trashCard}
-          onClick={() => void trash()}
-        >
-          ×
-        </button>
-      </div>
-    </article>
-  );
-}
-
-function DeckMenu({
-  deck,
-  pages,
-  cards,
-  allCards,
-  repository,
-  onCardsChange,
-  saveDeck,
-  onEditNote,
-  onTrash,
-  onError,
-}: {
-  deck: Deck;
-  pages: Page[];
-  cards: Card[];
-  allCards: Card[];
-  repository: SurfaceData['repository'];
-  onCardsChange: (cards: Card[]) => void;
-  saveDeck: (change: Partial<Deck>) => Promise<void>;
-  onEditNote: (deck: Deck) => void;
-  onTrash: () => void;
-  onError: (value: string) => void;
-}) {
-  const openAll = async () => {
-    try {
-      const allowed = await chrome.permissions.request({
-        permissions: ['tabs'],
-      });
-      if (!allowed) return onError(strings.tabsPermissionDeclined);
-      const opened = await Promise.all(
-        cards.map((card) => markOpened(repository, card)),
-      );
-      const byId = new Map(opened.map((card) => [card.id, card]));
-      onCardsChange(allCards.map((card) => byId.get(card.id) ?? card));
-      await Promise.all(
-        cards.map(({ url }) => chrome.tabs.create({ url, active: false })),
-      );
-    } catch (error) {
-      onError(message(error));
-    }
-  };
-  return (
-    <div className="deck-menu" role="menu">
-      <button type="button" onClick={() => void renameDeck(deck, saveDeck)}>
-        {strings.renameDeck}
-      </button>
-      <button type="button" onClick={() => onEditNote(deck)}>
-        {strings.editDeckNote}
-      </button>
-      <button type="button" onClick={() => void openAll()}>
-        {strings.openAll}
-      </button>
-      <label>
-        {strings.deckColor}
-        <select
-          value={deck.color ?? ''}
-          onChange={(event) =>
-            void saveDeck({ color: event.target.value || null })
-          }
-        >
-          <option value="">{strings.defaultColor}</option>
-          {DECK_COLORS.map((color) => (
-            <option key={color}>{color}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {strings.moveToPage}
-        <select
-          value={deck.pageId}
-          onChange={(event) => void saveDeck({ pageId: event.target.value })}
-        >
-          {pages
-            .filter(({ deletedAt }) => deletedAt === null)
-            .map((page) => (
-              <option value={page.id} key={page.id}>
-                {page.title}
-              </option>
-            ))}
-        </select>
-      </label>
-      {deck.kind === 'normal' ? (
-        <button type="button" onClick={onTrash}>
-          {strings.trashDeck}
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-async function renameDeck(
-  deck: Deck,
-  saveDeck: (change: Partial<Deck>) => Promise<void>,
-) {
-  const title = window.prompt(strings.renameDeckPrompt, deck.title)?.trim();
-  if (title && title !== deck.title) await saveDeck({ title });
-}
-async function trashDeck(deck: Deck, props: Props) {
+async function trashDeck(deck: Deck, props: WorkspaceProps) {
   try {
     await props.data.repository.trashDeck(deck.id);
     const [decks, cards] = await Promise.all([

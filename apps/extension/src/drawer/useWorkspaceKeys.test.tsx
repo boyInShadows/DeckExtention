@@ -68,6 +68,8 @@ function Harness(props: HarnessProps) {
     onError: props.onError ?? (() => undefined),
     onNote: props.onNote ?? (() => undefined),
     onMove: props.onMove ?? (() => undefined),
+    onEdit: () => undefined,
+    onDone: () => undefined,
     offerUndo: props.offerUndo,
   });
   const grid = props.deckIds.map((deckId) => (

@@ -220,6 +220,18 @@ export default function Drawer({
     if (focused instanceof HTMLElement && isInside !== isOpen) focused.blur();
   }, [isOpen]);
 
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || isTypingTarget(event.target)) return;
+      if ((event.target as HTMLElement)?.dataset?.deck?.endsWith('-drag'))
+        return;
+      onClose();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isOpen, onClose]);
+
   // A `#page=` link is used once, then becomes the remembered page, so a
   // reload of this tab starts calm instead of reopening the drawer.
   useEffect(() => {

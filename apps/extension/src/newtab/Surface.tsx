@@ -171,18 +171,6 @@ export function Surface({ initialData }: SurfaceProps) {
   }, [notifyFailure]);
 
   useLayoutEffect(() => {
-    if (!isDrawerOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      const isInput =
-        event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement;
-      if (event.key === 'Escape' && !isInput) closeDrawer();
-    };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [closeDrawer, isDrawerOpen]);
-
-  useLayoutEffect(() => {
     if (!tabId.current)
       void chrome.tabs
         .getCurrent()

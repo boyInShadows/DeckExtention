@@ -940,14 +940,43 @@
 
   .deck-column {
     position: relative;
-    overflow: hidden;
     border: 1px solid var(--deck-color-hairline);
     border-block-start-width: 0.2rem;
+    border-block-start-color: var(
+      --deck-column-accent,
+      var(--deck-color-hairline)
+    );
     border-radius: var(--deck-radius-panel);
     background: var(--deck-color-glass);
     transition:
       transform var(--deck-motion-settle) var(--deck-ease-hover),
       box-shadow var(--deck-motion-hover) var(--deck-ease-hover);
+  }
+
+  [data-color='slate'] {
+    --deck-column-accent: var(--deck-accent-slate);
+  }
+
+  [data-color='blue'] {
+    --deck-column-accent: var(--deck-accent-blue);
+  }
+
+  [data-color='green'] {
+    --deck-column-accent: var(--deck-accent-green);
+  }
+
+  [data-color='amber'] {
+    --deck-column-accent: var(--deck-accent-amber);
+  }
+
+  [data-color='rose'] {
+    --deck-column-accent: var(--deck-accent-rose);
+  }
+
+  .deck-column__drag,
+  .deck-card__drag {
+    cursor: grab;
+    color: var(--deck-color-text-muted);
   }
 
   .deck-column[data-dragging],
@@ -979,8 +1008,13 @@
 
   .deck-column__title {
     flex: 1;
+    min-inline-size: 0;
     font-weight: 650;
     text-align: start;
+  }
+
+  .deck-column[data-color] .deck-column__title {
+    color: var(--deck-column-accent);
   }
 
   .deck-cards {
@@ -994,8 +1028,9 @@
   }
 
   .deck-card {
+    position: relative;
     display: grid;
-    grid-template-columns: 1.25rem 1fr auto;
+    grid-template-columns: auto 1.25rem minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--deck-space-1);
     min-block-size: 2.75rem;
@@ -1041,6 +1076,23 @@
     opacity: 0;
   }
 
+  .deck-card__editor {
+    display: grid;
+    min-inline-size: 0;
+    gap: var(--deck-space-1);
+  }
+
+  .deck-card__editor [aria-label] {
+    min-inline-size: 0;
+    border: 1px solid var(--deck-color-hairline);
+  }
+
+  .deck-card__actions :where(button),
+  .deck-card__drag {
+    min-inline-size: 1.5rem;
+    min-block-size: 1.5rem;
+  }
+
   .deck-card:is(:hover, :focus-within) .deck-card__actions {
     opacity: 1;
   }
@@ -1084,6 +1136,45 @@
     position: fixed;
     inset-inline-end: auto;
     z-index: 8;
+  }
+
+  .deck-workspace-menu {
+    position: fixed;
+    z-index: 8;
+    inline-size: 14rem;
+  }
+
+  .deck-workspace-menu p {
+    margin: var(--deck-space-1);
+    font-size: 0.75rem;
+  }
+
+  .deck-menu__swatches {
+    display: flex;
+    gap: var(--deck-space-1);
+  }
+
+  .deck-menu__swatches [role='menuitem'] {
+    inline-size: 2rem;
+    block-size: 2rem;
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: 50%;
+    background: var(--deck-column-accent, transparent);
+  }
+
+  .deck-menu__swatches button[aria-current='true'] {
+    outline: 2px solid var(--deck-color-focus);
+  }
+
+  .deck-card-menu {
+    position: absolute;
+    z-index: 8;
+  }
+
+  .deck-column footer [data-deck='all-done'] {
+    display: block;
+    padding-inline: var(--deck-space-2);
+    color: var(--deck-color-text-muted);
   }
 
   .deck-pin-menu form {
