@@ -302,6 +302,9 @@ export function Pins({
           <span aria-hidden="true">+</span>
         </button>
       )}
+      {!pins.length && !isAdding && (
+        <p data-deck="pins-empty">{strings.pinsEmptyHint}</p>
+      )}
       <Suspense>
         {menu ? (
           <PinMenu

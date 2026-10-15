@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dragId } from '../drawer/dragIdentity';
 import { compareOrder } from '../drawer/workspaceModel';
 import { WORKSPACE_DROP_EVENT } from '../drawer/WorkspaceDnd';
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import type { UndoAction } from '../drawer/UndoToast';
 import type { DeckRepository } from '../storage/repository';
 import {

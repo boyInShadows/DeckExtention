@@ -521,8 +521,12 @@ describe('Drawer - rail', () => {
     dnd.draggingId = 'page:page_2';
     dnd.overId = 'pin:drawer';
     const { view } = await mount();
-    expect(view.getByText('Home').dataset.dragging).toBe('true');
-    expect(view.getByText('Work').dataset.dragging).toBeUndefined();
+    expect(view.getByText('Home').closest('button')?.dataset.dragging).toBe(
+      'true',
+    );
+    expect(
+      view.getByText('Work').closest('button')?.dataset.dragging,
+    ).toBeUndefined();
     const pins = view.get('[data-deck="pins-drop"]');
     expect(pins.dataset.dragOver).toBe('true');
     expect(pins.textContent).toBe(strings.dropToPins);
@@ -828,17 +832,17 @@ describe('Drawer - keys', () => {
 
     await press(view, '[');
     await press(view, '[');
-    expect(view.getByText(strings.trash).getAttribute('data-selected')).toBe(
-      'true',
-    );
+    expect(
+      view.getByText(strings.trash).closest('button')?.dataset.selected,
+    ).toBe('true');
     await press(view, '[');
     expect(inboxButton(view).dataset.selected).toBe('true');
     await press(view, '[');
     expect(inboxButton(view).dataset.selected).toBe('true');
     await press(view, ']');
-    expect(view.getByText(strings.trash).getAttribute('data-selected')).toBe(
-      'true',
-    );
+    expect(
+      view.getByText(strings.trash).closest('button')?.dataset.selected,
+    ).toBe('true');
     await press(view, ']');
     expect(selectedTitle(view)).toBe('Work');
     view.unmount();

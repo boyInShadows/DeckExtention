@@ -181,6 +181,16 @@ describe('InboxTriage - list', () => {
     triage.view.unmount();
   });
 
+  it('shows when an inbox card was saved', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(2 * 60 * 60 * 1000 + STAMP);
+    const triage = await renderTriage();
+    expect(triage.view.get('[data-deck="card"] time').textContent).toContain(
+      '2h ago',
+    );
+    triage.view.unmount();
+  });
+
   it('shows inbox zero and ignores triage keys when the inbox is empty', async () => {
     const triage = await renderTriage({ cards: [] });
     expect(triage.view.get('[data-deck="inbox-zero"]').textContent).toBe(

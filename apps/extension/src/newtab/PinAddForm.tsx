@@ -1,7 +1,7 @@
 import type { Card } from 'deck-schema';
 import { useRef, useState } from 'react';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import { useDismissable } from '../hooks/useDismissable';
 import type { SurfaceData } from './bootstrap';
 import { focusOnMount } from './focusOnMount';

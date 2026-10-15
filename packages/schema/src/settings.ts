@@ -32,6 +32,8 @@ export const SettingsSchema = z.strictObject({
   /** Empty means no greeting line at all - never a placeholder (P1.S3). */
   ownerName: z.string().max(80),
   showSeconds: z.boolean(),
+  showDate: z.boolean().default(true),
+  use12HourClock: z.boolean().default(false),
   /** The `B` blur toggle; persisted across tabs (P1.S5). */
   isBlurred: z.boolean(),
   /** Space on an empty Line opens the drawer. On by default, per AGENTS.md 2. */
@@ -64,6 +66,8 @@ export const SETTINGS_DEFAULTS: Settings = Object.freeze({
   theme: 'night',
   ownerName: '',
   showSeconds: false,
+  showDate: true,
+  use12HourClock: false,
   isBlurred: false,
   canSpaceOpenDrawer: true,
   wallpaper: { kind: 'none' },

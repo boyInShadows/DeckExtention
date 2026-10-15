@@ -417,6 +417,21 @@ describe('Surface first paint', () => {
     view.unmount();
   });
 
+  it('shows a locale-aware date and switches to a 12-hour clock', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(EVENING);
+    const view = await mount(surfaceData({ use12HourClock: true }));
+    expect(view.get('[data-deck="date"]').textContent).toBe(
+      EVENING.toLocaleDateString(undefined, { dateStyle: 'full' }),
+    );
+    expect(view.get('[data-deck="clock"]').textContent).toContain('8:00');
+    view.unmount();
+
+    const withoutDate = await mount(surfaceData({ showDate: false }));
+    expect(withoutDate.query('[data-deck="date"]')).toBeNull();
+    withoutDate.unmount();
+  });
+
   it('marks deck-ready once, on the first frame of the first surface', async () => {
     const first = await mount(surfaceData());
     expect(document.documentElement.dataset.deckReady).toBeUndefined();

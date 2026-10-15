@@ -361,6 +361,16 @@ export default function SettingsPanel({
             onChange={(showSeconds) => void update({ showSeconds })}
           />
           <Toggle
+            label={strings.showDate}
+            checked={settings.showDate}
+            onChange={(showDate) => void update({ showDate })}
+          />
+          <Toggle
+            label={strings.use12HourClock}
+            checked={settings.use12HourClock}
+            onChange={(use12HourClock) => void update({ use12HourClock })}
+          />
+          <Toggle
             label={strings.privacyBlur}
             checked={settings.isBlurred}
             onChange={(isBlurred) => void update({ isBlurred })}

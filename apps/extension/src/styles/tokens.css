@@ -16,12 +16,9 @@
   /* Surface */
   --deck-color-canvas: #0b0d12;
   --deck-color-canvas-raised: #12151d;
-  --deck-gradient-canvas: linear-gradient(
-    180deg,
-    #10131a 0%,
-    #0b0d12 55%,
-    #090b0f 100%
-  );
+  --deck-gradient-canvas:
+    radial-gradient(ellipse at 50% 42%, rgb(45 58 85 / 32%), transparent 52%),
+    linear-gradient(180deg, #10131a 0%, #0b0d12 55%, #090b0f 100%);
 
   /* Type */
   --deck-color-text: #e8eaf0;
@@ -29,6 +26,7 @@
 
   /* Glass, per MasterPlan section 3.4 */
   --deck-color-glass: rgb(255 255 255 / 5.5%);
+  --deck-color-panel-glass: rgb(18 21 29 / 88%);
   --deck-color-hairline: rgb(255 255 255 / 12%);
   --deck-color-scrim: rgb(9 11 15 / 45%);
   --deck-color-focus: #7aa2f7;
@@ -54,17 +52,24 @@
 
   --deck-color-canvas: #f5f6f8;
   --deck-color-canvas-raised: #ffffff;
-  --deck-gradient-canvas: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #f5f6f8 55%,
-    #eef0f4 100%
-  );
+  --deck-gradient-canvas:
+    radial-gradient(
+      ellipse at 20% 22%,
+      rgb(225 233 245 / 80%),
+      transparent 56%
+    ),
+    radial-gradient(
+      ellipse at 80% 78%,
+      rgb(250 231 217 / 70%),
+      transparent 52%
+    ),
+    linear-gradient(180deg, #ffffff 0%, #f5f6f8 55%, #eef0f4 100%);
 
   --deck-color-text: #14161c;
   --deck-color-text-muted: #5c6474;
 
   --deck-color-glass: rgb(255 255 255 / 55%);
+  --deck-color-panel-glass: rgb(255 255 255 / 82%);
   --deck-color-hairline: rgb(0 0 0 / 18%);
   --deck-color-scrim: rgb(255 255 255 / 45%);
   --deck-color-focus: #2f5bd8;
@@ -91,17 +96,24 @@
 
     --deck-color-canvas: #f5f6f8;
     --deck-color-canvas-raised: #ffffff;
-    --deck-gradient-canvas: linear-gradient(
-      180deg,
-      #ffffff 0%,
-      #f5f6f8 55%,
-      #eef0f4 100%
-    );
+    --deck-gradient-canvas:
+      radial-gradient(
+        ellipse at 20% 22%,
+        rgb(225 233 245 / 80%),
+        transparent 56%
+      ),
+      radial-gradient(
+        ellipse at 80% 78%,
+        rgb(250 231 217 / 70%),
+        transparent 52%
+      ),
+      linear-gradient(180deg, #ffffff 0%, #f5f6f8 55%, #eef0f4 100%);
 
     --deck-color-text: #14161c;
     --deck-color-text-muted: #5c6474;
 
     --deck-color-glass: rgb(255 255 255 / 55%);
+    --deck-color-panel-glass: rgb(255 255 255 / 82%);
     --deck-color-hairline: rgb(0 0 0 / 18%);
     --deck-color-scrim: rgb(255 255 255 / 45%);
     --deck-color-focus: #2f5bd8;
@@ -139,6 +151,7 @@
   --deck-space-4: 2rem;
 
   --deck-radius-panel: 1rem;
+  --deck-radius-pill: 999px;
   --deck-radius-tile: 1.125rem;
   --deck-font-note-body: 0.9375rem;
   --deck-font-note-h1: 1.5rem;
@@ -156,6 +169,7 @@
   --deck-surface-column: 40rem;
   --deck-clock-size: 4rem;
   --deck-clock-width: 8ch;
+  --deck-control-size: 2.25rem;
   --deck-line-height: 3.5rem;
   --deck-results-max-block: min(60vh, 32rem);
   --deck-pin-size: 4rem;

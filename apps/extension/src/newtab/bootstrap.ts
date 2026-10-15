@@ -84,7 +84,7 @@ export async function hydrateSurface(
    */
   const page = await repository.upsertPage({
     id: EXAMPLE_PAGE_ID,
-    title: strings.examplesPage,
+    title: strings.examplesTitle,
     order: 'a0',
     createdAt: EXAMPLE_CREATED_AT,
     updatedAt: EXAMPLE_CREATED_AT,
@@ -93,7 +93,7 @@ export async function hydrateSurface(
   const deck = await repository.upsertDeck({
     id: EXAMPLE_DECK_ID,
     pageId: EXAMPLE_PAGE_ID,
-    title: strings.examplesDeck,
+    title: strings.examplesTitle,
     kind: 'normal',
     order: 'a0',
     color: null,

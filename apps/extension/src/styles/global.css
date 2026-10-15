@@ -139,7 +139,7 @@
 
   .deck-surface__column {
     position: relative;
-    inline-size: min(100%, var(--deck-surface-column));
+    inline-size: min(var(--deck-surface-column), 100%);
     text-align: center;
   }
 
@@ -177,7 +177,6 @@
     inset-inline: 0;
     z-index: 5;
     font-size: 2rem;
-    transform: translateX(-50%);
   }
 
   .deck-greeting {
@@ -185,13 +184,25 @@
     color: var(--deck-color-text-muted);
   }
 
+  [data-deck='date'] {
+    margin-block: var(--deck-space-1) var(--deck-space-3);
+    color: var(--deck-color-text-muted);
+    font-size: 0.875rem;
+  }
+
   .deck-line {
     block-size: var(--deck-line-height);
     border: 1px solid var(--deck-color-hairline);
     border-radius: var(--deck-radius-panel);
     background: var(--deck-color-glass);
-    box-shadow: 0 0.5rem 2rem var(--deck-color-shadow);
+    box-shadow:
+      inset 0 1px 2px var(--deck-color-shadow),
+      0 0.5rem 2rem var(--deck-color-shadow);
     backdrop-filter: blur(1.5rem);
+  }
+
+  .deck-line:focus-within {
+    border-color: color-mix(in srgb, var(--deck-color-focus) 40%, transparent);
   }
 
   .deck-line input {
@@ -202,6 +213,7 @@
     background: transparent;
     color: inherit;
     font: inherit;
+    font-size: 0.9375rem;
   }
 
   .deck-line input::placeholder,
@@ -305,6 +317,18 @@
     gap: var(--deck-pin-gap);
     min-block-size: 5.5rem;
     margin-block-start: var(--deck-space-3);
+  }
+
+  .deck-pins:has([data-deck='pins-empty']) {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--deck-space-1);
+  }
+
+  [data-deck='pins-empty'] {
+    margin: 0;
+    color: var(--deck-color-text-muted);
+    font-size: 0.75rem;
   }
 
   .deck-pins[data-drag-over],
@@ -475,8 +499,26 @@
     gap: var(--deck-space-1);
   }
 
+  .deck-surface-controls button {
+    display: grid;
+    place-items: center;
+    inline-size: var(--deck-control-size);
+    block-size: var(--deck-control-size);
+    padding: 0;
+    border-radius: 50%;
+    opacity: 0.65;
+    backdrop-filter: blur(1.5rem);
+    cursor: pointer;
+    transition: opacity var(--deck-motion-hover) var(--deck-ease-hover);
+  }
+
+  .deck-surface-controls button:is(:hover, :focus-visible),
+  .deck-surface-controls button[aria-pressed='true'] {
+    opacity: 1;
+  }
+
   .deck-surface-controls svg,
-  .deck-drawer-handle svg {
+  [data-deck='drawer-handle'] svg {
     inline-size: 20px;
     block-size: 20px;
     fill: none;
@@ -484,21 +526,33 @@
     stroke-width: 2;
   }
 
-  .deck-drawer-handle svg {
+  [data-deck='drawer-handle'] svg {
     inline-size: 16px;
     block-size: 16px;
   }
 
-  .deck-drawer-handle {
+  [data-deck='drawer-handle'] {
     position: fixed;
     inset-inline-start: 50%;
     inset-block-end: var(--deck-space-1);
     z-index: 4;
-    border: 0;
-    background: transparent;
-    color: var(--deck-color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: var(--deck-space-1);
+    padding: 0.375rem 0.875rem;
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-pill);
+    background: var(--deck-color-glass);
+    color: var(--deck-color-text);
+    box-shadow: 0 0.25rem 1rem var(--deck-color-shadow);
+    backdrop-filter: blur(1.5rem);
     cursor: pointer;
     transform: translateX(-50%);
+    transition: translate var(--deck-motion-hover) var(--deck-ease-hover);
+  }
+
+  [data-deck='drawer-handle']:is(:hover, :focus-visible) {
+    translate: 0 -2px;
   }
 
   .deck-drawer {
@@ -510,7 +564,7 @@
     grid-template-columns: var(--deck-drawer-rail) 1fr;
     overflow: hidden;
     border-block-start: 1px solid var(--deck-color-hairline);
-    background: var(--deck-color-glass);
+    background: var(--deck-color-panel-glass);
     backdrop-filter: blur(var(--deck-drawer-blur));
     box-shadow: 0 -1rem 3rem var(--deck-color-shadow);
     transform: translateY(100%);
@@ -759,7 +813,8 @@
     inline-size: min(100%, var(--deck-settings-width));
     padding: var(--deck-space-3);
     border-inline-start: 1px solid var(--deck-color-hairline);
-    background: var(--deck-color-canvas-raised);
+    background: var(--deck-color-panel-glass);
+    backdrop-filter: blur(1.5rem);
     box-shadow: 0 0 3rem var(--deck-color-shadow);
     text-align: start;
   }
@@ -1373,13 +1428,19 @@
   }
 
   .deck-inbox__list .deck-card {
-    grid-template-columns: 1.25rem 1fr;
+    grid-template-columns: 1.25rem minmax(0, 1fr) auto;
     cursor: default;
   }
 
   .deck-inbox__list .deck-card span {
     display: grid;
     min-inline-size: 0;
+  }
+
+  .deck-inbox__list .deck-card time {
+    color: var(--deck-color-text-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
   }
 
   .deck-inbox__list .deck-card[data-selected] {
@@ -1460,7 +1521,8 @@
     padding: var(--deck-space-3);
     border: 1px solid var(--deck-color-hairline);
     border-radius: var(--deck-radius-panel);
-    background: var(--deck-color-canvas-raised);
+    background: var(--deck-color-panel-glass);
+    backdrop-filter: blur(1.5rem);
     box-shadow: 0 1rem 2rem var(--deck-color-shadow);
   }
 
@@ -1528,5 +1590,63 @@
 
   .deck-keymap__row button[data-recording] {
     outline: 2px solid var(--deck-color-focus);
+  }
+
+  @media (width < 900px) {
+    .deck-surface {
+      padding-inline: var(--deck-space-2);
+    }
+
+    .deck-settings {
+      inline-size: 100%;
+    }
+  }
+
+  @media (width < 720px) {
+    .deck-drawer {
+      grid-template-columns: 4rem minmax(0, 1fr);
+    }
+
+    .deck-pages {
+      padding-inline: var(--deck-space-1);
+    }
+
+    .deck-pages header,
+    .deck-pages__label {
+      display: none;
+    }
+
+    .deck-pages [data-page-glyph]::before {
+      display: grid;
+      place-items: center;
+      inline-size: 1.5rem;
+      block-size: 1.5rem;
+      border-radius: 0.375rem;
+      background: var(--deck-color-glass);
+      content: attr(data-page-glyph);
+      font-weight: 700;
+    }
+
+    .deck-pages :where(button) {
+      position: relative;
+      justify-content: center;
+    }
+
+    .deck-pages [data-deck='page'] small {
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline-end: 0;
+      min-inline-size: 1rem;
+      block-size: 1rem;
+      font-size: 0.625rem;
+    }
+
+    .deck-inbox__list .deck-card {
+      grid-template-columns: 1.25rem minmax(0, 1fr);
+    }
+
+    .deck-inbox__list .deck-card time {
+      display: none;
+    }
   }
 }

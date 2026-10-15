@@ -131,6 +131,8 @@ function SortablePage({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       type="button"
       data-deck="page"
+      data-page-glyph={page.title.charAt(0).toUpperCase()}
+      aria-label={page.title}
       className="deck-blurrable"
       data-selected={isSelected || undefined}
       data-dragging={isDragging || undefined}
@@ -154,7 +156,7 @@ function SortablePage({
       {...attributes}
       {...listeners}
     >
-      {page.title}
+      <span className="deck-pages__label">{page.title}</span>
     </button>
   );
 }
@@ -579,20 +581,24 @@ export default function Drawer({
           type="button"
           data-deck="page"
           data-system
+          aria-label={strings.inbox}
           onClick={() => selectPage(INBOX_PAGE_ID)}
           data-selected={selectedId === INBOX_PAGE_ID || undefined}
         >
-          <span>{strings.inbox}</span>
+          <Icon name="inbox" />
+          <span className="deck-pages__label">{strings.inbox}</span>
           {inboxCount ? <small>{inboxCount}</small> : null}
         </button>
         <button
           type="button"
           data-deck="page"
           data-system
+          aria-label={strings.trash}
           onClick={() => selectPage(TRASH_PAGE_ID)}
           data-selected={selectedId === TRASH_PAGE_ID || undefined}
         >
-          {strings.trash}
+          <Icon name="trash" />
+          <span className="deck-pages__label">{strings.trash}</span>
         </button>
         <div
           ref={scrollRef}

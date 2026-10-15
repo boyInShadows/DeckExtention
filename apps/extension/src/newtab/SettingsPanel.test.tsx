@@ -326,6 +326,23 @@ describe('SettingsPanel - appearance', () => {
     view.unmount();
   });
 
+  it('saves date and 12-hour clock preferences', async () => {
+    const { view, onChange } = await mount();
+    await view.act(() =>
+      click(control<HTMLInputElement>(view, strings.showDate)),
+    );
+    await view.act(() =>
+      click(control<HTMLInputElement>(view, strings.use12HourClock)),
+    );
+    await settle(view);
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...SETTINGS_DEFAULTS,
+      showDate: false,
+      use12HourClock: true,
+    });
+    view.unmount();
+  });
+
   it('clears or recolours the wallpaper and drops its stored palette', async () => {
     const withFile: Settings = {
       ...SETTINGS_DEFAULTS,

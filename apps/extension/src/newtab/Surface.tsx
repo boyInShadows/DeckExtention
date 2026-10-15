@@ -257,10 +257,8 @@ export function Surface({ initialData }: SurfaceProps) {
   }, [initialData.repository, notifyFailure, settings.wallpaper]);
 
   const time = now.toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: settings.showSeconds ? '2-digit' : undefined,
-    hour12: false,
+    timeStyle: settings.showSeconds ? 'medium' : 'short',
+    hour12: settings.use12HourClock,
   });
   const wallpaperUrl =
     settings.wallpaper.kind === 'file' &&
@@ -305,6 +303,11 @@ export function Surface({ initialData }: SurfaceProps) {
           >
             {time}
           </time>
+          {settings.showDate && (
+            <p data-deck="date">
+              {now.toLocaleDateString(undefined, { dateStyle: 'full' })}
+            </p>
+          )}
           {settings.ownerName ? (
             <p data-deck="greeting" className="deck-greeting">
               {greetingForHour(now.getHours())}, {settings.ownerName}
@@ -363,7 +366,6 @@ export function Surface({ initialData }: SurfaceProps) {
         <button
           type="button"
           data-deck="drawer-handle"
-          className="deck-drawer-handle"
           onClick={openDrawer}
           aria-label={strings.openDrawer}
         >

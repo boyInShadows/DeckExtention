@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import { useDismissable } from '../hooks/useDismissable';
 
 const MENU_WIDTH = 192;

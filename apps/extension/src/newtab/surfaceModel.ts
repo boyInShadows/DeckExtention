@@ -1,6 +1,7 @@
 import { strings } from '../i18n/strings';
 
 export function greetingForHour(hour: number): string {
+  if (hour < 5) return strings.greetingNight;
   if (hour < 12) return strings.greetingMorning;
   if (hour < 18) return strings.greetingAfternoon;
   return strings.greetingEvening;

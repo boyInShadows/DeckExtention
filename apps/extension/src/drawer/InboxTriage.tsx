@@ -32,6 +32,25 @@ import { useTriageQueue } from './useTriageQueue';
 import { activeCards, replaceEntity } from './workspaceModel';
 import FaviconTile from '../newtab/FaviconTile';
 
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+function savedAgo(createdAt: number): string {
+  const elapsed = Math.max(0, Date.now() - createdAt);
+  if (elapsed < MINUTE_MS) return strings.savedAgo(strings.justNow);
+  const unit =
+    elapsed >= DAY_MS ? 'day' : elapsed >= HOUR_MS ? 'hour' : 'minute';
+  const duration =
+    unit === 'day' ? DAY_MS : unit === 'hour' ? HOUR_MS : MINUTE_MS;
+  return strings.savedAgo(
+    new Intl.RelativeTimeFormat(undefined, { style: 'narrow' }).format(
+      -Math.floor(elapsed / duration),
+      unit,
+    ),
+  );
+}
+
 interface InboxTriageProps {
   keymap: Keymap;
   /** False while the drawer animates closed: keys must not act then. */
@@ -261,6 +280,9 @@ export function InboxTriage(props: InboxTriageProps) {
               <strong>{card.title}</strong>
               <small>{card.note ? `● ${card.hostname}` : card.hostname}</small>
             </span>
+            <time dateTime={new Date(card.createdAt).toISOString()}>
+              {savedAgo(card.createdAt)}
+            </time>
           </li>
         ))}
       </ol>

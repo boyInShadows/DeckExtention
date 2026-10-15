@@ -19,6 +19,9 @@ const cards = [
 
 describe('surface model', () => {
   it('selects the greeting for the local hour', () => {
+    expect(greetingForHour(0)).toBe('Good night');
+    expect(greetingForHour(4)).toBe('Good night');
+    expect(greetingForHour(5)).toBe('Good morning');
     expect(greetingForHour(6)).toBe('Good morning');
     expect(greetingForHour(13)).toBe('Good afternoon');
     expect(greetingForHour(21)).toBe('Good evening');
