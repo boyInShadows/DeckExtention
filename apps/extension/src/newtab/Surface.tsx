@@ -90,31 +90,26 @@ export function Surface({ initialData }: SurfaceProps) {
     },
     [notify],
   );
-  const drawerExitTimer = useRef<number | null>(null);
+  const drawerExitTimer = useRef(0);
+  const beforeDrawerClose = useRef<(() => Promise<boolean>) | null>(null);
   const tabId = useRef(0);
 
   const openDrawer = useCallback(() => {
-    clearTimeout(drawerExitTimer.current ?? 0);
-    drawerExitTimer.current = null;
+    clearTimeout(drawerExitTimer.current);
     setIsSettingsOpen(false);
     setIsDrawerMounted(true);
     requestAnimationFrame(() => setIsDrawerOpen(true));
   }, []);
 
-  const closeDrawer = useCallback(() => {
+  const closeDrawer = useCallback(async () => {
+    if ((await beforeDrawerClose.current?.()) === false) return;
     setIsDrawerOpen(false);
-    drawerExitTimer.current = window.setTimeout(() => {
-      setIsDrawerMounted(false);
-      drawerExitTimer.current = null;
-    }, DRAWER_EXIT_MS);
+    drawerExitTimer.current = window.setTimeout(
+      setIsDrawerMounted,
+      DRAWER_EXIT_MS,
+      false,
+    );
   }, []);
-
-  useEffect(
-    () => () => {
-      clearTimeout(drawerExitTimer.current ?? 0);
-    },
-    [],
-  );
 
   const saveSettings = useCallback(
     async (next: typeof settings) => {
@@ -160,6 +155,11 @@ export function Surface({ initialData }: SurfaceProps) {
   useEffect(() => {
     let idle: number | null = null;
     const frame = window.requestAnimationFrame(() => {
+      document.documentElement.dataset.deckReady = 'true';
+      if (performance.getEntriesByName('deck-ready').length === 0) {
+        performance.mark('deck-ready');
+        performance.measure('deck-interactive', 'deck-start', 'deck-ready');
+      }
       idle = window.requestIdleCallback(() => {
         void loadDrawer().catch(notifyFailure);
       });
@@ -167,6 +167,7 @@ export function Surface({ initialData }: SurfaceProps) {
     return () => {
       window.cancelAnimationFrame(frame);
       if (idle !== null) window.cancelIdleCallback(idle);
+      clearTimeout(drawerExitTimer.current);
     };
   }, [notifyFailure]);
 
@@ -175,11 +176,10 @@ export function Surface({ initialData }: SurfaceProps) {
       void chrome.tabs
         .getCurrent()
         .then((tab) => (tabId.current = tab?.id ?? 0), notifyFailure);
-    const toggleDrawer = isDrawerOpen ? closeDrawer : openDrawer;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.ctrlKey && event.key.toLowerCase() === 'j') {
         event.preventDefault();
-        toggleDrawer();
+        (isDrawerOpen ? closeDrawer : openDrawer)();
       }
     };
     const onMessage = (
@@ -188,7 +188,7 @@ export function Surface({ initialData }: SurfaceProps) {
       sendResponse: (response: boolean) => void,
     ) => {
       if (message?.drawer !== tabId.current) return;
-      toggleDrawer();
+      (isDrawerOpen ? closeDrawer : openDrawer)();
       sendResponse(true);
     };
     window.addEventListener('keydown', onKeyDown);
@@ -198,17 +198,6 @@ export function Surface({ initialData }: SurfaceProps) {
       chrome.runtime.onMessage.removeListener(onMessage);
     };
   }, [closeDrawer, isDrawerOpen, notifyFailure, openDrawer]);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      document.documentElement.dataset.deckReady = 'true';
-      if (performance.getEntriesByName('deck-ready').length === 0) {
-        performance.mark('deck-ready');
-        performance.measure('deck-interactive', 'deck-start', 'deck-ready');
-      }
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
 
   useEffect(() => {
     const interval = window.setInterval(
@@ -398,6 +387,7 @@ export function Surface({ initialData }: SurfaceProps) {
               pages={pages}
               isOpen={isDrawerOpen}
               onClose={closeDrawer}
+              beforeCloseRef={beforeDrawerClose}
               onCardsChange={setCards}
               onDecksChange={setDecks}
               onPagesChange={setPages}

@@ -7,7 +7,15 @@ import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
 import type { Card, Deck, KeyBinding, Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
@@ -37,6 +45,8 @@ import { TrashView } from './TrashView';
 import { dragId } from './dragIdentity';
 import { handleWorkspaceDrop } from './workspaceDrop';
 import { WORKSPACE_DROP_EVENT, type WorkspaceDropDetail } from './WorkspaceDnd';
+import { NotePanel, type NotePanelHandle } from './NotePanel';
+import { replaceEntity } from './workspaceModel';
 
 function currentTimestamp(): number {
   return Date.now();
@@ -62,6 +72,7 @@ interface DrawerProps {
   onSuccess?: (message: string) => void;
   onPagesChange: (pages: Page[]) => void;
   offerUndo: (action: UndoAction) => void;
+  beforeCloseRef?: RefObject<(() => Promise<boolean>) | null>;
 }
 
 function SortablePage({
@@ -172,6 +183,7 @@ export default function Drawer({
   onDecksChange,
   onCardsChange,
   offerUndo,
+  beforeCloseRef,
 }: DrawerProps) {
   const keymap = useMemo(
     () => resolveKeymap(keymapOverrides),
@@ -181,6 +193,8 @@ export default function Drawer({
   const [deletingPage, setDeletingPage] = useState<Page | null>(null);
   const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [pageTitle, setPageTitle] = useState('');
+  const [noteEntity, setNoteEntity] = useState<Deck | Card | null>(null);
+  const noteRef = useRef<NotePanelHandle>(null);
   const orderedPages = useMemo(() => activePages(pages), [pages]);
   const [selectedId, setSelectedId] = useState(() =>
     selectedPageId(pages, requestedPageId()),
@@ -205,10 +219,65 @@ export default function Drawer({
       !card.pinned,
   ).length;
 
-  const selectPage = (id: string) => {
-    setSelectedId(id);
-    localStorage.setItem(DRAWER_PAGE_KEY, id);
+  const flushNote = useCallback(async (): Promise<boolean> => {
+    if (!noteEntity) return true;
+    return (await noteRef.current?.flush()) ?? false;
+  }, [noteEntity]);
+  const closeNote = () => {
+    const entity = noteEntity;
+    setNoteEntity(null);
+    requestAnimationFrame(() => {
+      const target =
+        selectedId === INBOX_PAGE_ID
+          ? '[data-deck="inbox"] [role="listbox"]'
+          : entity && 'deckId' in entity
+            ? `[data-card-id="${window.CSS.escape(entity.id)}"]`
+            : entity
+              ? `[data-deck-id="${window.CSS.escape(entity.id)}"] [data-deck="deck-title"]`
+              : null;
+      if (target)
+        drawerRef.current?.querySelector<HTMLElement>(target)?.focus();
+    });
   };
+  useLayoutEffect(() => {
+    if (beforeCloseRef)
+      beforeCloseRef.current = async () => {
+        const didSave = await flushNote();
+        if (didSave) setNoteEntity(null);
+        return didSave;
+      };
+    return () => {
+      if (beforeCloseRef) beforeCloseRef.current = null;
+    };
+  }, [beforeCloseRef, flushNote]);
+  const selectPage = useCallback(
+    async (id: string) => {
+      if (!(await flushNote())) return;
+      setNoteEntity(null);
+      setSelectedId(id);
+      localStorage.setItem(DRAWER_PAGE_KEY, id);
+    },
+    [flushNote],
+  );
+  useEffect(() => {
+    if (!noteEntity || !isOpen) return;
+    const dismiss = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (
+        event.target.closest(
+          '[data-deck="note"], [data-deck="pages"], [data-deck="drawer-close"]',
+        )
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      void flushNote().then((didSave) => {
+        if (didSave) setNoteEntity(null);
+      });
+    };
+    document.addEventListener('click', dismiss, true);
+    return () => document.removeEventListener('click', dismiss, true);
+  }, [flushNote, isOpen, noteEntity]);
 
   // Opening hands the drawer the keyboard (a key typed next must reach the
   // grid, not the Line where Space or Ctrl+J was pressed); closing takes it
@@ -226,7 +295,7 @@ export default function Drawer({
       if (event.key !== 'Escape' || isTypingTarget(event.target)) return;
       if ((event.target as HTMLElement)?.dataset?.deck?.endsWith('-drag'))
         return;
-      onClose();
+      void onClose();
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
@@ -330,7 +399,7 @@ export default function Drawer({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, keymap, orderedPages, selectedId]);
+  }, [isOpen, keymap, orderedPages, selectedId, selectPage]);
 
   const addPage = async () => {
     try {
@@ -560,6 +629,7 @@ export default function Drawer({
           decks={decks}
           cards={cards}
           onCardsChange={onCardsChange}
+          onEditNote={setNoteEntity}
           onError={onError}
           onSuccess={onSuccess}
           offerUndo={offerUndo}
@@ -576,11 +646,28 @@ export default function Drawer({
           selectedDeckKind="normal"
           onDecksChange={onDecksChange}
           onCardsChange={onCardsChange}
+          isNoteOpen={noteEntity !== null}
+          onEditNote={setNoteEntity}
           onError={onError}
           onSuccess={onSuccess}
           offerUndo={offerUndo}
         />
       )}
+      {noteEntity ? (
+        <NotePanel
+          key={noteEntity.id}
+          ref={noteRef}
+          entity={noteEntity}
+          repository={data.repository}
+          onClose={closeNote}
+          onError={onError}
+          onSaved={(saved) => {
+            if ('deckId' in saved) onCardsChange(replaceEntity(cards, saved));
+            else onDecksChange(replaceEntity(decks, saved));
+            setNoteEntity(saved);
+          }}
+        />
+      ) : null}
       {deletingPage ? (
         <PageDeleteSheet
           page={deletingPage}

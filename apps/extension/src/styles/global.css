@@ -1209,15 +1209,102 @@
   }
 
   .deck-note-panel header {
-    justify-content: space-between;
+    gap: var(--deck-space-1);
+    min-inline-size: 0;
+  }
+
+  .deck-note-panel__identity {
+    display: grid;
+    min-inline-size: 0;
+    flex: 1;
+  }
+
+  .deck-note-panel__identity :is(strong, small) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .deck-note-panel__identity small,
+  .deck-note-panel [data-deck='note-status'] {
+    color: var(--deck-color-text-muted);
+    font-size: 0.75rem;
+  }
+
+  .deck-note-panel__action {
+    padding: var(--deck-space-1);
+    border-radius: var(--deck-radius-panel);
+  }
+
+  .deck-note-panel__save {
+    border: 1px solid var(--deck-color-hairline);
+    background: var(--deck-color-glass);
+    font-weight: 650;
   }
 
   .deck-note-panel textarea {
+    min-block-size: 0;
+    padding: var(--deck-space-2);
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-canvas);
+    font: var(--deck-font-note-body)/1.6 var(--deck-font-ui);
     resize: none;
   }
 
+  .deck-note-panel textarea:focus-visible {
+    outline: 2px solid var(--deck-color-focus);
+    outline-offset: 2px;
+  }
+
   .deck-note-preview {
-    white-space: pre-wrap;
+    overflow: auto;
+    padding: var(--deck-space-2);
+  }
+
+  .deck-markdown {
+    overflow-wrap: anywhere;
+    line-height: 1.6;
+    text-align: start;
+  }
+
+  .deck-markdown :is(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, pre) {
+    margin-block: 0 var(--deck-space-1);
+  }
+
+  .deck-markdown :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: 700;
+  }
+
+  .deck-markdown [data-level='1'] {
+    font-size: var(--deck-font-note-h1);
+  }
+
+  .deck-markdown [data-level='2'] {
+    font-size: var(--deck-font-note-h2);
+  }
+
+  .deck-markdown [data-level='3'] {
+    font-size: var(--deck-font-note-h3);
+  }
+
+  .deck-markdown :is(ul, ol) {
+    padding-inline-start: var(--deck-space-3);
+  }
+
+  .deck-markdown blockquote {
+    padding-inline-start: var(--deck-space-2);
+    border-inline-start: 2px solid var(--deck-color-hairline);
+    color: var(--deck-color-text-muted);
+  }
+
+  .deck-markdown :is(pre, code) {
+    background: var(--deck-color-glass);
+  }
+
+  .deck-markdown pre {
+    overflow: auto;
+    padding: var(--deck-space-1);
   }
 
   /* Inbox triage (P2.S5): one list, one cursor, keyboard first. */

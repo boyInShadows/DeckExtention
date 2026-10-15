@@ -30,6 +30,7 @@ import { MoveLine } from './MoveLine';
 import { useWorkspaceKeys } from './useWorkspaceKeys';
 import type { Keymap } from '../keys/keymap';
 import { NotePanel } from './NotePanel';
+import { MarkdownNote } from './MarkdownNote';
 import { focusOnMount } from '../newtab/focusOnMount';
 import { CardRow } from './CardRow';
 import { DeckMenu } from './DeckMenu';
@@ -52,6 +53,8 @@ export interface WorkspaceProps {
   keymap: Keymap;
   /** False while the drawer animates closed: keys must not act then. */
   isOpen: boolean;
+  isNoteOpen?: boolean;
+  onEditNote?: (entity: Deck | Card) => void;
 }
 
 const now = () => Date.now();
@@ -84,11 +87,15 @@ export function DeckWorkspace(props: WorkspaceProps) {
     keymap: props.keymap,
     cards: props.cards,
     repository: props.data.repository,
-    isPaused: !props.isOpen || noteEntity !== null || movingCard !== null,
+    isPaused:
+      !props.isOpen ||
+      props.isNoteOpen ||
+      noteEntity !== null ||
+      movingCard !== null,
     onCardsChange: props.onCardsChange,
     onError: (error) => props.onError(message(error)),
     onSuccess: props.onSuccess,
-    onNote: setNoteEntity,
+    onNote: props.onEditNote ?? setNoteEntity,
     onMove: setMovingCard,
     onEdit: (card) => {
       mainRef.current
@@ -184,7 +191,7 @@ export function DeckWorkspace(props: WorkspaceProps) {
               deck={deck}
               isNew={editingDeckId === deck.id}
               visibleCards={activeCards(props.cards, deck.id)}
-              onEditNote={setNoteEntity}
+              onEditNote={props.onEditNote ?? setNoteEntity}
             />
           ))}
         </SortableContext>
@@ -437,14 +444,17 @@ function DeckColumn({
             <p data-deck="example-hint">{strings.exampleHint}</p>
           ) : null}
           {deck.note ? (
-            <button
-              type="button"
-              data-deck="deck-note"
-              className="deck-note"
-              onClick={() => onEditNote(deck)}
-            >
-              {deck.note}
-            </button>
+            <div data-deck="deck-note" className="deck-note">
+              <MarkdownNote value={deck.note} />
+              <button
+                type="button"
+                data-deck="deck-note-edit"
+                onClick={() => onEditNote(deck)}
+                aria-label={strings.editDeckNote}
+              >
+                {strings.edit}
+              </button>
+            </div>
           ) : null}
           <div className="deck-cards">
             <SortableContext

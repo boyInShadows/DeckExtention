@@ -80,12 +80,13 @@ interface Setup {
 
 function fakeRepository(cards: Card[]) {
   const upsertCard = vi.fn(async (value: Card) => value);
+  const listCards = vi.fn(async () => cards);
   const trashCards = vi.fn(async (ids: string[]) =>
     cards
       .filter(({ id }) => ids.includes(id))
       .map((card) => ({ ...card, deletedAt: STAMP })),
   );
-  return { upsertCard, trashCards };
+  return { upsertCard, listCards, trashCards };
 }
 
 async function renderTriage(setup: Setup = {}) {
@@ -445,7 +446,9 @@ describe('InboxTriage - note and open', () => {
     expect(triage.view.container.textContent).toContain('● one.test');
 
     await triage.view.act(() => click(triage.view.getByText(strings.close)));
-    expect(triage.view.query('[data-deck="note"]')).toBeNull();
+    await vi.waitFor(() =>
+      expect(triage.view.query('[data-deck="note"]')).toBeNull(),
+    );
     expect(document.activeElement).toBe(triage.list());
     triage.view.unmount();
   });

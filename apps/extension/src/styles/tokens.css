@@ -140,6 +140,10 @@
 
   --deck-radius-panel: 1rem;
   --deck-radius-tile: 1.125rem;
+  --deck-font-note-body: 0.9375rem;
+  --deck-font-note-h1: 1.5rem;
+  --deck-font-note-h2: 1.25rem;
+  --deck-font-note-h3: 1.125rem;
 
   /* One spring for drawer and toasts; 120 ms ease for hovers. */
   --deck-motion-hover: 120ms;

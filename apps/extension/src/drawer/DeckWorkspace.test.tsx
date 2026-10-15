@@ -289,9 +289,10 @@ describe('DeckWorkspace - layout', () => {
 
     const later = deckSection(view, 'deck_2');
     expect(later.dataset.color).toBe('blue');
-    expect(later.querySelector('[data-deck="deck-note"]')?.textContent).toBe(
-      'Weekend',
-    );
+    expect(
+      later.querySelector('[data-deck="deck-note"] .deck-markdown')
+        ?.textContent,
+    ).toBe('Weekend');
     expect(later.textContent).toContain(strings.emptyDeck);
     view.unmount();
   });
@@ -921,7 +922,9 @@ describe('DeckWorkspace - notes', () => {
     ).toBe('◉');
 
     await act(view, () => click(view.getByText(strings.close)));
-    expect(view.query('[data-deck="note"]')).toBeNull();
+    await eventually(view, () =>
+      expect(view.query('[data-deck="note"]')).toBeNull(),
+    );
     await eventually(view, () =>
       expect(document.activeElement).toBe(view.get('[data-card-id="card_2"]')),
     );
@@ -930,7 +933,7 @@ describe('DeckWorkspace - notes', () => {
 
   it('saves a deck note opened from the note itself and from the menu', async () => {
     const { view, onDecksChange } = await mount();
-    await act(view, () => click(view.get('[data-deck="deck-note"]')));
+    await act(view, () => click(view.get('[data-deck="deck-note"] button')));
     const textarea = view.get<HTMLTextAreaElement>(
       '[data-deck="note"] textarea',
     );
@@ -938,12 +941,16 @@ describe('DeckWorkspace - notes', () => {
     await act(view, () => type(textarea, 'Sunday'));
     await act(view, () => click(view.getByText(strings.saveNote)));
     await eventually(view, () =>
-      expect(view.get('[data-deck="deck-note"]').textContent).toBe('Sunday'),
+      expect(
+        view.get('[data-deck="deck-note"] .deck-markdown').textContent,
+      ).toBe('Sunday'),
     );
     expect(onDecksChange).toHaveBeenCalled();
     expect((await storedDeck('deck_2'))?.note).toBe('Sunday');
     await act(view, () => click(view.getByText(strings.close)));
-    expect(view.query('[data-deck="note"]')).toBeNull();
+    await eventually(view, () =>
+      expect(view.query('[data-deck="note"]')).toBeNull(),
+    );
 
     const section = deckSection(view, 'deck_1');
     await act(view, () => click(within(section, strings.deckMenu)));
@@ -956,7 +963,7 @@ describe('DeckWorkspace - notes', () => {
 
   it('keeps grid keys quiet while a note is open', async () => {
     const { view } = await mount();
-    await act(view, () => click(view.get('[data-deck="deck-note"]')));
+    await act(view, () => click(view.get('[data-deck="deck-note"] button')));
     const event = keyDown(document.body, 'j');
     expect(event.defaultPrevented).toBe(false);
     view.unmount();

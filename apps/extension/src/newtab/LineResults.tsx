@@ -4,6 +4,7 @@ import { panelStrings as strings } from '../i18n/panelStrings';
 import type { LINE_ACTIONS } from './lineActionCatalog';
 import type { SearchResults } from './lineSearch';
 import type { ResultGroup } from './Line';
+import { MarkdownNote } from '../drawer/MarkdownNote';
 
 export default function LineResults({
   cards,
@@ -108,7 +109,13 @@ export default function LineResults({
               onClick={() => onSelect(group, index)}
             >
               <span>{row.title}</span>
-              <small>{row.detail}</small>
+              <small>
+                {group === 'notes' ? (
+                  <MarkdownNote value={row.detail} compact />
+                ) : (
+                  row.detail
+                )}
+              </small>
             </button>
           ))}
           {rows.length > maxRows ? (

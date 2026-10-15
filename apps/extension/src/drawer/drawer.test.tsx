@@ -22,6 +22,7 @@ import {
   keyDown,
   render,
   trusted,
+  type,
   type RenderResult,
 } from '../testing/render';
 import Drawer from './drawer';
@@ -139,6 +140,7 @@ interface Mounted {
   onError: ReturnType<typeof vi.fn<(message: string) => void>>;
   onPagesChange: ReturnType<typeof vi.fn<(pages: Page[]) => void>>;
   offerUndo: ReturnType<typeof vi.fn<(action: UndoAction) => void>>;
+  requestClose: () => Promise<void>;
 }
 
 let repository: DeckRepository;
@@ -148,6 +150,7 @@ async function mount(isInitiallyOpen = true): Promise<Mounted> {
   const onError = vi.fn<(message: string) => void>();
   const onPagesChange = vi.fn<(pages: Page[]) => void>();
   const offerUndo = vi.fn<(action: UndoAction) => void>();
+  const beforeClose = { current: null as (() => Promise<boolean>) | null };
   const data = {
     cards: [],
     decks: [],
@@ -178,6 +181,7 @@ async function mount(isInitiallyOpen = true): Promise<Mounted> {
         cards={cards}
         isOpen={isOpen}
         onClose={onClose}
+        beforeCloseRef={beforeClose}
         onError={onError}
         offerUndo={offerUndo}
         {...callbacks}
@@ -198,6 +202,9 @@ async function mount(isInitiallyOpen = true): Promise<Mounted> {
     onError,
     onPagesChange,
     offerUndo,
+    requestClose: async () => {
+      if (!beforeClose.current || (await beforeClose.current())) onClose();
+    },
   };
 }
 
@@ -351,6 +358,120 @@ describe('Drawer - loading', () => {
     await eventually(view, () =>
       expect(onError).toHaveBeenCalledWith(`${strings.updateFailed} locked`),
     );
+    view.unmount();
+  });
+});
+
+describe('Drawer - notes', () => {
+  it('saves on Close and reopens with the typed text', async () => {
+    const { view } = await mount();
+    await view.act(() =>
+      click(view.get('[data-card-id="card_4"] [aria-label="Edit note"]')),
+    );
+    await view.act(() =>
+      type(
+        view.get<HTMLTextAreaElement>('[data-deck="note"] textarea'),
+        'Keep this',
+      ),
+    );
+    await view.act(() => click(view.getByText(strings.close)));
+    await eventually(view, () =>
+      expect(view.query('[data-deck="note"]')).toBeNull(),
+    );
+    await eventually(view, () =>
+      expect(document.activeElement).toBe(view.get('[data-card-id="card_4"]')),
+    );
+    await view.act(() =>
+      click(view.get('[data-card-id="card_4"] [aria-label="Edit note"]')),
+    );
+    expect(
+      view.get<HTMLTextAreaElement>('[data-deck="note"] textarea').value,
+    ).toBe('Keep this');
+    expect(
+      (await repository.listCards()).find(({ id }) => id === 'card_4')?.note,
+    ).toBe('Keep this');
+    await view.act(() =>
+      type(
+        view.get<HTMLTextAreaElement>('[data-deck="note"] textarea'),
+        'Outside click',
+      ),
+    );
+    await view.act(() => click(view.get('.deck-grid')));
+    await eventually(view, () =>
+      expect(view.query('[data-deck="note"]')).toBeNull(),
+    );
+    await view.act(() =>
+      click(view.get('[data-card-id="card_4"] [aria-label="Edit note"]')),
+    );
+    expect(
+      view.get<HTMLTextAreaElement>('[data-deck="note"] textarea').value,
+    ).toBe('Outside click');
+    view.unmount();
+  });
+
+  it('saves before switching pages and blocks drawer close on a failed write', async () => {
+    const { view, requestClose, onClose, onError } = await mount();
+    await view.act(() =>
+      click(view.get('[data-card-id="card_4"] [aria-label="Edit note"]')),
+    );
+    await view.act(() =>
+      type(
+        view.get<HTMLTextAreaElement>('[data-deck="note"] textarea'),
+        'Page draft',
+      ),
+    );
+    await view.act(() => click(view.getByText('Home')));
+    await eventually(view, () => expect(selectedTitle(view)).toBe('Home'));
+    await view.act(() => click(view.getByText('Work')));
+    await eventually(view, () => expect(selectedTitle(view)).toBe('Work'));
+    await view.act(() =>
+      click(view.get('[data-card-id="card_4"] [aria-label="Edit note"]')),
+    );
+    expect(
+      view.get<HTMLTextAreaElement>('[data-deck="note"] textarea').value,
+    ).toBe('Page draft');
+    const upsert = vi
+      .spyOn(repository, 'upsertCard')
+      .mockRejectedValueOnce(new Error('disk full'));
+    await view.act(() =>
+      type(
+        view.get<HTMLTextAreaElement>('[data-deck="note"] textarea'),
+        'Unsaved page draft',
+      ),
+    );
+    await requestClose();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith(FAILED_MESSAGE);
+    expect(
+      view.get<HTMLTextAreaElement>('[data-deck="note"] textarea').value,
+    ).toBe('Unsaved page draft');
+    upsert.mockRestore();
+    await requestClose();
+    expect(onClose).toHaveBeenCalledOnce();
+    view.unmount();
+  });
+
+  it('returns focus to Inbox after saving a note with Escape', async () => {
+    const { view } = await mount();
+    await view.act(() => click(inboxButton(view)));
+    const list = view.get('[data-deck="inbox"] [role="listbox"]');
+    await view.act(() => {
+      keyDown(list, 'n');
+    });
+    const textarea = view.get<HTMLTextAreaElement>(
+      '[data-deck="note"] textarea',
+    );
+    await view.act(() => type(textarea, 'Inbox thought'));
+    await view.act(() => {
+      keyDown(textarea, 'Escape');
+    });
+    await eventually(view, () =>
+      expect(view.query('[data-deck="note"]')).toBeNull(),
+    );
+    await eventually(view, () => expect(document.activeElement).toBe(list));
+    expect(
+      (await repository.listCards()).find(({ id }) => id === 'card_1')?.note,
+    ).toBe('Inbox thought');
     view.unmount();
   });
 });

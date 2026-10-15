@@ -44,6 +44,7 @@ interface InboxTriageProps {
   onError: (message: string) => void;
   onSuccess?: ((message: string) => void) | undefined;
   offerUndo?: (action: UndoAction) => void;
+  onEditNote?: (card: Card) => void;
 }
 
 const message = (error: unknown) =>
@@ -173,7 +174,7 @@ export function InboxTriage(props: InboxTriageProps) {
         });
         return next;
       });
-    else if (action === 'note') setNoteCard(card);
+    else if (action === 'note') (props.onEditNote ?? setNoteCard)(card);
     else if (action === 'pin') pin();
     else if (action === 'open' || action === 'openInNewTab')
       void open(card, action === 'openInNewTab');
