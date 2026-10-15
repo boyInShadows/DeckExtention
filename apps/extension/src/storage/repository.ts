@@ -247,33 +247,77 @@ export class DeckRepository {
     entity: Exclude<OpEntity, 'settings'>,
     id: string,
   ): Promise<void> {
-    await this.#changeDeletion(entity, id, this.#now(), 'delete');
+    await this.#changeDeletion(entity, id, this.#now());
   }
 
   async restore(
     entity: Exclude<OpEntity, 'settings'>,
     id: string,
   ): Promise<void> {
-    await this.#changeDeletion(entity, id, null, 'restore');
+    await this.#changeDeletion(entity, id, null);
+  }
+
+  async trashDeck(id: string): Promise<void> {
+    await this.#changeTree('deck', id, false);
+  }
+
+  async restoreDeck(id: string): Promise<void> {
+    await this.#changeTree('deck', id, true);
+  }
+
+  async trashPage(id: string): Promise<void> {
+    await this.#changeTree('page', id, false);
+  }
+
+  async restorePage(id: string): Promise<void> {
+    await this.#changeTree('page', id, true);
+  }
+
+  async trashCards(ids: string[]): Promise<Card[]> {
+    return this.#changeCards(ids, false);
+  }
+
+  async restoreCards(ids: string[]): Promise<Card[]> {
+    return this.#changeCards(ids, true);
+  }
+
+  async #changeCards(ids: string[], isRestore: boolean): Promise<Card[]> {
+    const { changeCards } = await import('./trashWrites');
+    const clientId = await this.#clientId();
+    return changeCards(
+      await this.#database,
+      ids,
+      isRestore,
+      this.#now,
+      (entity, id, kind) => this.#makeOp(clientId, entity, id, kind, null),
+    );
+  }
+
+  async #changeTree(
+    entity: 'page' | 'deck',
+    id: string,
+    isRestore: boolean,
+  ): Promise<void> {
+    const { changeTree } = await import('./trashWrites');
+    const clientId = await this.#clientId();
+    await changeTree(
+      await this.#database,
+      entity,
+      id,
+      isRestore,
+      this.#now,
+      (itemEntity, itemId, kind) =>
+        this.#makeOp(clientId, itemEntity, itemId, kind, null),
+    );
   }
 
   async purge(cutoff = this.#now() - PURGE_AFTER_MS): Promise<number> {
-    const database = await this.#database;
-    let count = 0;
-    for (const storeName of ['pages', 'decks', 'cards'] as const) {
-      const transaction = database.transaction(storeName, 'readwrite');
-      let cursor = await transaction.store.openCursor();
-      while (cursor) {
-        const { deletedAt } = cursor.value;
-        if (deletedAt !== null && deletedAt <= cutoff) {
-          await cursor.delete();
-          count += 1;
-        }
-        cursor = await cursor.continue();
-      }
-      await transaction.done;
-    }
-    return count;
+    const { purgeDeleted } = await import('./trashMaintenance');
+    return purgeDeleted(
+      await this.#database,
+      cutoff,
+      this.#now() - PURGE_AFTER_MS,
+    );
   }
 
   async #upsert<T extends EntityRecord>(
@@ -296,20 +340,18 @@ export class DeckRepository {
     entity: Exclude<OpEntity, 'settings'>,
     id: string,
     deletedAt: number | null,
-    kind: 'delete' | 'restore',
   ): Promise<void> {
-    const database = await this.#database;
-    const storeName = storeFor(entity);
+    const { changeDeletion } = await import('./trashWrites');
     const clientId = await this.#clientId();
-    const transaction = database.transaction([storeName, 'ops'], 'readwrite');
-    const existing = await transaction.objectStore(storeName).get(id);
-    if (!existing) throw new Error(`Cannot ${kind} missing ${entity} ${id}`);
-    const next = { ...existing, deletedAt, updatedAt: this.#now() };
-    await transaction.objectStore(storeName).put(next);
-    await transaction
-      .objectStore('ops')
-      .put(this.#makeOp(clientId, entity, id, kind, null));
-    await transaction.done;
+    await changeDeletion(
+      await this.#database,
+      entity,
+      id,
+      deletedAt,
+      this.#now,
+      (itemEntity, itemId, itemKind) =>
+        this.#makeOp(clientId, itemEntity, itemId, itemKind, null),
+    );
   }
 
   #makeOp(

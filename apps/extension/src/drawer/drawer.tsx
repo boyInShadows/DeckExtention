@@ -11,11 +11,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
+import { focusOnMount } from '../newtab/focusOnMount';
+import type { UndoAction } from './UndoToast';
 import {
   activePages,
   DRAWER_PAGE_KEY,
   DRAWER_SCROLL_KEY,
   INBOX_PAGE_ID,
+  TRASH_PAGE_ID,
   pageIdFromHash,
   restoredScroll,
   selectedPageId,
@@ -28,6 +31,7 @@ import {
 } from '../keys/keymap';
 import { DeckWorkspace } from './DeckWorkspace';
 import { InboxTriage } from './InboxTriage';
+import { TrashView } from './TrashView';
 import { dragId } from './dragIdentity';
 import { handleWorkspaceDrop } from './workspaceDrop';
 import { WORKSPACE_DROP_EVENT, type WorkspaceDropDetail } from './WorkspaceDnd';
@@ -49,6 +53,7 @@ interface DrawerProps {
   onDecksChange: (decks: Deck[]) => void;
   onError: (message: string) => void;
   onPagesChange: (pages: Page[]) => void;
+  offerUndo: (action: UndoAction) => void;
 }
 
 function SortablePage({
@@ -56,11 +61,13 @@ function SortablePage({
   isSelected,
   onSelect,
   onRename,
+  onDelete,
 }: {
   page: Page;
   isSelected: boolean;
   onSelect: () => void;
   onRename: () => void;
+  onDelete: () => void;
 }) {
   const {
     attributes,
@@ -82,6 +89,10 @@ function SortablePage({
       data-drag-over={isOver || undefined}
       onClick={onSelect}
       onDoubleClick={onRename}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onDelete();
+      }}
       {...attributes}
       {...listeners}
     >
@@ -116,12 +127,14 @@ export default function Drawer({
   onPagesChange,
   onDecksChange,
   onCardsChange,
+  offerUndo,
 }: DrawerProps) {
   const keymap = useMemo(
     () => resolveKeymap(keymapOverrides),
     [keymapOverrides],
   );
   const [isPagesLoaded, setIsPagesLoaded] = useState(false);
+  const [deletingPage, setDeletingPage] = useState<Page | null>(null);
   const orderedPages = useMemo(() => activePages(pages), [pages]);
   const [selectedId, setSelectedId] = useState(() =>
     selectedPageId(pages, requestedPageId()),
@@ -209,7 +222,11 @@ export default function Drawer({
 
   useLayoutEffect(() => {
     // The Inbox is the rail's first stop, then the user pages in order.
-    const railIds = [INBOX_PAGE_ID, ...orderedPages.map(({ id }) => id)];
+    const railIds = [
+      INBOX_PAGE_ID,
+      TRASH_PAGE_ID,
+      ...orderedPages.map(({ id }) => id),
+    ];
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.altKey && /^Digit[1-9]$/.test(event.code)) {
         const page = orderedPages[Number(event.code.at(-1)) - 1];
@@ -222,7 +239,7 @@ export default function Drawer({
       const action = chord ? actionForChord(keymap, scope, chord) : null;
       if (action !== 'nextPage' && action !== 'previousPage') return;
       event.preventDefault();
-      const index = railIds.indexOf(selectedId ?? INBOX_PAGE_ID);
+      const index = selectedId === null ? -1 : railIds.indexOf(selectedId);
       const step = action === 'nextPage' ? 1 : -1;
       const target =
         railIds[Math.min(Math.max(index + step, 0), railIds.length - 1)];
@@ -265,6 +282,81 @@ export default function Drawer({
     }
   };
 
+  const refreshWorkspace = async () => {
+    const [storedPages, storedDecks, storedCards] = await Promise.all([
+      data.repository.listPages(),
+      data.repository.listDecks(),
+      data.repository.listCards(),
+    ]);
+    onPagesChange(storedPages);
+    onDecksChange(storedDecks);
+    onCardsChange(storedCards);
+  };
+  const removePage = async (page: Page, destinationId: string | null) => {
+    try {
+      const now = currentTimestamp();
+      const otherPage = activePages(pages).find(({ id }) => id !== page.id);
+      const replacement =
+        destinationId ||
+        otherPage?.id ||
+        (
+          await data.repository.upsertPage({
+            id: crypto.randomUUID(),
+            title: strings.newPage,
+            order: generateKeyBetween(orderedPages.at(-1)?.order ?? null, null),
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null,
+          })
+        ).id;
+      const moving = decks.filter(
+        (deck) =>
+          deck.pageId === page.id &&
+          deck.deletedAt === null &&
+          (destinationId !== null || deck.kind === 'inbox'),
+      );
+      if (moving.length) {
+        await data.repository.upsertMany({
+          decks: moving.map((deck) => ({
+            ...deck,
+            pageId: replacement,
+            updatedAt: now,
+          })),
+        });
+      }
+      if (destinationId) {
+        await data.repository.softDelete('page', page.id);
+      } else {
+        await data.repository.trashPage(page.id);
+      }
+      await refreshWorkspace();
+      selectPage(replacement);
+      offerUndo({
+        label: strings.trashedPage,
+        undo: async () => {
+          if (destinationId) {
+            await data.repository.restore('page', page.id);
+            await data.repository.upsertMany({
+              decks: moving.map((deck) => ({
+                ...deck,
+                updatedAt: currentTimestamp(),
+              })),
+            });
+          } else {
+            await data.repository.restorePage(page.id);
+          }
+          await refreshWorkspace();
+        },
+      });
+      setDeletingPage(null);
+    } catch (error) {
+      onError(errorMessage(error));
+      await refreshWorkspace().catch((loadError: unknown) =>
+        onError(errorMessage(loadError)),
+      );
+    }
+  };
+
   return (
     <section
       data-deck="drawer"
@@ -294,6 +386,15 @@ export default function Drawer({
           <span>{strings.inbox}</span>
           {inboxCount ? <small>{inboxCount}</small> : null}
         </button>
+        <button
+          type="button"
+          data-deck="page"
+          data-system
+          onClick={() => selectPage(TRASH_PAGE_ID)}
+          data-selected={selectedId === TRASH_PAGE_ID || undefined}
+        >
+          {strings.trash}
+        </button>
         <div
           ref={scrollRef}
           className="deck-pages__scroll"
@@ -315,6 +416,7 @@ export default function Drawer({
                 isSelected={selectedId === page.id}
                 onSelect={() => selectPage(page.id)}
                 onRename={() => void renamePage(page)}
+                onDelete={() => setDeletingPage(page)}
               />
             ))}
           </SortableContext>
@@ -328,7 +430,16 @@ export default function Drawer({
           +
         </button>
       </aside>
-      {selectedId === INBOX_PAGE_ID ? (
+      {selectedId === TRASH_PAGE_ID ? (
+        <TrashView
+          pages={pages}
+          decks={decks}
+          cards={cards}
+          repository={data.repository}
+          onChange={refreshWorkspace}
+          onError={onError}
+        />
+      ) : selectedId === INBOX_PAGE_ID ? (
         <InboxTriage
           isOpen={isOpen}
           keymap={keymap}
@@ -338,6 +449,7 @@ export default function Drawer({
           cards={cards}
           onCardsChange={onCardsChange}
           onError={onError}
+          offerUndo={offerUndo}
         />
       ) : (
         <DeckWorkspace
@@ -352,9 +464,84 @@ export default function Drawer({
           onDecksChange={onDecksChange}
           onCardsChange={onCardsChange}
           onError={onError}
+          offerUndo={offerUndo}
         />
       )}
+      {deletingPage ? (
+        <PageDeleteSheet
+          page={deletingPage}
+          pages={pages}
+          deckCount={
+            decks.filter(
+              ({ pageId, deletedAt, kind }) =>
+                pageId === deletingPage.id &&
+                deletedAt === null &&
+                kind !== 'inbox',
+            ).length
+          }
+          onCancel={() => setDeletingPage(null)}
+          onConfirm={(destinationId) =>
+            void removePage(deletingPage, destinationId)
+          }
+        />
+      ) : null}
     </section>
+  );
+}
+
+function PageDeleteSheet({
+  page,
+  pages,
+  deckCount,
+  onCancel,
+  onConfirm,
+}: {
+  page: Page;
+  pages: Page[];
+  deckCount: number;
+  onCancel: () => void;
+  onConfirm: (destinationId: string | null) => void;
+}) {
+  const targets = activePages(pages).filter(({ id }) => id !== page.id);
+  const [destinationId, setDestinationId] = useState(targets[0]?.id ?? '');
+  return (
+    <div
+      data-deck="page-delete-sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-label={strings.deletePage}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onCancel();
+      }}
+    >
+      <p>{strings.pageDeleteTitle(deckCount)}</p>
+      {targets.length ? (
+        <label>
+          {strings.selectDestination}
+          <select
+            value={destinationId}
+            onChange={(event) => setDestinationId(event.currentTarget.value)}
+          >
+            {targets.map((target) => (
+              <option key={target.id} value={target.id}>
+                {target.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      <button ref={focusOnMount} type="button" onClick={onCancel}>
+        {strings.cancel}
+      </button>
+      {targets.length ? (
+        <button type="button" onClick={() => onConfirm(destinationId)}>
+          {strings.movePageDecks}
+        </button>
+      ) : null}
+      <button type="button" onClick={() => onConfirm(null)}>
+        {strings.trashPageAndDecks}
+      </button>
+    </div>
   );
 }
 

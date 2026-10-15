@@ -144,6 +144,13 @@ async function submitUrl(view: RenderResult, url: string): Promise<void> {
   await view.act(() => {
     keyDown(view.get('.deck-pin-url-input'), 'Enter');
   });
+  await vi.waitFor(async () => {
+    await view.act(async () => {});
+    expect(
+      view.query('.deck-pin-url-input') === null ||
+        view.query('[role="alert"]'),
+    ).toBeTruthy();
+  });
 }
 
 async function openMenu(view: RenderResult, label: string): Promise<void> {
@@ -155,6 +162,10 @@ async function openMenu(view: RenderResult, label: string): Promise<void> {
           new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
         ),
       );
+  });
+  await vi.waitFor(async () => {
+    await view.act(async () => {});
+    expect(view.query('[data-deck="pin-menu"]')).not.toBeNull();
   });
 }
 
@@ -341,7 +352,10 @@ describe('Pins - menu', () => {
     expect(view.query('[data-deck="pin-menu"]')).not.toBeNull();
 
     await view.act(() => click(view.getByText(strings.renamePin)));
-    await view.act(async () => {});
+    await vi.waitFor(async () => {
+      await view.act(async () => {});
+      expect(upsertCard).toHaveBeenCalledTimes(1);
+    });
     expect(prompt).toHaveBeenCalledWith(strings.renamePinPrompt, 'Title a');
     const renamed = { ...card, pinLabel: 'Work mail', updatedAt: NOW + 1 };
     expect(upsertCard).toHaveBeenCalledWith(renamed);
@@ -373,12 +387,20 @@ describe('Pins - menu', () => {
     const { view, upsertCard } = await mountPins([makeCard('a')]);
     await openMenu(view, 'Title a');
     await view.act(() => click(view.getByText(strings.changePinIcon)));
+    await vi.waitFor(async () => {
+      await view.act(async () => {});
+      expect(upsertCard).toHaveBeenCalledTimes(1);
+    });
     expect(prompt).toHaveBeenCalledWith(strings.iconPrompt, '');
     expect(nth(upsertCard.mock.calls)[0].pinIcon).toBe('🔥');
 
     prompt.mockReturnValueOnce('');
     await openMenu(view, 'Title a');
     await view.act(() => click(view.getByText(strings.changePinIcon)));
+    await vi.waitFor(async () => {
+      await view.act(async () => {});
+      expect(upsertCard).toHaveBeenCalledTimes(2);
+    });
     expect(nth(upsertCard.mock.calls, 1)[0].pinIcon).toBeUndefined();
     view.unmount();
   });
@@ -387,6 +409,10 @@ describe('Pins - menu', () => {
     const { view, upsertCard } = await mountPins([makeCard('a')]);
     await openMenu(view, 'Title a');
     await view.act(() => click(view.getByText(strings.unpin)));
+    await vi.waitFor(async () => {
+      await view.act(async () => {});
+      expect(upsertCard).toHaveBeenCalledTimes(1);
+    });
     expect(nth(upsertCard.mock.calls)[0]).toMatchObject({
       id: 'a',
       pinned: false,

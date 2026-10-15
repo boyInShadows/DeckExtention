@@ -29,7 +29,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 async function runBackupMaintenance(): Promise<void> {
   try {
-    await backups.ensureDailySnapshot();
+    if (await backups.ensureDailySnapshot()) await repository.purge();
     await chrome.storage.local.remove(BACKUP_ERROR_KEY);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

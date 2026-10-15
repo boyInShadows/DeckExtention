@@ -16,6 +16,7 @@ import { parseDocument, type DeckDocument } from './document';
 import { DeckRepository } from './repository';
 
 const NOW = 1_800_000_000_000;
+const PURGE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const DATABASE_NAME = 'deck-storage-test';
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -139,6 +140,159 @@ describe('DeckRepository', () => {
 
     await repository.close();
     (await database).close();
+  });
+
+  it('trashes a deck and its live cards together, then restores their positions', async () => {
+    const { repository, database } = await createServices();
+    try {
+      const alreadyTrashed = {
+        ...card,
+        id: 'card_old',
+        deletedAt: NOW - 100,
+      };
+      await repository.upsertMany({
+        pages: [page],
+        decks: [deck],
+        cards: [card, alreadyTrashed],
+      });
+
+      await repository.trashDeck(deck.id);
+      const exported = await repository.readDocument(NOW);
+      expect(exported.decks.find(({ id }) => id === deck.id)?.deletedAt).toBe(
+        NOW,
+      );
+      expect(exported.cards.find(({ id }) => id === card.id)?.deletedAt).toBe(
+        NOW,
+      );
+      expect(
+        exported.cards.find(({ id }) => id === alreadyTrashed.id)?.deletedAt,
+      ).toBe(NOW - 100);
+
+      await repository.restoreDeck(deck.id);
+      expect((await repository.listDecks())[0]?.deletedAt).toBeNull();
+      expect(
+        (await repository.listCards()).find(({ id }) => id === card.id),
+      ).toMatchObject({
+        order: card.order,
+        deletedAt: null,
+      });
+      expect(
+        (await repository.listCards()).find(
+          ({ id }) => id === alreadyTrashed.id,
+        )?.deletedAt,
+      ).toBe(NOW - 100);
+    } finally {
+      await repository.close();
+      (await database).close();
+    }
+  });
+
+  it('trashes and restores a page with its decks and cards', async () => {
+    const { repository, database } = await createServices();
+    try {
+      const inbox = { ...deck, id: 'deck_inbox', kind: 'inbox' as const };
+      const inboxCard = { ...card, id: 'card_inbox', deckId: inbox.id };
+      await repository.upsertMany({
+        pages: [page],
+        decks: [deck, inbox],
+        cards: [card, inboxCard],
+      });
+      await repository.trashPage(page.id);
+      expect((await repository.listPages())[0]?.deletedAt).toBe(NOW);
+      expect(
+        (await repository.listDecks()).find(({ id }) => id === deck.id)
+          ?.deletedAt,
+      ).toBe(NOW);
+      expect(
+        (await repository.listCards()).find(({ id }) => id === card.id)
+          ?.deletedAt,
+      ).toBe(NOW);
+      expect(
+        (await repository.listDecks()).find(({ id }) => id === inbox.id)
+          ?.deletedAt,
+      ).toBeNull();
+      expect(
+        (await repository.listCards()).find(({ id }) => id === inboxCard.id)
+          ?.deletedAt,
+      ).toBeNull();
+
+      await repository.restorePage(page.id);
+      expect((await repository.listPages())[0]?.deletedAt).toBeNull();
+      expect(
+        (await repository.listDecks()).every(
+          ({ deletedAt }) => deletedAt === null,
+        ),
+      ).toBe(true);
+      expect(
+        (await repository.listCards()).every(
+          ({ deletedAt }) => deletedAt === null,
+        ),
+      ).toBe(true);
+    } finally {
+      await repository.close();
+      (await database).close();
+    }
+  });
+
+  it('purges expired rows and ops without orphaning a live card', async () => {
+    const { repository, database } = await createServices();
+    try {
+      const expiredAt = NOW - PURGE_RETENTION_MS - 1;
+      await repository.upsertMany({
+        pages: [{ ...page, deletedAt: expiredAt }],
+        decks: [{ ...deck, deletedAt: expiredAt }],
+        cards: [card, { ...card, id: 'card_expired', deletedAt: expiredAt }],
+      });
+      const firstOp = (await repository.listOps())[0];
+      if (!firstOp) throw new Error('Missing seed operation');
+      const oldOp = {
+        ...firstOp,
+        id: 'op_expired',
+        ts: expiredAt,
+      };
+      await (await database).put('ops', oldOp);
+
+      expect(await repository.purge()).toBe(1);
+      expect((await repository.listCards()).map(({ id }) => id)).toEqual([
+        card.id,
+      ]);
+      expect(await repository.listDecks()).toHaveLength(1);
+      expect(await repository.listPages()).toHaveLength(1);
+      expect(
+        (await repository.listOps()).some(({ id }) => id === oldOp.id),
+      ).toBe(false);
+    } finally {
+      await repository.close();
+      (await database).close();
+    }
+  });
+
+  it('caps the oplog at the newest 5,000 entries', async () => {
+    const { repository, database } = await createServices();
+    try {
+      await repository.upsertPage(page);
+      const handle = await database;
+      const template = (await repository.listOps())[0];
+      if (!template) throw new Error('Missing seed operation');
+      const transaction = handle.transaction('ops', 'readwrite');
+      for (let index = 0; index < 5_001; index += 1) {
+        void transaction.store.put({
+          ...template,
+          id: `op_cap_${index}`,
+          ts: NOW + index,
+        });
+      }
+      await transaction.done;
+
+      await repository.purge();
+      const ops = await repository.listOps();
+      expect(ops).toHaveLength(5_000);
+      expect(ops.some(({ id }) => id === 'op_cap_0')).toBe(false);
+      expect(ops.some(({ id }) => id === 'op_cap_5000')).toBe(true);
+    } finally {
+      await repository.close();
+      (await database).close();
+    }
   });
 });
 

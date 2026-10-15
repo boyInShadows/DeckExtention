@@ -11,6 +11,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
+import type { UndoAction } from './UndoToast';
 import {
   activeCards,
   activeDecks,
@@ -45,6 +46,7 @@ interface Props {
   onCardsChange: (cards: Card[]) => void;
   onDecksChange: (decks: Deck[]) => void;
   onError: (message: string) => void;
+  offerUndo?: (action: UndoAction) => void;
   keymap: Keymap;
   /** False while the drawer animates closed: keys must not act then. */
   isOpen: boolean;
@@ -80,6 +82,7 @@ export function DeckWorkspace(props: Props) {
     onError: (error) => props.onError(message(error)),
     onNote: setNoteEntity,
     onMove: setMovingCard,
+    offerUndo: props.offerUndo,
   });
   // After a panel closes, keyboard focus goes back to the card it was about.
   const refocus = (id: string) =>
@@ -99,6 +102,22 @@ export function DeckWorkspace(props: Props) {
       props.onCardsChange(
         await moveCards(props.data.repository, props.cards, [card.id], deckId),
       );
+      props.offerUndo?.({
+        label: strings.movedCards(1),
+        undo: async () => {
+          const current = (await props.data.repository.listCards()).find(
+            ({ id }) => id === card.id,
+          );
+          if (!current) throw new Error(strings.updateFailed);
+          await props.data.repository.upsertCard({
+            ...current,
+            deckId: card.deckId,
+            order: card.order,
+            updatedAt: now(),
+          });
+          props.onCardsChange(await props.data.repository.listCards());
+        },
+      });
       refocus(card.id);
     } catch (error) {
       props.onError(message(error));
@@ -212,16 +231,28 @@ function DeckColumn({
   const [url, setUrl] = useState('');
   const saveDeck = async (change: Partial<Deck>) => {
     try {
-      props.onDecksChange(
-        replaceEntity(
-          props.decks,
-          await props.data.repository.upsertDeck({
-            ...deck,
-            ...change,
-            updatedAt: now(),
-          }),
-        ),
-      );
+      const saved = await props.data.repository.upsertDeck({
+        ...deck,
+        ...change,
+        updatedAt: now(),
+      });
+      props.onDecksChange(replaceEntity(props.decks, saved));
+      if (change.pageId && change.pageId !== deck.pageId)
+        props.offerUndo?.({
+          label: strings.movedDeck,
+          undo: async () => {
+            const current = (await props.data.repository.listDecks()).find(
+              ({ id }) => id === deck.id,
+            );
+            if (!current) throw new Error(strings.updateFailed);
+            await props.data.repository.upsertDeck({
+              ...current,
+              pageId: deck.pageId,
+              updatedAt: now(),
+            });
+            props.onDecksChange(await props.data.repository.listDecks());
+          },
+        });
     } catch (error) {
       props.onError(message(error));
     }
@@ -404,7 +435,14 @@ function CardRow({
   const trash = async () => {
     try {
       await props.data.repository.softDelete('card', card.id);
-      props.onCardsChange(props.cards.filter(({ id }) => id !== card.id));
+      props.onCardsChange(await props.data.repository.listCards());
+      props.offerUndo?.({
+        label: strings.trashedCards(1),
+        undo: async () => {
+          await props.data.repository.restore('card', card.id);
+          props.onCardsChange(await props.data.repository.listCards());
+        },
+      });
     } catch (error) {
       props.onError(message(error));
     }
@@ -577,8 +615,25 @@ async function renameDeck(
 }
 async function trashDeck(deck: Deck, props: Props) {
   try {
-    await props.data.repository.softDelete('deck', deck.id);
-    props.onDecksChange(props.decks.filter(({ id }) => id !== deck.id));
+    await props.data.repository.trashDeck(deck.id);
+    const [decks, cards] = await Promise.all([
+      props.data.repository.listDecks(),
+      props.data.repository.listCards(),
+    ]);
+    props.onDecksChange(decks);
+    props.onCardsChange(cards);
+    props.offerUndo?.({
+      label: strings.trashedDeck,
+      undo: async () => {
+        await props.data.repository.restoreDeck(deck.id);
+        const [restoredDecks, restoredCards] = await Promise.all([
+          props.data.repository.listDecks(),
+          props.data.repository.listCards(),
+        ]);
+        props.onDecksChange(restoredDecks);
+        props.onCardsChange(restoredCards);
+      },
+    });
   } catch (error) {
     props.onError(message(error));
   }

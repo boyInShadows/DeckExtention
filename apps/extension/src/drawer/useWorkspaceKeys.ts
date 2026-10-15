@@ -9,6 +9,7 @@ import {
   type Keymap,
 } from '../keys/keymap';
 import type { DeckRepository } from '../storage/repository';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import {
   nextGridPosition,
   type GridMove,
@@ -16,6 +17,7 @@ import {
 } from './drawerKeys';
 import { openCard, pinCards, trashCards } from './inboxActions';
 import { replaceEntity } from './workspaceModel';
+import type { UndoAction } from './UndoToast';
 
 /**
  * Keyboard for the deck grid (FableTasks P2.S6). Movement is plain DOM focus
@@ -40,6 +42,7 @@ interface WorkspaceKeysOptions {
   onError: (error: unknown) => void;
   onNote: (card: Card) => void;
   onMove: (card: Card) => void;
+  offerUndo: ((action: UndoAction) => void) | undefined;
 }
 
 interface Grid {
@@ -113,7 +116,17 @@ export function useWorkspaceKeys(options: WorkspaceKeysOptions): void {
           ),
         );
       } else if (action === 'trash') {
-        enqueue((cards) => trashCards(repository, cards, [card.id]));
+        enqueue(async (cards) => {
+          const next = await trashCards(repository, cards, [card.id]);
+          latest.current.offerUndo?.({
+            label: strings.trashedCards(1),
+            undo: async () => {
+              await repository.restore('card', card.id);
+              latest.current.onCardsChange(await repository.listCards());
+            },
+          });
+          return next;
+        });
         // Once the row is gone, focus the card that took its place.
         void queue.current.then(() =>
           requestAnimationFrame(() => {

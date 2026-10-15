@@ -67,14 +67,12 @@ export async function trashCards(
   repository: DeckRepository,
   cards: Card[],
   ids: string[],
-  now: () => number = Date.now,
 ): Promise<Card[]> {
-  const trashed: Card[] = [];
-  for (const card of pick(cards, ids)) {
-    await repository.softDelete('card', card.id);
-    trashed.push({ ...card, deletedAt: now() });
-  }
-  return merge(cards, trashed);
+  const selected = pick(cards, ids);
+  return merge(
+    cards,
+    await repository.trashCards(selected.map(({ id }) => id)),
+  );
 }
 
 /**

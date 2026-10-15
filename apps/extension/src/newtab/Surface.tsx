@@ -18,6 +18,7 @@ import {
 
 import { strings } from '../i18n/strings';
 import { WorkspaceDnd } from '../drawer/WorkspaceDnd';
+import type { UndoAction } from '../drawer/UndoToast';
 import { blackScrimForWhiteText } from '../wallpaper/contrast';
 import type { SurfaceData } from './bootstrap';
 import { Line } from './Line';
@@ -33,6 +34,7 @@ const RecoveryNotice = lazy(() =>
 );
 const loadDrawer = () => import('../drawer/drawer');
 const Drawer = lazy(loadDrawer);
+const UndoToast = lazy(() => import('../drawer/UndoToast'));
 const CLOCK_UPDATE_MS = 1_000;
 const DRAWER_EXIT_MS = 320;
 const BRIGHT_WALLPAPER_THRESHOLD = 0.18;
@@ -62,6 +64,7 @@ export function Surface({ initialData }: SurfaceProps) {
     url: string;
   } | null>(null);
   const [error, setError] = useState('');
+  const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
   const drawerExitTimer = useRef<number | null>(null);
 
   const openDrawer = useCallback(() => {
@@ -341,6 +344,7 @@ export function Surface({ initialData }: SurfaceProps) {
             defaultDeckId={initialData.defaultDeckId}
             repository={initialData.repository}
             onCardsChange={setCards}
+            offerUndo={setUndoAction}
           />
         </div>
         <nav data-deck="surface-controls" className="deck-surface-controls">
@@ -410,6 +414,7 @@ export function Surface({ initialData }: SurfaceProps) {
               onDecksChange={setDecks}
               onPagesChange={setPages}
               onError={setError}
+              offerUndo={setUndoAction}
             />
           ) : null}
         </Suspense>
@@ -418,6 +423,15 @@ export function Surface({ initialData }: SurfaceProps) {
             <HelpOverlay
               keymapOverrides={settings.keymap}
               onClose={() => setIsHelpOpen(false)}
+            />
+          ) : null}
+        </Suspense>
+        <Suspense fallback={null}>
+          {undoAction ? (
+            <UndoToast
+              action={undoAction}
+              onDismiss={setUndoAction}
+              onError={setError}
             />
           ) : null}
         </Suspense>

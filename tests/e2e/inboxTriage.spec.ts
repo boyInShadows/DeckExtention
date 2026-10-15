@@ -83,7 +83,7 @@ test('inbox: 20 saved links triaged to Inbox zero by keyboard alone', async ({
     await page.waitForSelector(READY_SELECTOR);
 
     await page.keyboard.press('Control+J');
-    await page.locator('[data-deck="page"][data-system]').click();
+    await page.locator('[data-deck="page"][data-system]').first().click();
     const list = page.getByRole('listbox', { name: 'Inbox' });
     await expect(list).toBeFocused();
     await expect(list.getByRole('option')).toHaveCount(INBOX_SIZE);

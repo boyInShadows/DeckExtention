@@ -47,7 +47,7 @@ async function seed(cards: Card[]): Promise<Card[]> {
 }
 
 beforeEach(() => {
-  repository = new DeckRepository({ databaseName: DATABASE_NAME });
+  repository = new DeckRepository({ databaseName: DATABASE_NAME, now });
 });
 
 afterEach(async () => {
@@ -98,7 +98,7 @@ describe('trashCards', () => {
       card('card_in1', 'deck_inbox', 'a0'),
       card('card_in2', 'deck_inbox', 'a1'),
     ]);
-    const next = await trashCards(repository, cards, ['card_in1'], now);
+    const next = await trashCards(repository, cards, ['card_in1']);
     expect(next.find(({ id }) => id === 'card_in1')?.deletedAt).toBe(NOW);
     const stored = await repository.listCards();
     expect(stored).toHaveLength(2);

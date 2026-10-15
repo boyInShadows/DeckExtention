@@ -25,6 +25,7 @@ import {
   type RenderResult,
 } from '../testing/render';
 import Drawer from './drawer';
+import type { UndoAction } from './UndoToast';
 import {
   DRAWER_PAGE_KEY,
   DRAWER_SCROLL_KEY,
@@ -136,6 +137,7 @@ interface Mounted {
   onClose: ReturnType<typeof vi.fn<() => void>>;
   onError: ReturnType<typeof vi.fn<(message: string) => void>>;
   onPagesChange: ReturnType<typeof vi.fn<(pages: Page[]) => void>>;
+  offerUndo: ReturnType<typeof vi.fn<(action: UndoAction) => void>>;
 }
 
 let repository: DeckRepository;
@@ -144,6 +146,7 @@ async function mount(isInitiallyOpen = true): Promise<Mounted> {
   const onClose = vi.fn<() => void>();
   const onError = vi.fn<(message: string) => void>();
   const onPagesChange = vi.fn<(pages: Page[]) => void>();
+  const offerUndo = vi.fn<(action: UndoAction) => void>();
   const data = {
     cards: [],
     decks: [],
@@ -175,6 +178,7 @@ async function mount(isInitiallyOpen = true): Promise<Mounted> {
         isOpen={isOpen}
         onClose={onClose}
         onError={onError}
+        offerUndo={offerUndo}
         {...callbacks}
       />
     );
@@ -192,6 +196,7 @@ async function mount(isInitiallyOpen = true): Promise<Mounted> {
     onClose,
     onError,
     onPagesChange,
+    offerUndo,
   };
 }
 
@@ -419,6 +424,153 @@ describe('Drawer - rail', () => {
   });
 });
 
+describe('Drawer - Trash', () => {
+  it('shows nested deleted records and restores their parent path', async () => {
+    await repository.upsertCard(card('card_nested', 'deck_2'));
+    await repository.trashPage('page_2');
+    const { view } = await mount();
+    await view.act(() => click(view.getByText(strings.trash)));
+    const trash = view.get('[data-deck="trash"]');
+    expect(trash.textContent).toContain('Home');
+    expect(trash.textContent).toContain('Chores');
+    const row = view
+      .getAll('[data-deck="trash-item"]')
+      .find((item) => item.textContent?.includes('Title card_nested'));
+    if (!row) throw new Error('Missing nested card in Trash');
+    const restore = row.querySelector('button');
+    if (!restore) throw new Error('Missing restore button');
+    await view.act(() => click(restore));
+    await eventually(view, async () =>
+      expect(
+        (await repository.listCards()).find(({ id }) => id === 'card_nested')
+          ?.deletedAt,
+      ).toBeNull(),
+    );
+    expect(
+      (await repository.listDecks()).find(({ id }) => id === 'deck_2')
+        ?.deletedAt,
+    ).toBeNull();
+    expect(
+      (await repository.listPages()).find(({ id }) => id === 'page_2')
+        ?.deletedAt,
+    ).toBeNull();
+    view.unmount();
+  });
+
+  it('lists deleted records and restores a card with r', async () => {
+    const { view } = await mount();
+    await view.act(() => click(view.getByText(strings.trash)));
+    expect(view.get('[data-deck="trash"]').textContent).toContain('Gone');
+    const item = view
+      .getAll('[data-deck="trash-item"]')
+      .find((row) => row.textContent?.includes('Title card_3'));
+    expect(item).toBeDefined();
+    await view.act(() => item?.focus());
+    await press(view, 'r');
+    await eventually(view, async () =>
+      expect(
+        (await repository.listCards()).find(({ id }) => id === 'card_3')
+          ?.deletedAt,
+      ).toBeNull(),
+    );
+    view.unmount();
+  });
+
+  it('uses a confirm sheet before permanently emptying Trash', async () => {
+    const { view } = await mount();
+    await view.act(() => click(view.getByText(strings.trash)));
+    await view.act(() => click(view.getByText(strings.emptyTrash)));
+    expect(view.get('[data-deck="trash-confirm"]').textContent).toContain(
+      strings.emptyTrashConfirm,
+    );
+    await view.act(() => click(view.getByText(strings.cancel)));
+    expect(await repository.listCards()).toHaveLength(CARDS.length);
+
+    await view.act(() => click(view.getByText(strings.emptyTrash)));
+    const confirm = view.get('[data-deck="trash-confirm"]');
+    const empty = confirm.querySelectorAll('button')[1];
+    if (!empty) throw new Error('Missing Empty trash confirmation button');
+    await view.act(() => click(empty));
+    await eventually(view, () =>
+      expect(view.get('[data-deck="trash"]').textContent).toContain(
+        strings.trashEmpty,
+      ),
+    );
+    expect(
+      (await repository.listCards()).some(({ id }) => id === 'card_3'),
+    ).toBe(false);
+    view.unmount();
+  });
+});
+
+describe('Drawer - page deletion', () => {
+  it('moves a page’s decks to another page before deleting it', async () => {
+    const { view, offerUndo } = await mount();
+    await view.act(() => {
+      view
+        .getByText('Work')
+        .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    });
+    const sheet = view.get('[data-deck="page-delete-sheet"]');
+    expect(sheet.textContent).toContain(strings.pageDeleteTitle(1));
+    expect(document.activeElement).toBe(view.getByText(strings.cancel));
+    await view.act(() => click(view.getByText(strings.movePageDecks)));
+    await eventually(view, async () =>
+      expect(
+        (await repository.listPages()).find(({ id }) => id === 'page_1')
+          ?.deletedAt,
+      ).not.toBeNull(),
+    );
+    expect(
+      (await repository.listDecks()).find(({ id }) => id === 'deck_1')?.pageId,
+    ).toBe('page_2');
+    expect(
+      (await repository.listCards()).find(({ id }) => id === 'card_4')
+        ?.deletedAt,
+    ).toBeNull();
+    expect(
+      (await repository.listDecks()).find(({ id }) => id === 'inbox_1')
+        ?.deletedAt,
+    ).toBeNull();
+    const action = offerUndo.mock.calls[0]?.[0];
+    if (!action) throw new Error('Missing page Undo action');
+    await view.act(async () => action.undo());
+    expect(
+      (await repository.listPages()).find(({ id }) => id === 'page_1')
+        ?.deletedAt,
+    ).toBeNull();
+    expect(
+      (await repository.listDecks()).find(({ id }) => id === 'deck_1')?.pageId,
+    ).toBe('page_1');
+    view.unmount();
+  });
+
+  it('trashes a page with its decks and cards only after choosing that option', async () => {
+    const { view } = await mount();
+    await view.act(() => {
+      view
+        .getByText('Home')
+        .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    });
+    expect(
+      (await repository.listDecks()).find(({ id }) => id === 'deck_2')
+        ?.deletedAt,
+    ).toBeNull();
+    await view.act(() => click(view.getByText(strings.trashPageAndDecks)));
+    await eventually(view, async () =>
+      expect(
+        (await repository.listDecks()).find(({ id }) => id === 'deck_2')
+          ?.deletedAt,
+      ).not.toBeNull(),
+    );
+    expect(
+      (await repository.listPages()).find(({ id }) => id === 'page_2')
+        ?.deletedAt,
+    ).not.toBeNull();
+    view.unmount();
+  });
+});
+
 describe('Drawer - renaming pages', () => {
   function doubleClick(element: HTMLElement) {
     element.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
@@ -482,9 +634,17 @@ describe('Drawer - keys', () => {
 
     await press(view, '[');
     await press(view, '[');
+    expect(view.getByText(strings.trash).getAttribute('data-selected')).toBe(
+      'true',
+    );
+    await press(view, '[');
     expect(inboxButton(view).dataset.selected).toBe('true');
     await press(view, '[');
     expect(inboxButton(view).dataset.selected).toBe('true');
+    await press(view, ']');
+    expect(view.getByText(strings.trash).getAttribute('data-selected')).toBe(
+      'true',
+    );
     await press(view, ']');
     expect(selectedTitle(view)).toBe('Work');
     view.unmount();

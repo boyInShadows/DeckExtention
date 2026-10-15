@@ -5,11 +5,18 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { UrlSchema, type Card } from 'deck-schema';
-import { generateKeyBetween } from 'fractional-indexing';
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import type { Card } from 'deck-schema';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from 'react';
 
 import { strings } from '../i18n/strings';
+import type { UndoAction } from '../drawer/UndoToast';
 import { dragId, parseDragId } from '../drawer/dragIdentity';
 import { fractionalOrderForMove } from '../drawer/fractionalOrder';
 import { compareOrder } from '../drawer/workspaceModel';
@@ -22,12 +29,14 @@ import { focusOnMount } from './focusOnMount';
 
 const MAX_PINS = 12;
 const FAVICON_SIZE = 64;
+const PinMenu = lazy(() => import('./PinMenu'));
 
 interface PinsProps {
   cards: Card[];
   defaultDeckId: string;
   repository: SurfaceData['repository'];
   onCardsChange: (cards: Card[]) => void;
+  offerUndo?: (action: UndoAction) => void;
 }
 
 function faviconUrl(url: string): string {
@@ -102,6 +111,7 @@ export function Pins({
   defaultDeckId,
   repository,
   onCardsChange,
+  offerUndo,
 }: PinsProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [urlInput, setUrlInput] = useState('');
@@ -153,39 +163,34 @@ export function Pins({
   });
 
   const addPin = async () => {
-    const parsed = UrlSchema.safeParse(urlInput.trim());
-    if (
-      !parsed.success ||
-      !['http:', 'https:'].includes(new URL(parsed.data).protocol)
-    ) {
-      setError(strings.invalidUrl);
-      return;
+    try {
+      const { createPin } = await import('./pinUndo');
+      const saved = await createPin(repository, urlInput, defaultDeckId, pins);
+      onCardsChange([...cards, saved]);
+      setUrlInput('');
+      setError('');
+      setIsAdding(false);
+    } catch (addError) {
+      setError(addError instanceof Error ? addError.message : String(addError));
     }
-    const url = new URL(parsed.data);
-    const now = Date.now();
-    const saved = await repository.upsertCard({
-      id: crypto.randomUUID(),
-      deckId: defaultDeckId,
-      url: url.href,
-      title: url.hostname,
-      hostname: url.hostname,
-      order: generateKeyBetween(pins.at(-1)?.order ?? null, null),
-      pinned: true,
-      lastOpenedAt: null,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-    });
-    onCardsChange([...cards, saved]);
-    setUrlInput('');
-    setError('');
-    setIsAdding(false);
   };
 
   const updateMenuCard = async (change: Partial<Card>) => {
     if (!menuCard) return;
-    await saveCard({ ...menuCard, ...change, updatedAt: Date.now() });
-    setMenuCard(null);
+    try {
+      const { updatePin } = await import('./pinUndo');
+      await updatePin(
+        repository,
+        menuCard,
+        change,
+        cards,
+        onCardsChange,
+        offerUndo,
+      );
+      setMenuCard(null);
+    } catch (saveError) {
+      setError(`${strings.updateFailed} ${String(saveError)}`);
+    }
   };
 
   return (
@@ -238,44 +243,11 @@ export function Pins({
           </button>
         )
       ) : null}
-      {menuCard ? <PinMenu card={menuCard} onUpdate={updateMenuCard} /> : null}
+      <Suspense fallback={null}>
+        {menuCard ? (
+          <PinMenu card={menuCard} onUpdate={updateMenuCard} />
+        ) : null}
+      </Suspense>
     </section>
-  );
-}
-
-function PinMenu({
-  card,
-  onUpdate,
-}: {
-  card: Card;
-  onUpdate: (change: Partial<Card>) => Promise<void>;
-}) {
-  const rename = () => {
-    const label = window.prompt(
-      strings.renamePinPrompt,
-      card.pinLabel ?? card.title,
-    );
-    if (label !== null) void onUpdate({ pinLabel: label });
-  };
-  const changeIcon = () => {
-    const icon = window.prompt(strings.iconPrompt, card.pinIcon ?? '');
-    if (icon !== null) void onUpdate({ pinIcon: icon || undefined });
-  };
-  return (
-    <div data-deck="pin-menu" className="deck-pin-menu" role="menu">
-      <button type="button" role="menuitem" onClick={rename}>
-        {strings.renamePin}
-      </button>
-      <button type="button" role="menuitem" onClick={changeIcon}>
-        {strings.changePinIcon}
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        onClick={() => void onUpdate({ pinned: false })}
-      >
-        {strings.unpin}
-      </button>
-    </div>
   );
 }

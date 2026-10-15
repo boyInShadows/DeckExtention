@@ -103,14 +103,29 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
     await expect(
       page.locator(`[data-deck="card"][data-card-id="${trashed}"]`),
     ).toHaveCount(0);
+    await expect(page.locator('[data-deck="undo-toast"]')).toBeVisible();
+    await keys.press('Control+Z');
+    await expect(
+      page.locator(`[data-deck="card"][data-card-id="${trashed}"]`),
+    ).toHaveCount(1);
+    await page.locator(`[data-deck="card"][data-card-id="${trashed}"]`).focus();
+    await keys.press('x');
+    await expect(
+      page.locator(`[data-deck="card"][data-card-id="${trashed}"]`),
+    ).toHaveCount(0);
     await expect.poll(() => focusedCardId(page)).not.toBeNull();
 
-    // Switch pages: [ to the Inbox, ] back.
+    // Switch through Trash to Inbox, then back through Trash.
+    await keys.press('[');
+    await expect(
+      page.getByRole('button', { name: 'Trash', exact: true }),
+    ).toHaveAttribute('data-selected', 'true');
     await keys.press('[');
     await expect(
       page.locator('[data-deck="page"][data-system][data-selected]'),
     ).toBeVisible();
     await expect(page.locator('[data-deck="inbox-zero"]')).toBeVisible();
+    await keys.press(']');
     await keys.press(']');
     await expect(page.locator('[data-deck="deck"]')).toHaveCount(2);
 

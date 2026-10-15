@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { resolveKeymap } from '../keys/keymap';
 import { DeckRepository } from '../storage/repository';
+import type { UndoAction } from './UndoToast';
 import {
   click,
   keyDown,
@@ -140,6 +141,7 @@ interface Mounted {
   onError: ReturnType<typeof vi.fn<(message: string) => void>>;
   onCardsChange: ReturnType<typeof vi.fn<(cards: Card[]) => void>>;
   onDecksChange: ReturnType<typeof vi.fn<(decks: Deck[]) => void>>;
+  offerUndo: ReturnType<typeof vi.fn<(action: UndoAction) => void>>;
 }
 
 let repository: DeckRepository;
@@ -150,6 +152,7 @@ async function mount(options: MountOptions = {}): Promise<Mounted> {
   const onError = vi.fn<(message: string) => void>();
   const onCardsChange = vi.fn<(cards: Card[]) => void>();
   const onDecksChange = vi.fn<(decks: Deck[]) => void>();
+  const offerUndo = vi.fn<(action: UndoAction) => void>();
   const data = {
     cards,
     decks,
@@ -186,11 +189,12 @@ async function mount(options: MountOptions = {}): Promise<Mounted> {
           onDecksChange(next);
         }}
         onError={onError}
+        offerUndo={offerUndo}
       />
     );
   }
   const view = await render(<Host />);
-  return { view, onError, onCardsChange, onDecksChange };
+  return { view, onError, onCardsChange, onDecksChange, offerUndo };
 }
 
 async function seed() {
@@ -476,7 +480,7 @@ describe('DeckWorkspace - deck menu', () => {
   });
 
   it('moves the deck to another live page', async () => {
-    const { view } = await mount();
+    const { view, offerUndo } = await mount();
     const menu = await openMenu(view, 'deck_1');
     const page = menu.querySelectorAll('select')[1];
     if (!page) throw new Error('page select missing');
@@ -491,6 +495,10 @@ describe('DeckWorkspace - deck menu', () => {
     await eventually(view, () =>
       expect(view.query('[data-deck-id="deck_1"]')).toBeNull(),
     );
+    const action = offerUndo.mock.calls[0]?.[0];
+    if (!action) throw new Error('Missing deck move Undo action');
+    await view.act(async () => action.undo());
+    expect((await storedDeck('deck_1'))?.pageId).toBe('page_1');
     view.unmount();
   });
 
@@ -505,14 +513,19 @@ describe('DeckWorkspace - deck menu', () => {
     );
     await eventually(view, () =>
       expect(onDecksChange).toHaveBeenCalledWith(
-        DECKS.filter(({ id }) => id !== 'deck_2'),
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'deck_2',
+            deletedAt: expect.any(Number),
+          }),
+        ]),
       ),
     );
     view.unmount();
   });
 
   it('reports a deck trash the repository refuses', async () => {
-    vi.spyOn(repository, 'softDelete').mockRejectedValue(FAILURE);
+    vi.spyOn(repository, 'trashDeck').mockRejectedValue(FAILURE);
     const { view, onError } = await mount();
     const menu = await openMenu(view, 'deck_2');
     await act(view, () => click(within(menu, strings.trashDeck)));

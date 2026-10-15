@@ -11,6 +11,7 @@ import { resolveKeymap } from '../keys/keymap';
 import { DeckRepository } from '../storage/repository';
 import { keyDown, render, type RenderResult } from '../testing/render';
 import { useWorkspaceKeys } from './useWorkspaceKeys';
+import type { UndoAction } from './UndoToast';
 
 const NOW = 1_800_000_000_000;
 const DATABASE_NAME = 'deck-workspace-keys-test';
@@ -45,6 +46,7 @@ interface HarnessProps {
   onError?: (error: unknown) => void;
   onNote?: (card: Card) => void;
   onMove?: (card: Card) => void;
+  offerUndo?: (action: UndoAction) => void;
   onAddDeck?: () => void;
   onAddLink?: (deckId: string) => void;
 }
@@ -66,6 +68,7 @@ function Harness(props: HarnessProps) {
     onError: props.onError ?? (() => undefined),
     onNote: props.onNote ?? (() => undefined),
     onMove: props.onMove ?? (() => undefined),
+    offerUndo: props.offerUndo,
   });
   const grid = props.deckIds.map((deckId) => (
     <section key={deckId} data-deck="deck" data-deck-id={deckId} tabIndex={0}>
@@ -463,6 +466,37 @@ describe('useWorkspaceKeys - card actions', () => {
 });
 
 describe('useWorkspaceKeys - trash', () => {
+  it('offers a round-trip undo for x without losing the card position', async () => {
+    const original = makeCard('card_1', 'deck_1', { order: 'a7' });
+    await seed([original]);
+    const offerUndo = vi.fn<(action: UndoAction) => void>();
+    const view = await render(
+      <Harness
+        deckIds={['deck_1']}
+        initialCards={[original]}
+        repository={repository}
+        offerUndo={offerUndo}
+      />,
+    );
+    try {
+      cardElement(view, original.id).focus();
+      await press(view, 'x');
+      await eventually(view, () => expect(offerUndo).toHaveBeenCalledOnce());
+      const action = offerUndo.mock.calls[0]?.[0];
+      if (!action) throw new Error('Missing Undo action');
+      await view.act(async () => action.undo());
+      await eventually(view, () =>
+        expect(cardElement(view, original.id)).toBeDefined(),
+      );
+      expect((await repository.listCards())[0]).toMatchObject({
+        order: 'a7',
+        deletedAt: null,
+      });
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('soft-deletes the focused card and focuses the card that took its place', async () => {
     const cards = await seed([
       makeCard('card_1', 'deck_1'),

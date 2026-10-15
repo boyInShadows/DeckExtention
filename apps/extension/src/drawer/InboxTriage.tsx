@@ -10,6 +10,7 @@ import {
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
+import type { UndoAction } from './UndoToast';
 import { moveCards, openCard, pinCards, trashCards } from './inboxActions';
 import {
   clampIndex,
@@ -40,6 +41,7 @@ interface InboxTriageProps {
   data: SurfaceData;
   onCardsChange: (cards: Card[]) => void;
   onError: (message: string) => void;
+  offerUndo?: (action: UndoAction) => void;
 }
 
 const message = (error: unknown) =>
@@ -110,7 +112,29 @@ export function InboxTriage(props: InboxTriageProps) {
     const nextRecent = rememberTarget(recent, deckId);
     setRecent(nextRecent);
     localStorage.setItem(RECENT_TARGETS_KEY, JSON.stringify(nextRecent));
-    enqueue((cards, ids) => moveCards(repository, cards, ids, deckId));
+    enqueue(async (cards, ids) => {
+      const originals = cards.filter(({ id }) => ids.includes(id));
+      const next = await moveCards(repository, cards, ids, deckId);
+      props.offerUndo?.({
+        label: strings.movedCards(ids.length),
+        undo: async () => {
+          const stored = await repository.listCards();
+          const restored = originals.map((original) => {
+            const current = stored.find(({ id }) => id === original.id);
+            if (!current) throw new Error(strings.updateFailed);
+            return {
+              ...current,
+              deckId: original.deckId,
+              order: original.order,
+              updatedAt: Date.now(),
+            };
+          });
+          await repository.upsertMany({ cards: restored });
+          props.onCardsChange(await repository.listCards());
+        },
+      });
+      return next;
+    });
     listRef.current?.focus();
   };
 
@@ -137,7 +161,17 @@ export function InboxTriage(props: InboxTriageProps) {
       );
     } else if (action === 'move') setIsMoving(true);
     else if (action === 'trash')
-      enqueue((cards, targetIds) => trashCards(repository, cards, targetIds));
+      enqueue(async (cards, targetIds) => {
+        const next = await trashCards(repository, cards, targetIds);
+        props.offerUndo?.({
+          label: strings.trashedCards(targetIds.length),
+          undo: async () => {
+            await repository.restoreCards(targetIds);
+            props.onCardsChange(await repository.listCards());
+          },
+        });
+        return next;
+      });
     else if (action === 'note') setNoteCard(card);
     else if (action === 'pin') pin();
     else if (action === 'open' || action === 'openInNewTab')
