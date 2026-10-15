@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  greetingForHour,
-  searchCards,
-  shouldSpaceOpenDrawer,
-} from './surfaceModel';
+import { greetingForHour, shouldSpaceOpenDrawer } from './surfaceModel';
+import { buildSearchIndex, parseLineUrl, searchCards } from './lineSearch';
 
 const cards = [
   {
@@ -47,9 +44,33 @@ describe('surface model', () => {
     }
   });
 
+  it('builds a 500-card fuzzy index within the startup budget', () => {
+    const fixture = Array.from({ length: 500 }, (_, index) => ({
+      id: `card_${index}`,
+      title: `Reference ${index} documentation`,
+      hostname: `site${index}.example`,
+    }));
+    const started = performance.now();
+    const search = buildSearchIndex(fixture);
+    expect(performance.now() - started).toBeLessThan(5);
+    expect(search('referense 42').cards[0]?.id).toBe('card_42');
+  });
+
   it('uses contiguous exact matching when a query starts with a quote', () => {
     expect(searchCards(cards, '"script hand')).toEqual([cards[0]]);
     expect(searchCards(cards, '"hand type')).toEqual([]);
+  });
+
+  it('parses only intentional web URLs', () => {
+    expect(parseLineUrl('foo.com')).toBe('https://foo.com/');
+    expect(parseLineUrl('http://localhost:5173/src/newtab/index.html')).toBe(
+      'http://localhost:5173/src/newtab/index.html',
+    );
+    expect(parseLineUrl('weather tomorrow')).toBeNull();
+    expect(parseLineUrl('javascript:alert(1)')).toBeNull();
+    expect(
+      parseLineUrl(`https://example.com/${'a'.repeat(10_000)}`),
+    ).toBeNull();
   });
 
   it('opens the drawer only for Space on a truly empty enabled Line', () => {

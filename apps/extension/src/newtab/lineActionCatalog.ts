@@ -1,4 +1,4 @@
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 
 export type ActionId =
   | 'blur'

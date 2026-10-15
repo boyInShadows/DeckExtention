@@ -118,6 +118,21 @@ function pinLabels(view: RenderResult): string[] {
     .map((pin) => pin.getAttribute('aria-label') ?? '');
 }
 
+it('stamps a pin before opening its link', async () => {
+  const assign = vi
+    .spyOn(window.location, 'assign')
+    .mockImplementation(() => undefined);
+  const { view, upsertCard } = await mountPins([makeCard('pinned')]);
+  await view.act(() => click(view.get('[data-deck="pin"]')));
+  await vi.waitFor(() =>
+    expect(assign).toHaveBeenCalledWith('https://pinned.example.com/'),
+  );
+  expect(upsertCard).toHaveBeenCalledWith(
+    expect.objectContaining({ id: 'pinned', lastOpenedAt: expect.any(Number) }),
+  );
+  view.unmount();
+});
+
 async function openAddForm(view: RenderResult): Promise<HTMLInputElement> {
   await view.act(() => click(view.getByLabel(strings.addPin)));
   return view.get<HTMLInputElement>('.deck-pin-url-input');

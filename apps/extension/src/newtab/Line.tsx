@@ -1,16 +1,16 @@
 import type { Card, Settings } from 'deck-schema';
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import { strings } from '../i18n/strings';
 import type { SurfaceData } from './bootstrap';
-import { LINE_ACTIONS } from './lineActionCatalog';
-import { searchCards, shouldSpaceOpenDrawer } from './surfaceModel';
+import type { LINE_ACTIONS } from './lineActionCatalog';
+import type { SearchResults } from './lineSearch';
+import type LineResults from './LineResults';
+import { shouldSpaceOpenDrawer } from './surfaceModel';
+
+const MAX_GROUP_ROWS = 8;
+const PLACEHOLDER_ROTATE_MS = 6_000;
+export type ResultGroup = 'cards' | 'notes' | 'actions' | 'url';
 
 interface LineProps {
   cards: Card[];
@@ -25,30 +25,97 @@ interface LineProps {
 }
 
 export function Line(props: LineProps) {
+  const { cards: sourceCards, notify } = props;
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const activeCards = props.cards.filter((card) => card.deletedAt === null);
-  const cards = useMemo(
-    () => searchCards(activeCards, query),
-    [activeCards, query],
+  const [isFocused, setIsFocused] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState(0);
+  const [Results, setResults] = useState<typeof LineResults | null>(null);
+  const [catalog, setCatalog] = useState<typeof LINE_ACTIONS>([]);
+  const [search, setSearch] = useState<(query: string) => SearchResults<Card>>(
+    () => () => ({ cards: [], notes: [], url: null }),
   );
-  const actions = query.startsWith('>')
-    ? LINE_ACTIONS.filter(({ command, label }) => {
-        const normalizedQuery = query.toLocaleLowerCase();
-        return (
-          `${command} ${label}`.toLocaleLowerCase().includes(normalizedQuery) ||
-          normalizedQuery.startsWith(command)
-        );
-      })
-    : [];
+  const inputRef = useRef<HTMLInputElement>(null);
   const isWebSearch = query.startsWith('?');
-  const itemCount = isWebSearch ? 1 : actions.length || cards.length;
+  const isCommand = query.startsWith('>');
+  const results =
+    isWebSearch || isCommand
+      ? { cards: [], notes: [], url: null }
+      : search(query);
+  const actions =
+    !query || isWebSearch
+      ? []
+      : catalog.filter(({ command, label }) => {
+          const lower = query.toLowerCase();
+          return isCommand
+            ? `${command} ${label}`.toLowerCase().includes(lower) ||
+                lower.startsWith(command)
+            : label.toLowerCase().includes(lower);
+        });
+  const groups: ResultGroup[] = [
+    ...(results.cards.length ? ['cards' as const] : []),
+    ...(results.notes.length ? ['notes' as const] : []),
+    ...(actions.length ? ['actions' as const] : []),
+    ...(!results.cards.length &&
+    !results.notes.length &&
+    !actions.length &&
+    results.url
+      ? ['url' as const]
+      : []),
+  ];
+  const group = groups[Math.min(selectedGroup, groups.length - 1)];
+  const itemCount = isWebSearch
+    ? 1
+    : Math.min(
+        MAX_GROUP_ROWS,
+        group === 'url'
+          ? 1
+          : group === 'cards'
+            ? results.cards.length
+            : group === 'notes'
+              ? results.notes.length
+              : actions.length,
+      );
   const activeIndex = itemCount > 0 ? Math.min(selected, itemCount - 1) : 0;
 
   const focusKey =
     props.settings.keymap.find(({ action }) => action === 'focusLine')?.chord ??
     '/';
+  useEffect(() => {
+    if (query || isFocused) return;
+    const timer = window.setInterval(
+      () => setShowHint((value) => !value),
+      PLACEHOLDER_ROTATE_MS,
+    );
+    return () => window.clearInterval(timer);
+  }, [query, isFocused]);
+  useEffect(() => {
+    void import('./lineActionCatalog')
+      .then((module) => setCatalog(module.LINE_ACTIONS))
+      .catch((error: unknown) => notify(String(error)));
+  }, [notify]);
+  useEffect(() => {
+    void import('./LineResults')
+      .then((module) => setResults(() => module.default))
+      .catch((error: unknown) => notify(String(error)));
+  }, [notify]);
+  useEffect(() => {
+    let isCurrent = true;
+    void import('./lineSearch')
+      .then(({ buildSearchIndex }) => {
+        if (isCurrent)
+          setSearch(() =>
+            buildSearchIndex(
+              sourceCards.filter((card) => card.deletedAt === null),
+            ),
+          );
+      })
+      .catch((error: unknown) => notify(String(error)));
+    return () => {
+      isCurrent = false;
+    };
+  }, [sourceCards, notify]);
   useEffect(() => {
     const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
       const isInput =
@@ -70,7 +137,11 @@ export function Line(props: LineProps) {
     return () => window.removeEventListener('keydown', onWindowKeyDown);
   }, [focusKey]);
 
-  const execute = async (isNewTab: boolean) => {
+  const execute = async (
+    isNewTab: boolean,
+    targetGroup = group,
+    index = activeIndex,
+  ) => {
     try {
       if (isWebSearch) {
         const term = query.slice(1).trim();
@@ -80,7 +151,12 @@ export function Line(props: LineProps) {
         await searchWeb(term, props.settings);
         return;
       }
-      const action = actions[activeIndex];
+      if (targetGroup === 'url' && results.url) {
+        if (isNewTab) window.open(results.url, '_blank', 'noopener');
+        else window.location.assign(results.url);
+        return;
+      }
+      const action = targetGroup === 'actions' ? actions[index] : undefined;
       if (action) {
         const { executeAction } = await import('./lineActions');
         await executeAction(action.id, {
@@ -93,10 +169,15 @@ export function Line(props: LineProps) {
         setQuery('');
         return;
       }
-      const card = cards[activeIndex];
+      const card =
+        targetGroup === 'notes'
+          ? results.notes[index]?.card
+          : targetGroup === 'cards'
+            ? results.cards[index]
+            : undefined;
       if (!card) return;
-      if (isNewTab) window.open(card.url, '_blank', 'noopener');
-      else window.location.assign(card.url);
+      const { openCard } = await import('../drawer/inboxActions');
+      await openCard(props.repository, card, isNewTab);
     } catch (lineError) {
       const detail =
         lineError instanceof Error ? lineError.message : String(lineError);
@@ -118,9 +199,10 @@ export function Line(props: LineProps) {
       event.preventDefault();
       setSelected(itemCount ? (activeIndex - 1 + itemCount) % itemCount : 0);
     }
-    if (event.key === 'Tab' && itemCount) {
+    if (event.key === 'Tab' && groups.length) {
       event.preventDefault();
-      setSelected((activeIndex + 1) % itemCount);
+      setSelectedGroup((selectedGroup + 1) % groups.length);
+      setSelected(0);
     }
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -137,89 +219,42 @@ export function Line(props: LineProps) {
           onChange={(event) => {
             setQuery(event.currentTarget.value);
             setSelected(0);
+            setSelectedGroup(0);
           }}
           onKeyDown={onKeyDown}
-          placeholder={strings.linePlaceholder}
+          placeholder={
+            showHint ? strings.lineKeyboardHint : strings.linePlaceholder
+          }
           aria-label={strings.linePlaceholder}
+          onFocus={() => {
+            setIsFocused(true);
+            setShowHint(false);
+          }}
+          onBlur={() => {
+            setIsFocused(false);
+            setShowHint(false);
+          }}
           autoComplete="off"
           spellCheck={false}
         />
       </div>
-      {query ? (
+      {query && Results ? (
         <Results
-          cards={cards}
+          maxRows={MAX_GROUP_ROWS}
+          cards={results.cards}
+          notes={results.notes}
+          fallbackUrl={group === 'url' ? results.url : null}
           actions={actions}
           isWebSearch={isWebSearch}
+          activeGroup={group}
           activeIndex={activeIndex}
+          onHover={(nextGroup, index) => {
+            setSelectedGroup(groups.indexOf(nextGroup));
+            setSelected(index);
+          }}
+          onSelect={(nextGroup, index) => void execute(false, nextGroup, index)}
         />
-      ) : (
-        <p data-deck="example-hint" className="deck-example-hint">
-          {strings.exampleHint}
-        </p>
-      )}
+      ) : null}
     </div>
-  );
-}
-
-function Results({
-  cards,
-  actions,
-  isWebSearch,
-  activeIndex,
-}: {
-  cards: Card[];
-  actions: typeof LINE_ACTIONS;
-  isWebSearch: boolean;
-  activeIndex: number;
-}) {
-  return (
-    <section
-      data-deck="line-results"
-      className="deck-results"
-      aria-live="polite"
-    >
-      {isWebSearch ? (
-        <>
-          <h2>{strings.searchWeb}</h2>
-          <p data-active>{strings.searchPermissionReason}</p>
-        </>
-      ) : null}
-      {actions.length ? (
-        <>
-          <h2>{strings.actionsGroup}</h2>
-          {actions.map((action, index) => (
-            <div
-              key={action.id}
-              data-active={index === activeIndex || undefined}
-              className="deck-result"
-            >
-              <span>{action.command}</span>
-              <small>{action.label}</small>
-            </div>
-          ))}
-        </>
-      ) : null}
-      {!isWebSearch && !actions.length ? (
-        <>
-          <h2>{strings.cardsGroup}</h2>
-          {cards.length ? (
-            cards.map((card, index) => (
-              <a
-                key={card.id}
-                data-deck="card"
-                data-active={index === activeIndex || undefined}
-                href={card.url}
-                className="deck-result"
-              >
-                <span>{card.title}</span>
-                <small>{card.hostname}</small>
-              </a>
-            ))
-          ) : (
-            <p>{strings.noResults}</p>
-          )}
-        </>
-      ) : null}
-    </section>
   );
 }

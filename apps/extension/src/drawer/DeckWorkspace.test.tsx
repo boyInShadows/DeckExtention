@@ -556,6 +556,9 @@ describe('DeckWorkspace - open all', () => {
       url: 'https://example.com/card_1',
       active: false,
     });
+    expect((await storedCard('card_1'))?.lastOpenedAt).toEqual(
+      expect.any(Number),
+    );
     view.unmount();
   });
 
@@ -637,6 +640,21 @@ describe('DeckWorkspace - adding links', () => {
 });
 
 describe('DeckWorkspace - card actions', () => {
+  it('stamps a card opened from its title', async () => {
+    const assign = vi
+      .spyOn(window.location, 'assign')
+      .mockImplementation(() => undefined);
+    const { view, onCardsChange } = await mount();
+    await act(view, () => click(view.get('[data-card-id="card_1"] a')));
+    await eventually(view, () =>
+      expect(assign).toHaveBeenCalledWith('https://example.com/card_1'),
+    );
+    expect((await storedCard('card_1'))?.lastOpenedAt).toEqual(
+      expect.any(Number),
+    );
+    expect(onCardsChange).toHaveBeenCalled();
+    view.unmount();
+  });
   it('toggles a card done and stores it', async () => {
     const { view } = await mount();
     const row = view.get('[data-card-id="card_1"]');

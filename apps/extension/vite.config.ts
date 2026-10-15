@@ -20,6 +20,8 @@ const IS_COVERAGE_BUILD = process.env.DECK_COVERAGE === '1';
 /** Schema, storage and the libraries under them: see `manualChunks`. */
 const CORE_CHUNK_PATTERN =
   /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:zod|idb|fractional-indexing)\/|\/packages\/schema\/|\/src\/storage\/(?:database|document|repository)\.ts$/;
+const UI_RUNTIME_PATTERN =
+  /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?preact\//;
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), crx({ manifest })],
@@ -47,9 +49,10 @@ export default defineConfig({
          * 60 kB surface pays for. One named `core` chunk keeps it whole.
          */
         manualChunks(id) {
-          return CORE_CHUNK_PATTERN.test(id.replaceAll('\\', '/'))
-            ? 'core'
-            : undefined;
+          const path = id.replaceAll('\\', '/');
+          if (CORE_CHUNK_PATTERN.test(path)) return 'core';
+          if (UI_RUNTIME_PATTERN.test(path)) return 'ui-runtime';
+          return undefined;
         },
       },
     },

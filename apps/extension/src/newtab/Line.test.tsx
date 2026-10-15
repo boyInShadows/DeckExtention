@@ -2,8 +2,14 @@
 import { SETTINGS_DEFAULTS, type Card, type Settings } from 'deck-schema';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { strings } from '../i18n/strings';
-import { keyDown, render, type, type RenderResult } from '../testing/render';
+import { panelStrings as strings } from '../i18n/panelStrings';
+import {
+  click,
+  keyDown,
+  render,
+  type,
+  type RenderResult,
+} from '../testing/render';
 import type { SurfaceData } from './bootstrap';
 import { Line } from './Line';
 
@@ -13,7 +19,8 @@ const lineActions = vi.hoisted(() => ({
 }));
 vi.mock('./lineActions', () => lineActions);
 
-const REPOSITORY = {} as SurfaceData['repository'];
+const upsertCard = vi.fn((value: Card) => Promise.resolve(value));
+const REPOSITORY = { upsertCard } as unknown as SurfaceData['repository'];
 
 function card(id: string, title: string, overrides: Partial<Card> = {}): Card {
   return {
@@ -61,6 +68,9 @@ function input(view: RenderResult): HTMLInputElement {
 
 async function typeQuery(view: RenderResult, value: string): Promise<void> {
   await view.act(() => type(input(view), value));
+  await vi.waitFor(() =>
+    expect(view.query('[data-deck="line-results"]')).not.toBeNull(),
+  );
 }
 
 async function press(
@@ -81,6 +91,7 @@ function activeText(view: RenderResult): string | undefined {
 }
 
 beforeEach(() => {
+  upsertCard.mockClear();
   lineActions.executeAction.mockReset().mockResolvedValue(undefined);
   lineActions.searchWeb.mockReset().mockResolvedValue(undefined);
 });
@@ -91,11 +102,31 @@ afterEach(() => {
 });
 
 describe('Line results', () => {
-  it('shows the example hint until something is typed', async () => {
+  it('rotates the empty placeholder only while unfocused', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      const view = await setup().render();
+      expect(input(view).placeholder).toBe(strings.linePlaceholder);
+      await view.act(() => {
+        vi.advanceTimersByTime(6_000);
+      });
+      expect(input(view).placeholder).toBe(strings.lineKeyboardHint);
+      await view.act(() => {
+        input(view).focus();
+      });
+      expect(input(view).placeholder).toBe(strings.linePlaceholder);
+      await view.act(() => {
+        vi.advanceTimersByTime(6_000);
+      });
+      expect(input(view).placeholder).toBe(strings.linePlaceholder);
+      view.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('starts with no misleading example hint or results', async () => {
     const view = await setup().render();
-    expect(view.get('[data-deck="example-hint"]').textContent).toBe(
-      strings.exampleHint,
-    );
+    expect(view.query('[data-deck="example-hint"]')).toBeNull();
     expect(view.query('[data-deck="line-results"]')).toBeNull();
     view.unmount();
   });
@@ -107,18 +138,18 @@ describe('Line results', () => {
       .getAll('[data-deck="card"] span')
       .map((item) => item.textContent);
     expect(titles).toEqual(['Alpha docs', 'Alpha beta']);
-    expect(view.get('[data-deck="card"]').getAttribute('href')).toBe(
-      'https://alpha.example/',
-    );
+    expect(view.get('[data-deck="card"]').tagName).toBe('BUTTON');
     expect(activeText(view)).toBe('Alpha docs');
     view.unmount();
   });
 
-  it('says so when no card matches', async () => {
+  it('explains how to search the web without searching a plain query', async () => {
     const view = await setup().render();
-    await typeQuery(view, 'zzz');
+    await typeQuery(view, 'weather tomorrow');
     expect(view.container.textContent).toContain(strings.noResults);
     expect(view.query('[data-deck="card"]')).toBeNull();
+    await press(view, 'Enter');
+    expect(lineActions.searchWeb).not.toHaveBeenCalled();
     view.unmount();
   });
 
@@ -139,11 +170,74 @@ describe('Line results', () => {
     await typeQuery(view, '?weather');
     expect(view.container.textContent).toContain(strings.searchWeb);
     expect(view.container.textContent).not.toContain(strings.cardsGroup);
+    await view.act(() => click(view.get('[data-deck="web-search-result"]')));
+    await vi.waitFor(() =>
+      expect(lineActions.searchWeb).toHaveBeenCalledWith(
+        'weather',
+        SETTINGS_DEFAULTS,
+      ),
+    );
+    view.unmount();
+  });
+
+  it('caps each group and shows how many results remain', async () => {
+    const fixture = Array.from({ length: 20 }, (_, index) =>
+      card(`match_${index}`, `Match ${index}`),
+    );
+    const view = await setup(SETTINGS_DEFAULTS, fixture).render();
+    await typeQuery(view, 'match');
+    expect(view.getAll('[data-deck="card"]')).toHaveLength(8);
+    expect(view.get('[data-deck="result-more"]').textContent).toBe(
+      'and 12 more…',
+    );
+    view.unmount();
+  });
+
+  it('opens a typed hostname and executes an action row by mouse', async () => {
+    const assign = vi
+      .spyOn(window.location, 'assign')
+      .mockImplementation(() => undefined);
+    const { props, render: mount } = setup();
+    const view = await mount();
+    await typeQuery(view, 'foo.com');
+    expect(view.get('[data-deck="url-result"]').textContent).toContain(
+      'https://foo.com/',
+    );
+    await press(view, 'Enter');
+    await vi.waitFor(() =>
+      expect(assign).toHaveBeenCalledWith('https://foo.com/'),
+    );
+    await typeQuery(view, '>settings');
+    await view.act(() => click(view.get('[data-deck="action-result"]')));
+    await vi.waitFor(() =>
+      expect(lineActions.executeAction).toHaveBeenCalledWith(
+        'settings',
+        expect.objectContaining({ openSettings: props.openSettings }),
+      ),
+    );
+    expect(input(view).value).toBe('');
     view.unmount();
   });
 });
 
 describe('Line keyboard selection', () => {
+  it('cycles Cards and Notes by Tab, with arrows inside the chosen group', async () => {
+    const fixture = [
+      card('note', 'Alpha docs', { note: 'Alpha note details' }),
+      card('other', 'Alpha beta'),
+    ];
+    const view = await setup(SETTINGS_DEFAULTS, fixture).render();
+    await typeQuery(view, 'alpha');
+    expect(view.getAll('[data-deck="line-group"]')).toHaveLength(2);
+    await press(view, 'Tab');
+    expect(activeText(view)).toBe('Alpha docs');
+    expect(view.get('[data-deck="note-result"] small').textContent).toContain(
+      'Alpha note',
+    );
+    await press(view, 'Tab');
+    expect(activeText(view)).toBe('Alpha docs');
+    view.unmount();
+  });
   it('moves the selection with arrows and Tab, wrapping both ways', async () => {
     const view = await setup().render();
     await typeQuery(view, 'alpha');
@@ -220,12 +314,19 @@ describe('Line Enter', () => {
     await press(view, 'ArrowDown');
 
     expect((await press(view, 'Enter')).defaultPrevented).toBe(true);
-    expect(assign).toHaveBeenCalledWith('https://beta.example/');
+    await vi.waitFor(() =>
+      expect(assign).toHaveBeenCalledWith('https://beta.example/'),
+    );
     await press(view, 'Enter', { shiftKey: true });
-    expect(open).toHaveBeenCalledWith(
-      'https://beta.example/',
-      '_blank',
-      'noopener',
+    await vi.waitFor(() =>
+      expect(open).toHaveBeenCalledWith(
+        'https://beta.example/',
+        '_blank',
+        'noopener',
+      ),
+    );
+    expect(upsertCard).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'beta', lastOpenedAt: expect.any(Number) }),
     );
     view.unmount();
   });
@@ -358,7 +459,7 @@ describe('Line focus keys', () => {
     await press(view, 'Escape');
     expect(input(view).value).toBe('');
     expect(document.activeElement).not.toBe(input(view));
-    expect(view.query('[data-deck="example-hint"]')).not.toBeNull();
+    expect(view.query('[data-deck="line-results"]')).toBeNull();
     view.unmount();
   });
 });

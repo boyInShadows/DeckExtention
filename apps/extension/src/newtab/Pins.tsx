@@ -7,7 +7,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { UrlSchema, type Card } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 
 import { strings } from '../i18n/strings';
 import { dragId, parseDragId } from '../drawer/dragIdentity';
@@ -38,9 +38,11 @@ function faviconUrl(url: string): string {
 function SortablePin({
   card,
   onMenu,
+  onOpen,
 }: {
   card: Card;
   onMenu: (card: Card) => void;
+  onOpen: (card: Card, isNewTab: boolean) => void;
 }) {
   const {
     attributes,
@@ -54,6 +56,14 @@ function SortablePin({
     transform: CSS.Transform.toString(transform),
     transition,
   };
+  const open = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.type === 'auxclick' && event.button !== 1) return;
+    event.preventDefault();
+    onOpen(
+      card,
+      event.button === 1 || event.ctrlKey || event.metaKey || event.shiftKey,
+    );
+  };
   return (
     <a
       ref={setNodeRef}
@@ -64,6 +74,8 @@ function SortablePin({
       draggable={false}
       aria-label={card.pinLabel ?? card.title}
       data-dragging={isDragging || undefined}
+      onClick={open}
+      onAuxClick={open}
       onContextMenu={(event) => {
         event.preventDefault();
         onMenu(card);
@@ -107,6 +119,14 @@ export function Pins({
   const saveCard = async (card: Card) => {
     const saved = await repository.upsertCard(card);
     onCardsChange(cards.map((item) => (item.id === saved.id ? saved : item)));
+  };
+  const open = async (card: Card, isNewTab: boolean) => {
+    try {
+      const { openCard } = await import('../drawer/inboxActions');
+      await openCard(repository, card, isNewTab);
+    } catch (openError) {
+      setError(`${strings.updateFailed} ${String(openError)}`);
+    }
   };
 
   useEffect(() => {
@@ -181,7 +201,12 @@ export function Pins({
         strategy={horizontalListSortingStrategy}
       >
         {pins.map((card) => (
-          <SortablePin key={card.id} card={card} onMenu={setMenuCard} />
+          <SortablePin
+            key={card.id}
+            card={card}
+            onMenu={setMenuCard}
+            onOpen={(item, isNewTab) => void open(item, isNewTab)}
+          />
         ))}
       </SortableContext>
       {pins.length < MAX_PINS ? (

@@ -8,6 +8,79 @@ const READY_SELECTOR = 'html[data-deck-ready="true"]';
 const WARM_RUNS = 20;
 const DRAWER_TEST_TIMEOUT_MS = 120_000;
 
+test('Line results overlay without moving the clock', async () => {
+  const context = await launchExtension();
+  try {
+    const page = await context.newPage();
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector(READY_SELECTOR);
+    const clock = page.locator('[data-deck="clock"]');
+    const before = (await clock.boundingBox())?.y;
+    await page.locator('[data-deck="line"] input').fill('TypeScript');
+    await expect(page.locator('[data-deck="line-results"]')).toBeVisible();
+    expect((await clock.boundingBox())?.y).toBe(before);
+  } finally {
+    await context.close();
+  }
+});
+
+test('Line opens the intended card for ten queries in a 300-card workspace', async () => {
+  const context = await launchExtension();
+  try {
+    const page = await context.newPage();
+    await page.route('https://target*.example/**', (route) =>
+      route.fulfill({ body: '<html></html>' }),
+    );
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector(READY_SELECTOR);
+    await page.evaluate(async () => {
+      const request = indexedDB.open('deck');
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const transaction = database.transaction('cards', 'readwrite');
+      for (let index = 0; index < 300; index += 1) {
+        const target = index < 10;
+        const host = target
+          ? `target${index}.example`
+          : `archive${index}.example`;
+        transaction.objectStore('cards').put({
+          id: `fixture_${index}`,
+          deckId: 'deck_examples',
+          url: `https://${host}/`,
+          title: target ? `Target ${index} reference` : `Archive item ${index}`,
+          hostname: host,
+          order: 'a0',
+          pinned: false,
+          lastOpenedAt: null,
+          createdAt: 1,
+          updatedAt: 1,
+          deletedAt: null,
+        });
+      }
+      await new Promise<void>((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+      database.close();
+    });
+    for (let index = 0; index < 10; index += 1) {
+      await page.goto('chrome://newtab/');
+      await page.waitForSelector(READY_SELECTOR);
+      const line = page.locator('[data-deck="line"] input');
+      await line.fill(`target ${index}`);
+      await expect(page.locator('[data-deck="card"]').first()).toContainText(
+        `Target ${index} reference`,
+      );
+      await line.press('Enter');
+      await expect(page).toHaveURL(`https://target${index}.example/`);
+    }
+  } finally {
+    await context.close();
+  }
+});
+
 test('Settings controls fit, close, and render in both themes', async ({
   browserName,
 }, testInfo) => {

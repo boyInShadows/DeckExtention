@@ -1,6 +1,6 @@
 import type { Card, Deck, Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type MouseEvent } from 'react';
 import {
   SortableContext,
   rectSortingStrategy,
@@ -18,7 +18,7 @@ import {
   replaceEntity,
 } from './workspaceModel';
 import { dragId } from './dragIdentity';
-import { moveCards } from './inboxActions';
+import { markOpened, moveCards, openCard } from './inboxActions';
 import {
   moveTargets,
   parseRecentTargets,
@@ -293,6 +293,9 @@ function DeckColumn({
           deck={deck}
           pages={props.pages}
           cards={visibleCards}
+          allCards={props.cards}
+          repository={props.data.repository}
+          onCardsChange={props.onCardsChange}
           saveDeck={saveDeck}
           onEditNote={onEditNote}
           onTrash={() => void trashDeck(deck, props)}
@@ -301,6 +304,9 @@ function DeckColumn({
       ) : null}
       {!deck.isCollapsed ? (
         <>
+          {deck.id === 'deck_examples' ? (
+            <p data-deck="example-hint">{strings.exampleHint}</p>
+          ) : null}
           {deck.note ? (
             <button
               type="button"
@@ -403,6 +409,20 @@ function CardRow({
       props.onError(message(error));
     }
   };
+  const open = async (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.type === 'auxclick' && event.button !== 1) return;
+    event.preventDefault();
+    try {
+      const opened = await openCard(
+        props.data.repository,
+        card,
+        event.button === 1 || event.ctrlKey || event.metaKey || event.shiftKey,
+      );
+      props.onCardsChange(replaceEntity(props.cards, opened));
+    } catch (error) {
+      props.onError(message(error));
+    }
+  };
   return (
     <article
       ref={setNodeRef}
@@ -423,7 +443,11 @@ function CardRow({
         src={`/_favicon/?pageUrl=${encodeURIComponent(card.url)}&size=32`}
         alt=""
       />
-      <a href={card.url}>
+      <a
+        href={card.url}
+        onClick={(event) => void open(event)}
+        onAuxClick={(event) => void open(event)}
+      >
         <strong>{card.title}</strong>
         <small>{card.hostname}</small>
       </a>
@@ -458,6 +482,9 @@ function DeckMenu({
   deck,
   pages,
   cards,
+  allCards,
+  repository,
+  onCardsChange,
   saveDeck,
   onEditNote,
   onTrash,
@@ -466,6 +493,9 @@ function DeckMenu({
   deck: Deck;
   pages: Page[];
   cards: Card[];
+  allCards: Card[];
+  repository: SurfaceData['repository'];
+  onCardsChange: (cards: Card[]) => void;
   saveDeck: (change: Partial<Deck>) => Promise<void>;
   onEditNote: (deck: Deck) => void;
   onTrash: () => void;
@@ -477,6 +507,11 @@ function DeckMenu({
         permissions: ['tabs'],
       });
       if (!allowed) return onError(strings.tabsPermissionDeclined);
+      const opened = await Promise.all(
+        cards.map((card) => markOpened(repository, card)),
+      );
+      const byId = new Map(opened.map((card) => [card.id, card]));
+      onCardsChange(allCards.map((card) => byId.get(card.id) ?? card));
       await Promise.all(
         cards.map(({ url }) => chrome.tabs.create({ url, active: false })),
       );
