@@ -120,20 +120,25 @@ describe('executeAction', () => {
 });
 
 describe('searchWeb', () => {
-  function stubChrome(isGranted: boolean) {
+  function stubChrome(isGranted: boolean, isAlreadyGranted = false) {
+    const contains = vi.fn(() => Promise.resolve(isAlreadyGranted));
     const request = vi.fn(() => Promise.resolve(isGranted));
     const query = vi.fn(() => Promise.resolve());
     vi.stubGlobal('chrome', {
-      permissions: { request },
+      permissions: { contains, request },
       search: { query },
     });
-    return { request, query };
+    return { contains, request, query };
   }
 
   it('runs Chrome search in this tab once the permission is granted', async () => {
     const chromeApi = stubChrome(true);
     const assign = vi.spyOn(window.location, 'assign');
-    await searchWeb('deck tabs', SETTINGS_DEFAULTS);
+    const saveSettings = vi.fn();
+    await searchWeb('deck tabs', SETTINGS_DEFAULTS, saveSettings);
+    expect(chromeApi.contains).toHaveBeenCalledWith({
+      permissions: ['search'],
+    });
     expect(chromeApi.request).toHaveBeenCalledWith({
       permissions: ['search'],
     });
@@ -142,6 +147,14 @@ describe('searchWeb', () => {
       disposition: 'CURRENT_TAB',
     });
     expect(assign).not.toHaveBeenCalled();
+    expect(saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('uses an existing search grant without asking again', async () => {
+    const chromeApi = stubChrome(false, true);
+    await searchWeb('deck tabs', SETTINGS_DEFAULTS, vi.fn());
+    expect(chromeApi.request).not.toHaveBeenCalled();
+    expect(chromeApi.query).toHaveBeenCalledOnce();
   });
 
   it('falls back to the search URL template, encoding the query', async () => {
@@ -149,11 +162,33 @@ describe('searchWeb', () => {
     const assign = vi
       .spyOn(window.location, 'assign')
       .mockImplementation(() => undefined);
-    await searchWeb('a&b c', {
+    const settings = {
       ...SETTINGS_DEFAULTS,
       searchUrlTemplate: 'https://search.example/?q={query}',
-    });
+    };
+    const saveSettings = vi.fn(() => Promise.resolve());
+    await searchWeb('a&b c', settings, saveSettings);
     expect(chromeApi.query).not.toHaveBeenCalled();
+    expect(saveSettings).toHaveBeenCalledWith({
+      ...settings,
+      searchPermission: 'declined',
+    });
     expect(assign).toHaveBeenCalledWith('https://search.example/?q=a%26b%20c');
+  });
+
+  it('does not ask again after a decline', async () => {
+    const chromeApi = stubChrome(true);
+    const assign = vi
+      .spyOn(window.location, 'assign')
+      .mockImplementation(() => undefined);
+    const saveSettings = vi.fn();
+    await searchWeb(
+      'next',
+      { ...SETTINGS_DEFAULTS, searchPermission: 'declined' },
+      saveSettings,
+    );
+    expect(chromeApi.request).not.toHaveBeenCalled();
+    expect(saveSettings).not.toHaveBeenCalled();
+    expect(assign).toHaveBeenCalledWith('https://www.google.com/search?q=next');
   });
 });

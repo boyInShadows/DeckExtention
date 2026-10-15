@@ -49,10 +49,17 @@ export async function executeAction(
 export async function searchWeb(
   query: string,
   settings: Settings,
+  saveSettings: (settings: Settings) => Promise<void>,
 ): Promise<void> {
-  const hasPermission = await chrome.permissions.request({
-    permissions: ['search'],
-  });
+  const permission = {
+    permissions: ['search'] as chrome.runtime.ManifestOptionalPermission[],
+  };
+  let hasPermission = await chrome.permissions.contains(permission);
+  if (!hasPermission && settings.searchPermission !== 'declined') {
+    hasPermission = await chrome.permissions.request(permission);
+    if (!hasPermission)
+      await saveSettings({ ...settings, searchPermission: 'declined' });
+  }
   if (hasPermission) {
     await chrome.search.query({ text: query, disposition: 'CURRENT_TAB' });
     return;

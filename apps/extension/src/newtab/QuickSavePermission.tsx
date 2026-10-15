@@ -1,4 +1,7 @@
-import { CAPTURE_PERMISSIONS } from 'deck-schema';
+import {
+  CAPTURE_PERMISSION_DECLINED_KEY,
+  CAPTURE_PERMISSIONS,
+} from 'deck-schema';
 import { useEffect, useState } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
@@ -22,9 +25,12 @@ export function QuickSavePermission({
 
   const change = async (shouldGrant: boolean) => {
     try {
-      if (shouldGrant)
-        setIsGranted(await chrome.permissions.request(PERMISSIONS));
-      else setIsGranted(!(await chrome.permissions.remove(PERMISSIONS)));
+      if (shouldGrant) {
+        const granted = await chrome.permissions.request(PERMISSIONS);
+        setIsGranted(granted);
+        if (granted)
+          await chrome.storage.local.remove(CAPTURE_PERMISSION_DECLINED_KEY);
+      } else setIsGranted(!(await chrome.permissions.remove(PERMISSIONS)));
     } catch (permissionError) {
       onError(permissionError);
     }

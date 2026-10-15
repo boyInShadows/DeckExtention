@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
+import {
+  BOOKMARKS_PERMISSION_DECLINED_KEY,
+  TABS_PERMISSION_DECLINED_KEY,
+} from '../permissions/keys';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 
 /**
  * Optional permissions asked for in context elsewhere (AGENTS.md 3.1), listed
- * here once granted so each can be given back from Settings. Quick Save and
- * bookmarks have their own rows next to the feature that uses them.
+ * here once granted so each can be given back from Settings. Quick Save has
+ * its own row in Advanced; bookmarks also have a row beside Import.
  */
 const IN_CONTEXT_ACCESS = [
   {
@@ -17,6 +21,11 @@ const IN_CONTEXT_ACCESS = [
     permission: 'search',
     name: strings.accessSearch,
     reason: strings.accessSearchReason,
+  },
+  {
+    permission: 'bookmarks',
+    name: strings.bookmarks,
+    reason: strings.bookmarksReason,
   },
 ] as const satisfies readonly {
   permission: chrome.runtime.ManifestOptionalPermission;
@@ -32,6 +41,7 @@ export function GrantedAccess({
   onError: (error: unknown) => void;
 }) {
   const [granted, setGranted] = useState<AccessPermission[]>([]);
+  const [declined, setDeclined] = useState<string[]>([]);
 
   useEffect(() => {
     chrome.permissions.getAll().then(({ permissions = [] }) => {
@@ -41,6 +51,18 @@ export function GrantedAccess({
         ),
       );
     }, onError);
+  }, [onError]);
+  useEffect(() => {
+    chrome.storage.local
+      .get([TABS_PERMISSION_DECLINED_KEY, BOOKMARKS_PERMISSION_DECLINED_KEY])
+      .then((items) => {
+        setDeclined(
+          [
+            TABS_PERMISSION_DECLINED_KEY,
+            BOOKMARKS_PERMISSION_DECLINED_KEY,
+          ].filter((key) => items[key] === true),
+        );
+      }, onError);
   }, [onError]);
 
   const revoke = async (permission: AccessPermission) => {
@@ -52,16 +74,42 @@ export function GrantedAccess({
     }
   };
 
-  return IN_CONTEXT_ACCESS.filter(({ permission }) =>
-    granted.includes(permission),
-  ).map(({ permission, name, reason }) => (
-    <div key={permission} data-deck="granted-access">
-      <p>
-        <strong>{name}</strong> {reason}
-      </p>
-      <button type="button" onClick={() => void revoke(permission)}>
-        {strings.revokeAccess}
-      </button>
-    </div>
-  ));
+  const retry = async (key: string) => {
+    try {
+      await chrome.storage.local.remove(key);
+      setDeclined((current) => current.filter((item) => item !== key));
+    } catch (error) {
+      onError(error);
+    }
+  };
+
+  return (
+    <>
+      {IN_CONTEXT_ACCESS.filter(({ permission }) =>
+        granted.includes(permission),
+      ).map(({ permission, name, reason }) => (
+        <div key={permission} data-deck="granted-access">
+          <p>
+            <strong>{name}</strong> {reason}
+          </p>
+          <button type="button" onClick={() => void revoke(permission)}>
+            {strings.revokeAccess}
+          </button>
+        </div>
+      ))}
+      {declined.map((key) => (
+        <button
+          key={key}
+          type="button"
+          data-deck="permission-retry"
+          onClick={() => void retry(key)}
+        >
+          {key === TABS_PERMISSION_DECLINED_KEY
+            ? strings.accessTabs
+            : strings.bookmarks}
+          : {strings.retryAccess}
+        </button>
+      ))}
+    </>
+  );
 }

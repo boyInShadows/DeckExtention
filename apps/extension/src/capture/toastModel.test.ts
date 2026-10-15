@@ -42,6 +42,11 @@ describe('buildToastModel', () => {
     expect(model.report?.pageId).toBe('p1');
   });
 
+  it('explains Quick Save on the first granted capture toast', () => {
+    const model = buildToastModel({ kind: 'saved', card }, 'night', '', true);
+    expect(model.hint).toBe(captureStrings.permissionReason);
+  });
+
   it('calls an Inbox duplicate "Inbox"', () => {
     const model = buildToastModel(
       { kind: 'duplicate', card, pageId: 'inbox', location: null },

@@ -44,6 +44,12 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: 'day', label: strings.themeDay },
   { value: 'system', label: strings.themeSystem },
 ];
+const SEARCH_ENGINES = [
+  { name: 'Google', url: 'https://www.google.com/search?q={query}' },
+  { name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q={query}' },
+  { name: 'Bing', url: 'https://www.bing.com/search?q={query}' },
+  { name: 'Brave', url: 'https://search.brave.com/search?q={query}' },
+] as const;
 const WALLPAPER_COLORS = [
   'slate',
   'indigo',
@@ -82,6 +88,11 @@ export default function SettingsPanel({
   const [customCss, setCustomCss] = useState(settings.customCss);
   const [searchUrlTemplate, setSearchUrlTemplate] = useState(
     settings.searchUrlTemplate,
+  );
+  const [searchEngine, setSearchEngine] = useState(
+    SEARCH_ENGINES.some(({ url }) => url === settings.searchUrlTemplate)
+      ? settings.searchUrlTemplate
+      : 'custom',
   );
   const latestSettings = useRef(settings);
   const writeQueue = useRef<Promise<void>>(Promise.resolve());
@@ -435,7 +446,6 @@ export default function SettingsPanel({
               void update({ canSpaceOpenDrawer })
             }
           />
-          <QuickSavePermission onError={showError} />
           <KeymapEditor
             overrides={settings.keymap}
             onChange={(keymap) => void update({ keymap })}
@@ -552,17 +562,49 @@ export default function SettingsPanel({
           />
         </SettingsGroup>
         <SettingsGroup title={strings.advanced}>
+          <QuickSavePermission onError={showError} />
           <GrantedAccess onError={showError} />
+          {settings.searchPermission === 'declined' ? (
+            <button
+              type="button"
+              data-deck="search-permission-retry"
+              onClick={() => void update({ searchPermission: undefined })}
+            >
+              {strings.searchPermissionRetry}
+            </button>
+          ) : null}
           <label>
             {strings.searchEngine}
-            <input
-              value={searchUrlTemplate}
-              onChange={(event) =>
-                setSearchUrlTemplate(event.currentTarget.value)
-              }
-              onBlur={saveDraft}
-            />
+            <select
+              value={searchEngine}
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                setSearchEngine(value);
+                if (value === 'custom') return;
+                setSearchUrlTemplate(value);
+                void update({ searchUrlTemplate: value });
+              }}
+            >
+              {SEARCH_ENGINES.map(({ name, url }) => (
+                <option key={name} value={url}>
+                  {name}
+                </option>
+              ))}
+              <option value="custom">{strings.searchCustom}</option>
+            </select>
           </label>
+          {searchEngine === 'custom' ? (
+            <label>
+              {strings.searchTemplate}
+              <input
+                value={searchUrlTemplate}
+                onChange={(event) =>
+                  setSearchUrlTemplate(event.currentTarget.value)
+                }
+                onBlur={saveDraft}
+              />
+            </label>
+          ) : null}
           <label>
             {strings.customCss}
             <textarea

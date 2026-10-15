@@ -150,7 +150,7 @@ export function Line(props: LineProps) {
         // "?" alone is help, not an empty web search (P2.S6).
         if (!term) return props.openHelp();
         const { searchWeb } = await import('./lineActions');
-        await searchWeb(term, props.settings);
+        await searchWeb(term, props.settings, props.saveSettings);
         return;
       }
       if (targetGroup === 'url' && results.url) {

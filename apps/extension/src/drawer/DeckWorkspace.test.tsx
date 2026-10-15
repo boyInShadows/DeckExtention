@@ -238,6 +238,14 @@ async function storedCard(id: string): Promise<Card | undefined> {
 }
 
 beforeEach(async () => {
+  vi.stubGlobal('chrome', {
+    storage: {
+      local: {
+        get: vi.fn(() => Promise.resolve({})),
+        set: vi.fn(() => Promise.resolve()),
+      },
+    },
+  });
   repository = new DeckRepository({ databaseName: DATABASE_NAME });
   await seed();
   localStorage.clear();
@@ -602,6 +610,12 @@ describe('DeckWorkspace - open all', () => {
         request: vi.fn(request),
       },
       tabs: { create },
+      storage: {
+        local: {
+          get: vi.fn(() => Promise.resolve({})),
+          set: vi.fn(() => Promise.resolve()),
+        },
+      },
     });
     return create;
   }
@@ -637,6 +651,9 @@ describe('DeckWorkspace - open all', () => {
       expect(onError).toHaveBeenCalledWith(strings.tabsPermissionDeclined),
     );
     expect(create).not.toHaveBeenCalled();
+    const section = deckSection(view, 'deck_1');
+    await act(view, () => click(within(section, strings.allowAccess)));
+    expect(chrome.permissions.request).toHaveBeenCalledOnce();
     view.unmount();
   });
 

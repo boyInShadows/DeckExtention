@@ -103,10 +103,12 @@ function stubChrome(storageItems: Record<string, unknown> = {}) {
       getAll: vi.fn(() => Promise.resolve({ permissions: [] })),
       request: vi.fn(() => Promise.resolve(true)),
       remove: vi.fn(() => Promise.resolve(true)),
+      onRemoved: { addListener: vi.fn(), removeListener: vi.fn() },
     },
     tabs: { create: vi.fn(() => Promise.resolve()) },
     bookmarks: { getTree: vi.fn(() => Promise.resolve(BOOKMARK_TREE)) },
     storage: {
+      onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
       local: {
         get: vi.fn(() => Promise.resolve(storageItems)),
         set: vi.fn(() => Promise.resolve()),
@@ -428,9 +430,12 @@ describe('SettingsPanel - keys and advanced', () => {
 
   it('saves the search template and custom CSS', async () => {
     const { view, onChange } = await mount();
+    const engine = control<HTMLSelectElement>(view, strings.searchEngine);
+    engine.value = 'custom';
+    await change(view, engine);
     await view.act(() =>
       type(
-        control<HTMLInputElement>(view, strings.searchEngine),
+        control<HTMLInputElement>(view, strings.searchTemplate),
         'https://duck.example/?q={query}',
       ),
     );
@@ -445,6 +450,38 @@ describe('SettingsPanel - keys and advanced', () => {
         customCss: 'a{}',
       },
     ]);
+    view.unmount();
+  });
+
+  it('offers four search engines and lets a declined search grant be retried', async () => {
+    const { view, onChange } = await mount({
+      ...SETTINGS_DEFAULTS,
+      searchPermission: 'declined',
+    });
+    const engine = control<HTMLSelectElement>(view, strings.searchEngine);
+    expect(Array.from(engine.options, (option) => option.textContent)).toEqual([
+      'Google',
+      'DuckDuckGo',
+      'Bing',
+      'Brave',
+      strings.searchCustom,
+    ]);
+    engine.value = 'https://duckduckgo.com/?q={query}';
+    await change(view, engine);
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        searchUrlTemplate: 'https://duckduckgo.com/?q={query}',
+      }),
+    );
+    await clickAndSettle(
+      view,
+      view.get('[data-deck="search-permission-retry"]'),
+    );
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        searchPermission: undefined,
+      }),
+    );
     view.unmount();
   });
 

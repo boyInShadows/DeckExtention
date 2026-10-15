@@ -15,7 +15,10 @@ import { Line } from './Line';
 
 const lineActions = vi.hoisted(() => ({
   executeAction: vi.fn<(id: string, context: unknown) => Promise<void>>(),
-  searchWeb: vi.fn<(query: string, settings: unknown) => Promise<void>>(),
+  searchWeb:
+    vi.fn<
+      (query: string, settings: unknown, saveSettings: unknown) => Promise<void>
+    >(),
 }));
 vi.mock('./lineActions', () => lineActions);
 
@@ -177,6 +180,7 @@ describe('Line results', () => {
       expect(lineActions.searchWeb).toHaveBeenCalledWith(
         'weather',
         SETTINGS_DEFAULTS,
+        expect.any(Function),
       ),
     );
     view.unmount();
@@ -406,6 +410,7 @@ describe('Line Enter', () => {
       expect(lineActions.searchWeb).toHaveBeenCalledWith(
         'cats',
         props.settings,
+        props.saveSettings,
       ),
     );
     expect(props.openHelp).not.toHaveBeenCalled();

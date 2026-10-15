@@ -22,6 +22,8 @@ export const CAPTURE_PERMISSIONS = ['activeTab', 'scripting'] as const;
  * the service worker leaves a notice for the next new tab to display.
  */
 export const CAPTURE_NOTICE_KEY = 'deck:capture-notice';
+export const CAPTURE_PERMISSION_DECLINED_KEY =
+  'deck:capture-permission-declined';
 export const SETTINGS_NOTICE_KEY = 'deck:settings-notice';
 export const BACKUP_ERROR_KEY = 'backupMaintenanceError';
 export const DRAWER_COMMAND_ERROR_KEY = 'drawerCommandError';

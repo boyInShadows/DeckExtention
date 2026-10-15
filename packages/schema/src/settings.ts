@@ -53,6 +53,7 @@ export const SettingsSchema = z.strictObject({
     .max(1024)
     .includes('{query}')
     .default('https://www.google.com/search?q={query}'),
+  searchPermission: z.literal('declined').optional(),
 });
 
 /**

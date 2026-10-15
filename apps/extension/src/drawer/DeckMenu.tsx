@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { TABS_PERMISSION_DECLINED_KEY } from '../permissions/keys';
 import type { DeckRepository } from '../storage/repository';
 import { markOpened } from './inboxActions';
 
@@ -15,7 +16,6 @@ const COLORS = ['slate', 'blue', 'green', 'amber', 'rose'] as const;
 const MENU_GAP = 8;
 const MENU_WIDTH = 224;
 const MENU_HEIGHT = 330;
-const TABS_DECLINED_KEY = 'deck:tabs-declined';
 
 export function DeckMenu({
   anchor,
@@ -49,7 +49,7 @@ export function DeckMenu({
   initialSubMenu?: 'permission' | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const wasTabsDeclined = sessionStorage.getItem(TABS_DECLINED_KEY) === 'true';
+  const [wasTabsDeclined, setWasTabsDeclined] = useState<boolean | null>(null);
   const [subMenu, setSubMenu] = useState<
     'color' | 'page' | 'permission' | null
   >(initialSubMenu);
@@ -69,6 +69,13 @@ export function DeckMenu({
     ),
   } satisfies CSSProperties;
 
+  useEffect(() => {
+    void chrome.storage.local.get(TABS_PERMISSION_DECLINED_KEY).then(
+      (items) =>
+        setWasTabsDeclined(items[TABS_PERMISSION_DECLINED_KEY] === true),
+      (error) => onError(String(error)),
+    );
+  }, [onError]);
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
   }, [subMenu]);
@@ -91,12 +98,19 @@ export function DeckMenu({
   const openAll = async () => {
     const opened: Card[] = [];
     try {
-      if (wasTabsDeclined) return onError(strings.tabsPermissionDeclined);
-      const allowed = await chrome.permissions.request({
-        permissions: ['tabs'],
-      });
+      const permission = {
+        permissions: ['tabs'] as chrome.runtime.ManifestOptionalPermission[],
+      };
+      const isGranted = await chrome.permissions.contains(permission);
+      if (!isGranted && wasTabsDeclined)
+        return onError(strings.tabsPermissionDeclined);
+      const allowed =
+        isGranted || (await chrome.permissions.request(permission));
       if (!allowed) {
-        sessionStorage.setItem(TABS_DECLINED_KEY, 'true');
+        await chrome.storage.local.set({
+          [TABS_PERMISSION_DECLINED_KEY]: true,
+        });
+        setWasTabsDeclined(true);
         return onError(strings.tabsPermissionDeclined);
       }
       for (const [index, card] of cards.entries()) {
@@ -155,7 +169,12 @@ export function DeckMenu({
       {subMenu === 'permission' ? (
         <>
           <p>{strings.accessTabsReason}</p>
-          <button type="button" role="menuitem" onClick={() => void openAll()}>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={wasTabsDeclined === null}
+            onClick={() => void openAll()}
+          >
             {strings.allowAccess}
           </button>
           <button
@@ -233,7 +252,7 @@ export function DeckMenu({
           <button
             type="button"
             role="menuitem"
-            disabled={cards.length === 0 || wasTabsDeclined}
+            disabled={cards.length === 0 || wasTabsDeclined === null}
             onClick={() => setSubMenu('permission')}
           >
             {strings.openAll}
