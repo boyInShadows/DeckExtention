@@ -207,19 +207,27 @@ describe('InboxTriage - list', () => {
 
   it('moves the cursor with j, k and the arrows, clamped to the list', async () => {
     const triage = await renderTriage();
-    expect((await press(triage, 'k')).defaultPrevented).toBe(true);
+    expect((await press(triage, 'j')).defaultPrevented).toBe(true);
     expect(cursorTitle(triage.view)).toBe('Title one');
-    await press(triage, 'j');
     await press(triage, 'ArrowDown');
     await press(triage, 'ArrowDown');
     expect(cursorTitle(triage.view)).toBe('Title three');
     await press(triage, 'ArrowUp');
     expect(cursorTitle(triage.view)).toBe('Title two');
+    await press(triage, 'Home');
+    expect(cursorTitle(triage.view)).toBe('Title one');
+    await press(triage, 'End');
+    expect(cursorTitle(triage.view)).toBe('Title three');
     triage.view.unmount();
+    const fromBottom = await renderTriage();
+    await press(fromBottom, 'k');
+    expect(cursorTitle(fromBottom.view)).toBe('Title three');
+    fromBottom.view.unmount();
   });
 
   it('moves the cursor to a clicked row and drops any selection', async () => {
     const triage = await renderTriage();
+    await press(triage, 'j');
     await press(triage, 'j', { shiftKey: true });
     expect(selectedTitles(triage.view)).toEqual(['Title one', 'Title two']);
     await triage.view.act(() => click(triage.view.getByText('Title three')));
@@ -267,6 +275,7 @@ describe('InboxTriage - keys that must not act', () => {
 describe('InboxTriage - trash and selection', () => {
   it('extends the selection with Shift and trashes the whole range', async () => {
     const triage = await renderTriage();
+    await press(triage, 'j');
     await press(triage, 'j', { shiftKey: true });
     await press(triage, 'ArrowDown', { shiftKey: true });
     expect(selectedTitles(triage.view)).toEqual([

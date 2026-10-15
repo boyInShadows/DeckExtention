@@ -4,6 +4,8 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { useDismissable } from '../hooks/useDismissable';
+import { Icon } from '../newtab/Icon';
 import FaviconTile from '../newtab/FaviconTile';
 import type { WorkspaceProps } from './DeckWorkspace';
 import { dragId } from './dragIdentity';
@@ -143,7 +145,7 @@ export function CardRow({
       data-done={card.done || undefined}
       data-dragging={isDragging || undefined}
       data-drag-over={isOver || undefined}
-      {...attributes}
+      tabIndex={0}
     >
       <button
         ref={setActivatorNodeRef}
@@ -151,6 +153,7 @@ export function CardRow({
         data-deck="card-drag"
         className="deck-card__drag"
         aria-label={strings.dragCard}
+        title={strings.dragCard}
         {...attributes}
         {...listeners}
       >
@@ -190,6 +193,7 @@ export function CardRow({
         </form>
       ) : (
         <a
+          className="deck-blurrable"
           href={card.url}
           onClick={(event) => void open(event)}
           onAuxClick={(event) => void open(event)}
@@ -203,6 +207,7 @@ export function CardRow({
           type="button"
           data-deck="card-edit"
           aria-label={strings.editCard}
+          title={strings.editCard}
           onClick={() => {
             setTitle(card.title);
             setUrl(card.url);
@@ -214,36 +219,40 @@ export function CardRow({
         <button
           type="button"
           aria-label={strings.editNote}
+          title={strings.editNote}
           onClick={() => onEditNote(card)}
         >
-          {card.note ? '◉' : '✎'}
+          <Icon name={card.note ? 'note' : 'edit'} />
         </button>
         <button
           type="button"
           role="checkbox"
           aria-label={strings.markDone}
+          title={strings.markDone}
           aria-checked={Boolean(card.done)}
           onClick={() => void update({ done: !card.done })}
         >
-          ✓
+          <Icon name="check" />
         </button>
         <button
           type="button"
           aria-label={strings.cardMenu}
+          title={strings.cardMenu}
           aria-expanded={isMenuOpen}
           onClick={(event) => {
             setMenuAnchor(event.currentTarget);
             setIsMenuOpen((value) => !value);
           }}
         >
-          ⋯
+          <Icon name="menu" />
         </button>
         <button
           type="button"
           aria-label={strings.trashCard}
+          title={strings.trashCard}
           onClick={() => void trash()}
         >
-          ×
+          <Icon name="close" />
         </button>
       </div>
       {isMenuOpen && menuAnchor ? (
@@ -310,16 +319,8 @@ function CardMenu({
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-    const dismiss = (event: PointerEvent) => {
-      if (
-        !ref.current?.contains(event.target as Node) &&
-        !anchor?.contains(event.target as Node)
-      )
-        onClose();
-    };
-    window.addEventListener('pointerdown', dismiss);
-    return () => window.removeEventListener('pointerdown', dismiss);
-  }, [anchor, onClose]);
+  }, []);
+  useDismissable(ref, onClose, anchor);
   if (!anchor) return null;
   const rect = anchor.getBoundingClientRect();
   return (
@@ -330,11 +331,6 @@ function CardMenu({
       role="menu"
       style={{ insetInlineEnd: 0, insetBlockStart: rect.height }}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          event.stopPropagation();
-          onClose();
-          anchor.focus();
-        }
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault();
           const items = [

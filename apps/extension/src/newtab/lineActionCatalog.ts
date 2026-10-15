@@ -31,3 +31,14 @@ export const LINE_ACTIONS: { id: ActionId; command: string; label: string }[] =
     { id: 'new-page', command: '>new page', label: strings.actionNewPage },
     { id: 'stash', command: '>stash', label: strings.actionStash },
   ];
+
+export function filterLineActions(query: string, isCommand: boolean) {
+  if (!query || query[0] === '?') return [];
+  const lower = query.toLowerCase();
+  return LINE_ACTIONS.filter(({ command, label }) =>
+    isCommand
+      ? `${command} ${label}`.toLowerCase().includes(lower) ||
+        lower.startsWith(command)
+      : label.toLowerCase().includes(lower),
+  );
+}

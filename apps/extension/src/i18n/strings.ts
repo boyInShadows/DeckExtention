@@ -32,6 +32,7 @@ export const strings = {
   renamePinPrompt: 'Pin label',
   iconPrompt: 'Emoji (blank for favicon)',
   settings: 'Settings',
+  blurMode: 'Blur',
   updateFailed: 'Action failed.',
   saved: 'Saved',
   savePin: 'Save',
@@ -40,5 +41,5 @@ export const strings = {
   inbox: 'Inbox',
   newPage: 'New page',
   newDeck: 'New deck',
-  drawerHandle: '⌃ Deck',
+  drawerHandle: 'Deck',
 } as const;

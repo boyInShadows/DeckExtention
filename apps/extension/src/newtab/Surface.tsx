@@ -182,7 +182,20 @@ export function Surface({ initialData }: SurfaceProps) {
       if (event.ctrlKey && event.key.toLowerCase() === 'j') {
         event.preventDefault();
         (isDrawerOpen ? closeDrawer : openDrawer)();
+        return;
       }
+      if (
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey ||
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement
+      )
+        return;
+      const blurKey = settings.keymap.find(({ action }) => action === 'blur');
+      if (event.key === (blurKey?.chord ?? 'b'))
+        void saveSettings({ ...settings, isBlurred: !settings.isBlurred });
+      if (event.key === '?') setIsHelpOpen(true);
     };
     const onMessage = (
       message: { drawer?: number } | null,
@@ -199,7 +212,14 @@ export function Surface({ initialData }: SurfaceProps) {
       window.removeEventListener('keydown', onKeyDown);
       chrome.runtime.onMessage.removeListener(onMessage);
     };
-  }, [closeDrawer, isDrawerOpen, notifyFailure, openDrawer]);
+  }, [
+    closeDrawer,
+    isDrawerOpen,
+    notifyFailure,
+    openDrawer,
+    saveSettings,
+    settings,
+  ]);
 
   useEffect(() => {
     const interval = window.setInterval(
@@ -236,31 +256,12 @@ export function Surface({ initialData }: SurfaceProps) {
     };
   }, [initialData.repository, notifyFailure, settings.wallpaper]);
 
-  useLayoutEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const isInput =
-        event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement;
-      const isPlain = !event.ctrlKey && !event.altKey && !event.metaKey;
-      if (isInput || !isPlain) return;
-      // Surface keys are single characters (keys/keymap.ts), so a plain
-      // comparison here keeps the keymap code off the first paint.
-      const blurKey = settings.keymap.find(({ action }) => action === 'blur');
-      if (event.key === (blurKey?.chord ?? 'b')) {
-        void saveSettings({ ...settings, isBlurred: !settings.isBlurred });
-      }
-      if (event.key === '?') setIsHelpOpen(true);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [saveSettings, settings]);
-
-  const time = new Intl.DateTimeFormat(undefined, {
+  const time = now.toLocaleTimeString(undefined, {
     hour: '2-digit',
     minute: '2-digit',
     second: settings.showSeconds ? '2-digit' : undefined,
     hour12: false,
-  }).format(now);
+  });
   const wallpaperUrl =
     settings.wallpaper.kind === 'file' &&
     loadedWallpaper?.key === settings.wallpaper.blobKey
@@ -338,16 +339,25 @@ export function Surface({ initialData }: SurfaceProps) {
               void saveSettings({ ...settings, isBlurred: !settings.isBlurred })
             }
             aria-pressed={settings.isBlurred}
+            aria-label={strings.blurMode}
+            title={strings.blurMode}
           >
-            ◉
+            <svg aria-hidden="true">
+              <circle cx="10" cy="10" r="7" />
+              <path d="M10 3v14" />
+            </svg>
           </button>
           <button
             type="button"
             data-deck="settings-toggle"
             onClick={() => setIsSettingsOpen(true)}
             aria-label={strings.settings}
+            title={strings.settings}
           >
-            ⚙
+            <svg aria-hidden="true">
+              <circle cx="10" cy="10" r="3" />
+              <circle cx="10" cy="10" r="8" strokeDasharray="3 2" />
+            </svg>
           </button>
         </nav>
         <button
@@ -357,9 +367,12 @@ export function Surface({ initialData }: SurfaceProps) {
           onClick={openDrawer}
           aria-label={strings.openDrawer}
         >
+          <svg aria-hidden="true">
+            <path d="m2 11 6-6 6 6" />
+          </svg>{' '}
           {strings.drawerHandle}
         </button>
-        <Suspense fallback={null}>
+        <Suspense>
           {recoveryIssueCount ? (
             <RecoveryNotice
               count={recoveryIssueCount}
@@ -367,7 +380,7 @@ export function Surface({ initialData }: SurfaceProps) {
             />
           ) : null}
         </Suspense>
-        <Suspense fallback={null}>
+        <Suspense>
           {isSettingsOpen ? (
             <SettingsPanel
               settings={settings}
@@ -379,7 +392,7 @@ export function Surface({ initialData }: SurfaceProps) {
             />
           ) : null}
         </Suspense>
-        <Suspense fallback={null}>
+        <Suspense>
           {isDrawerMounted ? (
             <Drawer
               keymapOverrides={settings.keymap}
@@ -399,7 +412,7 @@ export function Surface({ initialData }: SurfaceProps) {
             />
           ) : null}
         </Suspense>
-        <Suspense fallback={null}>
+        <Suspense>
           {isHelpOpen ? (
             <HelpOverlay
               keymapOverrides={settings.keymap}
@@ -407,7 +420,7 @@ export function Surface({ initialData }: SurfaceProps) {
             />
           ) : null}
         </Suspense>
-        <Suspense fallback={null}>
+        <Suspense>
           {notices.length ? (
             <ToastStack
               notices={notices}

@@ -10,6 +10,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { Icon } from '../newtab/Icon';
 import type { SurfaceData } from '../newtab/bootstrap';
 import type { UndoAction } from './UndoToast';
 import {
@@ -342,7 +343,7 @@ function DeckColumn({
       data-color={deck.color ?? undefined}
       data-dragging={isDragging || undefined}
       data-drag-over={isOver || undefined}
-      {...attributes}
+      tabIndex={0}
     >
       <header className="deck-column__header">
         <button
@@ -361,6 +362,7 @@ function DeckColumn({
           data-deck="deck-drag"
           className="deck-column__drag"
           aria-label={strings.dragDeck}
+          title={strings.dragDeck}
           {...attributes}
           {...listeners}
         >
@@ -368,7 +370,10 @@ function DeckColumn({
         </button>
         <button
           type="button"
-          aria-label={strings.collapseDeck}
+          aria-label={
+            deck.isCollapsed ? strings.expandDeck : strings.collapseDeck
+          }
+          title={deck.isCollapsed ? strings.expandDeck : strings.collapseDeck}
           onClick={() => void saveDeck({ isCollapsed: !deck.isCollapsed })}
         >
           {deck.isCollapsed ? '›' : '⌄'}
@@ -376,7 +381,7 @@ function DeckColumn({
         {isEditing ? (
           <input
             ref={focusTitle}
-            className="deck-column__title"
+            className="deck-column__title deck-blurrable"
             aria-label={strings.renameDeckPrompt}
             value={title}
             onChange={(event) => setTitle(event.currentTarget.value)}
@@ -393,7 +398,7 @@ function DeckColumn({
           <button
             type="button"
             data-deck="deck-title"
-            className="deck-column__title"
+            className="deck-column__title deck-blurrable"
             onClick={() => {
               setTitle(deck.title);
               setIsEditing(true);
@@ -407,6 +412,7 @@ function DeckColumn({
           ref={menuButton}
           type="button"
           aria-label={strings.deckMenu}
+          title={strings.deckMenu}
           aria-expanded={isMenuOpen}
           onClick={(event) => {
             setMenuStart(null);
@@ -414,7 +420,7 @@ function DeckColumn({
             setIsMenuOpen((value) => !value);
           }}
         >
-          •••
+          <Icon name="menu" />
         </button>
       </header>
       {isMenuOpen && menuAnchor ? (
@@ -445,7 +451,9 @@ function DeckColumn({
           ) : null}
           {deck.note ? (
             <div data-deck="deck-note" className="deck-note">
-              <MarkdownNote value={deck.note} />
+              <div className="deck-blurrable">
+                <MarkdownNote value={deck.note} />
+              </div>
               <button
                 type="button"
                 data-deck="deck-note-edit"

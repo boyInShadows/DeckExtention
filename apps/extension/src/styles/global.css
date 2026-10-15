@@ -462,8 +462,7 @@
     cursor: pointer;
   }
 
-  .deck-surface[data-blurred]
-    :is([data-deck='line-results'], .deck-pin__label) {
+  [data-blurred] .deck-blurrable {
     filter: blur(0.35rem);
     user-select: none;
   }
@@ -474,6 +473,20 @@
     inset-block-end: var(--deck-space-3);
     display: flex;
     gap: var(--deck-space-1);
+  }
+
+  .deck-surface-controls svg,
+  .deck-drawer-handle svg {
+    inline-size: 20px;
+    block-size: 20px;
+    fill: none;
+    stroke: currentcolor;
+    stroke-width: 2;
+  }
+
+  .deck-drawer-handle svg {
+    inline-size: 16px;
+    block-size: 16px;
   }
 
   .deck-drawer-handle {
@@ -1014,6 +1027,11 @@
     align-items: center;
     gap: var(--deck-space-1);
     padding: var(--deck-space-1);
+  }
+
+  .deck-column__header :where(button, input) {
+    min-block-size: 2rem;
+    min-inline-size: 2rem;
   }
 
   .deck-column [data-deck='example-hint'] {

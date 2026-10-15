@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import { strings } from '../i18n/strings';
+import { useDismissable } from '../hooks/useDismissable';
 
 const MENU_WIDTH = 192;
 const MENU_HEIGHT = 128;
@@ -47,16 +48,8 @@ export default function PinMenu({
 
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-    const dismiss = (event: PointerEvent) => {
-      if (
-        !ref.current?.contains(event.target as Node) &&
-        !anchor.contains(event.target as Node)
-      )
-        onClose();
-    };
-    window.addEventListener('pointerdown', dismiss);
-    return () => window.removeEventListener('pointerdown', dismiss);
-  }, [anchor, onClose]);
+  }, [editing]);
+  useDismissable(ref, onClose, anchor);
 
   const close = () => {
     onClose();
@@ -66,10 +59,6 @@ export default function PinMenu({
     if (await onUpdate(change)) close();
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      close();
-    }
     if (editing || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key))
       return;
     event.preventDefault();

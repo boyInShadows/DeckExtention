@@ -8,6 +8,8 @@ import {
 } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { useDismissable } from '../hooks/useDismissable';
+import { Icon } from '../newtab/Icon';
 import { TABS_PERMISSION_DECLINED_KEY } from '../permissions/keys';
 import type { DeckRepository } from '../storage/repository';
 import { markOpened } from './inboxActions';
@@ -79,17 +81,7 @@ export function DeckMenu({
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
   }, [subMenu]);
-  useEffect(() => {
-    const dismiss = (event: PointerEvent) => {
-      if (
-        !ref.current?.contains(event.target as Node) &&
-        !anchor.contains(event.target as Node)
-      )
-        onClose();
-    };
-    window.addEventListener('pointerdown', dismiss);
-    return () => window.removeEventListener('pointerdown', dismiss);
-  }, [anchor, onClose]);
+  useDismissable(ref, onClose, anchor);
 
   const close = () => {
     onClose();
@@ -131,11 +123,6 @@ export function DeckMenu({
     }
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      if (subMenu) setSubMenu(null);
-      else close();
-    }
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
     const items = [
@@ -193,9 +180,10 @@ export function DeckMenu({
               type="button"
               role="menuitem"
               aria-label={strings.defaultColor}
+              title={strings.defaultColor}
               onClick={() => choose({ color: null })}
             >
-              ×
+              <Icon name="close" />
             </button>
             {COLORS.map((color) => (
               <button
@@ -204,6 +192,7 @@ export function DeckMenu({
                 role="menuitem"
                 data-color={color}
                 aria-label={color}
+                title={color}
                 aria-current={deck.color === color}
                 onClick={() => choose({ color })}
               />
@@ -223,7 +212,7 @@ export function DeckMenu({
                 disabled={page.id === deck.pageId}
                 onClick={() => choose({ pageId: page.id })}
               >
-                {page.title}
+                <span className="deck-blurrable">{page.title}</span>
               </button>
             ))}
         </>

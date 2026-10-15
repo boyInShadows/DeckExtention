@@ -68,7 +68,7 @@ export default function LineResults({
   return (
     <section
       data-deck="line-results"
-      className="deck-results"
+      className="deck-results deck-blurrable"
       aria-live="polite"
     >
       {isWebSearch ? (

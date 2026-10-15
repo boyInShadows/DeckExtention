@@ -1,11 +1,15 @@
 import type { Card } from 'deck-schema';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { strings } from '../i18n/strings';
+import { useDismissable } from '../hooks/useDismissable';
 import type { SurfaceData } from './bootstrap';
 import { focusOnMount } from './focusOnMount';
 import { createPin } from './pinUndo';
 import type { NoticeInput } from './ToastStack';
+
+const pinAddButton = () =>
+  document.querySelector<HTMLButtonElement>('[data-deck="pin-add"]');
 
 export default function PinAddForm({
   cards,
@@ -26,6 +30,8 @@ export default function PinAddForm({
 }) {
   const [urlInput, setUrlInput] = useState(initialUrl);
   const [labelInput, setLabelInput] = useState('');
+  const formRef = useRef<HTMLDivElement>(null);
+  useDismissable(formRef, onClose, pinAddButton);
   const addPin = async () => {
     try {
       const saved = await createPin(repository, urlInput, labelInput, pins);
@@ -40,7 +46,7 @@ export default function PinAddForm({
     }
   };
   return (
-    <div data-deck="pin-add-form" className="deck-pin-add-form">
+    <div ref={formRef} data-deck="pin-add-form" className="deck-pin-add-form">
       <input
         className="deck-pin-url-input"
         ref={focusOnMount}
@@ -50,7 +56,6 @@ export default function PinAddForm({
         onChange={(event) => setUrlInput(event.currentTarget.value)}
         onKeyDown={(event) => {
           if (event.key === 'Enter') void addPin();
-          if (event.key === 'Escape') onClose();
         }}
       />
       <input
@@ -61,7 +66,6 @@ export default function PinAddForm({
         onChange={(event) => setLabelInput(event.currentTarget.value)}
         onKeyDown={(event) => {
           if (event.key === 'Enter') void addPin();
-          if (event.key === 'Escape') onClose();
         }}
       />
       <button type="button" onClick={() => void addPin()}>

@@ -32,7 +32,7 @@ const deckCards = (page: Page, title: string) =>
     .filter({ has: page.getByRole('button', { name: title, exact: true }) })
     .locator('[data-deck="card"]');
 
-test('a mouse-less session: create, note, pin, move, trash, switch page, open, export', async ({
+test('a mouse-less session: create, note, pin, move, trash, switch page, open, export, Settings', async ({
   browserName,
 }) => {
   expect(browserName).toBe('chromium');
@@ -164,6 +164,13 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
     await expect(help).toContainText('Save the current page');
     await keys.press('Escape');
     await expect(help).toHaveCount(0);
+
+    await keys.press('/');
+    await keys.type('>settings');
+    await keys.press('Enter');
+    await expect(page.locator('[data-deck="settings"]')).toBeVisible();
+    await keys.press('Escape');
+    await expect(page.locator('[data-deck="settings"]')).toHaveCount(0);
   } finally {
     await context.close();
   }
@@ -210,6 +217,108 @@ test('keys: rebind in Settings, refuse a conflict, and the new key works', async
     await expect(page.getByRole('dialog', { name: 'Keyboard' })).toContainText(
       'Delete',
     );
+  } finally {
+    await context.close();
+  }
+});
+
+test('Escape dismisses panels and menus and returns focus', async () => {
+  const context = await launchExtension();
+  try {
+    const page = await openDeck(context);
+    const keys = page.keyboard;
+    const settings = page.locator('[data-deck="settings-toggle"]');
+    await settings.focus();
+    await keys.press('Enter');
+    await expect(page.locator('[data-deck="settings"]')).toBeVisible();
+    await keys.press('Escape');
+    await expect(page.locator('[data-deck="settings"]')).toHaveCount(0);
+    await expect(settings).toBeFocused();
+
+    await keys.press('?');
+    await expect(page.locator('[data-deck="help"]')).toBeVisible();
+    await keys.press('Escape');
+    await expect(page.locator('[data-deck="help"]')).toHaveCount(0);
+    await expect(settings).toBeFocused();
+
+    await keys.press('Control+J');
+    const deckMenuButton = page
+      .getByRole('button', { name: 'Deck menu' })
+      .first();
+    await deckMenuButton.focus();
+    await keys.press('Enter');
+    await expect(page.locator('[data-deck="deck-menu"]')).toBeVisible();
+    await keys.press('Escape');
+    await expect(page.locator('[data-deck="deck-menu"]')).toHaveCount(0);
+    await expect(deckMenuButton).toBeFocused();
+
+    const cardMenuButton = page
+      .getByRole('button', { name: 'Card menu' })
+      .first();
+    await cardMenuButton.focus();
+    await keys.press('Enter');
+    await expect(page.locator('[data-deck="card-menu"]')).toBeVisible();
+    await keys.press('Escape');
+    await expect(page.locator('[data-deck="card-menu"]')).toHaveCount(0);
+    await expect(cardMenuButton).toBeFocused();
+
+    const card = page.locator('[data-deck="card"]').first();
+    await card.focus();
+    await keys.press('m');
+    await expect(page.locator('[data-deck="move-line"]')).toBeVisible();
+    await keys.press('Escape');
+    await expect(page.locator('[data-deck="move-line"]')).toHaveCount(0);
+
+    await card.focus();
+    await keys.press('p');
+    const pin = page.locator('[data-deck="pin"]').first();
+    await expect(pin).toBeVisible();
+    await pin.focus();
+    await keys.press('Shift+F10');
+    await expect(page.locator('[data-deck="pin-menu"]')).toBeVisible();
+    await keys.press('Escape');
+    await expect(page.locator('[data-deck="pin-menu"]')).toHaveCount(0);
+    await expect(pin).toBeFocused();
+
+    await keys.press('Control+J');
+    await expect(page.locator('[data-deck="drawer"]')).toHaveCount(0);
+    const addPin = page.locator('[data-deck="pin-add"]');
+    await addPin.focus();
+    await keys.press('Enter');
+    await expect(page.locator('[data-deck="pin-add-form"]')).toBeVisible();
+    await keys.press('Escape');
+    await expect(page.locator('[data-deck="pin-add-form"]')).toHaveCount(0);
+    await expect(addPin).toBeFocused();
+  } finally {
+    await context.close();
+  }
+});
+
+test('Escape dismisses page-delete and empty-trash dialogs', async () => {
+  const context = await launchExtension();
+  try {
+    const page = await openDeck(context);
+    await page.keyboard.press('Control+J');
+    await page.locator('[data-deck="page-add"]').click();
+    await expect(page.getByLabel('Page name')).toBeFocused();
+    await page.keyboard.press('Enter');
+    const created = page.locator('[data-deck="page"][data-selected]').last();
+    await created.click({ button: 'right' });
+    await expect(page.locator('[data-deck="page-delete-sheet"]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-deck="page-delete-sheet"]')).toHaveCount(
+      0,
+    );
+    await expect(created).toBeFocused();
+
+    await created.click({ button: 'right' });
+    await page.locator('[data-deck="page-delete-sheet"] button').last().click();
+    await page.getByRole('button', { name: 'Trash', exact: true }).click();
+    await page.getByRole('button', { name: 'Empty trash' }).click();
+    await expect(page.locator('[data-deck="trash-confirm"]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-deck="trash-confirm"]')).toHaveCount(0);
+    await expect(page.locator('[data-deck="trash-empty"]')).toBeFocused();
   } finally {
     await context.close();
   }

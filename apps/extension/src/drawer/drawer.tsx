@@ -18,6 +18,8 @@ import {
 } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { useDismissable } from '../hooks/useDismissable';
+import { Icon } from '../newtab/Icon';
 import type { SurfaceData } from '../newtab/bootstrap';
 import { focusOnMount } from '../newtab/focusOnMount';
 import { downloadExport } from '../newtab/downloadExport';
@@ -129,6 +131,7 @@ function SortablePage({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       type="button"
       data-deck="page"
+      className="deck-blurrable"
       data-selected={isSelected || undefined}
       data-dragging={isDragging || undefined}
       data-drag-over={isOver || undefined}
@@ -564,8 +567,9 @@ export default function Drawer({
         data-deck="drawer-close"
         onClick={onClose}
         aria-label={strings.closeDrawer}
+        title={strings.closeDrawer}
       >
-        ×
+        <Icon name="close" size={20} />
       </button>
       <aside data-deck="pages" className="deck-pages">
         <header>
@@ -626,6 +630,7 @@ export default function Drawer({
           data-deck="page-add"
           onClick={() => void addPage()}
           aria-label={strings.addPage}
+          title={strings.addPage}
         >
           +
         </button>
@@ -725,15 +730,18 @@ function PageDeleteSheet({
 }) {
   const targets = activePages(pages).filter(({ id }) => id !== page.id);
   const [destinationId, setDestinationId] = useState(targets[0]?.id ?? '');
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [returnFocus] = useState(
+    () => document.activeElement as HTMLElement | null,
+  );
+  useDismissable(sheetRef, onCancel, returnFocus);
   return (
     <div
+      ref={sheetRef}
       data-deck="page-delete-sheet"
       role="dialog"
       aria-modal="true"
       aria-label={strings.deletePage}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') onCancel();
-      }}
     >
       <p>{strings.pageDeleteTitle(deckCount)}</p>
       {targets.length ? (

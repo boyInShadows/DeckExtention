@@ -69,6 +69,7 @@ export function InboxTriage(props: InboxTriageProps) {
     [props.decks, props.pages],
   );
   const [cursor, setCursor] = useState(0);
+  const [hasNavigated, setHasNavigated] = useState(false);
   const [anchor, setAnchor] = useState<number | null>(null);
   const [isMoving, setIsMoving] = useState(false);
   const [noteCard, setNoteCard] = useState<Card | null>(null);
@@ -157,9 +158,14 @@ export function InboxTriage(props: InboxTriageProps) {
 
   const act = (action: KeyActionId, card: Card, isExtending: boolean) => {
     if (action === 'next' || action === 'previous') {
+      setHasNavigated(true);
       setAnchor(isExtending ? (anchor ?? position) : null);
       setCursor(
-        clampIndex(position + (action === 'next' ? 1 : -1), ids.length),
+        !hasNavigated
+          ? action === 'next'
+            ? 0
+            : ids.length - 1
+          : clampIndex(position + (action === 'next' ? 1 : -1), ids.length),
       );
     } else if (action === 'move') setIsMoving(true);
     else if (action === 'trash')
@@ -184,6 +190,13 @@ export function InboxTriage(props: InboxTriageProps) {
 
   const onKeyDown = (event: KeyboardEvent<HTMLOListElement>) => {
     if (!props.isOpen || event.target !== event.currentTarget) return;
+    if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      setHasNavigated(true);
+      setAnchor(event.shiftKey ? (anchor ?? position) : null);
+      setCursor(event.key === 'Home' ? 0 : ids.length - 1);
+      return;
+    }
     const card = inboxCards[position];
     const chord = chordFromEvent(event);
     if (!card || !chord) return;
@@ -239,11 +252,12 @@ export function InboxTriage(props: InboxTriageProps) {
             }
             onClick={() => {
               setCursor(index);
+              setHasNavigated(true);
               setAnchor(null);
             }}
           >
             <FaviconTile url={card.url} hostname={card.hostname} />
-            <span>
+            <span className="deck-blurrable">
               <strong>{card.title}</strong>
               <small>{card.note ? `● ${card.hostname}` : card.hostname}</small>
             </span>

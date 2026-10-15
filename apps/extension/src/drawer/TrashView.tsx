@@ -1,7 +1,8 @@
 import type { Card, Deck, Page } from 'deck-schema';
-import { useState, type KeyboardEvent } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { useDismissable } from '../hooks/useDismissable';
 import type { DeckRepository } from '../storage/repository';
 import { focusOnMount } from '../newtab/focusOnMount';
 
@@ -9,6 +10,37 @@ type TrashItem =
   | { kind: 'page'; record: Page; cardCount: number }
   | { kind: 'deck'; record: Deck; cardCount: number }
   | { kind: 'card'; record: Card; cardCount: number };
+
+const emptyTrashButton = () =>
+  document.querySelector<HTMLButtonElement>('[data-deck="trash-empty"]');
+
+function TrashConfirm({
+  onCancel,
+  onConfirm,
+}: {
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDismissable(ref, onCancel, emptyTrashButton);
+  return (
+    <div
+      ref={ref}
+      data-deck="trash-confirm"
+      role="dialog"
+      aria-modal="true"
+      aria-label={strings.emptyTrash}
+    >
+      <p>{strings.emptyTrashConfirm}</p>
+      <button ref={focusOnMount} type="button" onClick={onCancel}>
+        {strings.cancel}
+      </button>
+      <button type="button" onClick={onConfirm}>
+        {strings.emptyTrash}
+      </button>
+    </div>
+  );
+}
 
 interface TrashViewProps {
   pages: Page[];
@@ -110,7 +142,11 @@ export function TrashView(props: TrashViewProps) {
       <header>
         <h2>{strings.trash}</h2>
         {groups.size ? (
-          <button type="button" onClick={() => setIsConfirming(true)}>
+          <button
+            type="button"
+            data-deck="trash-empty"
+            onClick={() => setIsConfirming(true)}
+          >
             {strings.emptyTrash}
           </button>
         ) : null}
@@ -127,7 +163,7 @@ export function TrashView(props: TrashViewProps) {
                   tabIndex={0}
                   onKeyDown={(event) => onItemKeyDown(event, item)}
                 >
-                  <span>{item.record.title}</span>
+                  <span className="deck-blurrable">{item.record.title}</span>
                   <small>
                     {strings.trashType[item.kind]}
                     {item.kind !== 'card'
@@ -146,35 +182,15 @@ export function TrashView(props: TrashViewProps) {
         <p>{strings.trashEmpty}</p>
       )}
       {isConfirming ? (
-        <div
-          data-deck="trash-confirm"
-          role="dialog"
-          aria-modal="true"
-          aria-label={strings.emptyTrash}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') setIsConfirming(false);
+        <TrashConfirm
+          onCancel={() => setIsConfirming(false)}
+          onConfirm={() => {
+            setIsConfirming(false);
+            void run(async () => {
+              await props.repository.purge(Infinity);
+            }, strings.trashEmptied);
           }}
-        >
-          <p>{strings.emptyTrashConfirm}</p>
-          <button
-            ref={focusOnMount}
-            type="button"
-            onClick={() => setIsConfirming(false)}
-          >
-            {strings.cancel}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsConfirming(false);
-              void run(async () => {
-                await props.repository.purge(Infinity);
-              }, strings.trashEmptied);
-            }}
-          >
-            {strings.emptyTrash}
-          </button>
-        </div>
+        />
       ) : null}
     </main>
   );

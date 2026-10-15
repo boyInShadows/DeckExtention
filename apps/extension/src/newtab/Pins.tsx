@@ -138,7 +138,7 @@ function SortablePin({
           </Suspense>
         )}
       </span>
-      <span className="deck-pin__label">{label}</span>
+      <span className="deck-pin__label deck-blurrable">{label}</span>
     </a>
   );
 }
@@ -260,7 +260,7 @@ export function Pins({
       </SortableContext>
       {pins.length < MAX_PINS ? (
         isAdding ? (
-          <Suspense fallback={null}>
+          <Suspense>
             <PinAddForm
               key={initialUrl}
               cards={cards}
@@ -285,6 +285,7 @@ export function Pins({
               setIsAdding(true);
             }}
             aria-label={strings.addPin}
+            title={strings.addPin}
           >
             <span aria-hidden="true">+</span>
           </button>
@@ -301,7 +302,7 @@ export function Pins({
           <span aria-hidden="true">+</span>
         </button>
       )}
-      <Suspense fallback={null}>
+      <Suspense>
         {menu ? (
           <PinMenu
             card={menu.card}

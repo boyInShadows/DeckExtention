@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { useDismissable } from '../hooks/useDismissable';
 import { strings as surfaceStrings } from '../i18n/strings';
 import type { SurfaceData } from '../newtab/bootstrap';
 import { focusOnMount } from '../newtab/focusOnMount';
@@ -41,6 +42,7 @@ export const NotePanel = forwardRef<
   const saved = useRef(entity);
   const pending = useRef<Promise<boolean> | null>(null);
   const timer = useRef<number | null>(null);
+  const panelRef = useRef<HTMLElement>(null);
 
   const save = async (): Promise<boolean> => {
     if (pending.current) return (await pending.current) && save();
@@ -98,11 +100,12 @@ export const NotePanel = forwardRef<
   const saveAndClose = async () => {
     if (await flush()) onClose();
   };
+  useDismissable(panelRef, saveAndClose, undefined, false);
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.ctrlKey && event.key.toLowerCase() === 'j') return;
     event.stopPropagation();
     const isSubmit = event.key === 'Enter' && (event.ctrlKey || event.metaKey);
-    if (event.key !== 'Escape' && !isSubmit) return;
+    if (!isSubmit) return;
     event.preventDefault();
     void saveAndClose();
   };
@@ -116,6 +119,7 @@ export const NotePanel = forwardRef<
   const isCard = 'deckId' in entity;
   return (
     <aside
+      ref={panelRef}
       data-deck="note"
       className="deck-note-panel"
       aria-label={`${strings.editNote}: ${entity.title}`}
@@ -125,7 +129,10 @@ export const NotePanel = forwardRef<
         {isCard ? (
           <FaviconTile url={entity.url} hostname={entity.hostname} />
         ) : null}
-        <div data-deck="note-identity" className="deck-note-panel__identity">
+        <div
+          data-deck="note-identity"
+          className="deck-note-panel__identity deck-blurrable"
+        >
           <strong data-deck="note-title">{entity.title}</strong>
           {isCard ? (
             <small data-deck="note-hostname">{entity.hostname}</small>
@@ -156,13 +163,17 @@ export const NotePanel = forwardRef<
         </button>
       </header>
       {isPreview ? (
-        <div data-deck="note-preview" className="deck-note-preview">
+        <div
+          data-deck="note-preview"
+          className="deck-note-preview deck-blurrable"
+        >
           <MarkdownNote value={note} />
         </div>
       ) : (
         <textarea
           ref={focusOnMount}
           data-deck="note-text"
+          className="deck-blurrable"
           aria-label={`${strings.editNote}: ${entity.title}`}
           value={note}
           onChange={(event) => changeNote(event.target.value)}

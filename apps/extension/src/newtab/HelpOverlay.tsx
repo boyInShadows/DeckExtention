@@ -1,5 +1,11 @@
 import type { KeyBinding } from 'deck-schema';
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import {
@@ -10,6 +16,7 @@ import {
   type Keymap,
 } from '../keys/keymap';
 import { focusOnMount } from './focusOnMount';
+import { useDismissable } from '../hooks/useDismissable';
 
 interface HelpOverlayProps {
   keymapOverrides: readonly KeyBinding[];
@@ -46,6 +53,11 @@ export default function HelpOverlay({
   const [commands, setCommands] = useState<BrowserCommand[]>([]);
   const [showShortcutHint, setShowShortcutHint] = useState(false);
   const [shortcutError, setShortcutError] = useState('');
+  const panelRef = useRef<HTMLElement>(null);
+  const [returnFocus] = useState(
+    () => document.activeElement as HTMLElement | null,
+  );
+  useDismissable(panelRef, onClose, returnFocus, false);
 
   useEffect(() => {
     chrome.commands.getAll().then(
@@ -125,9 +137,10 @@ export default function HelpOverlay({
       buttons[next]?.focus();
       return;
     }
-    if (event.key === 'Escape' || event.key === '?') {
+    if (event.key === '?') {
       event.preventDefault();
       onClose();
+      returnFocus?.focus();
     }
   };
 
@@ -139,6 +152,7 @@ export default function HelpOverlay({
       }}
     >
       <section
+        ref={panelRef}
         data-deck="help"
         className="deck-help"
         role="dialog"

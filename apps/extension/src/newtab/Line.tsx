@@ -2,8 +2,8 @@ import type { Card, Settings } from 'deck-schema';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import { strings } from '../i18n/strings';
+import type { filterLineActions } from './lineActionCatalog';
 import type { SurfaceData } from './bootstrap';
-import type { LINE_ACTIONS } from './lineActionCatalog';
 import type { SearchResults } from './lineSearch';
 import type LineResults from './LineResults';
 import { shouldSpaceOpenDrawer } from './surfaceModel';
@@ -34,38 +34,30 @@ export function Line(props: LineProps) {
   const [showHint, setShowHint] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(0);
   const [Results, setResults] = useState<typeof LineResults | null>(null);
-  const [catalog, setCatalog] = useState<typeof LINE_ACTIONS>([]);
+  const [catalog, setCatalog] = useState<{
+    filterLineActions: typeof filterLineActions;
+  } | null>(null);
   const [search, setSearch] = useState<(query: string) => SearchResults<Card>>(
     () => () => ({ cards: [], notes: [], url: null }),
   );
   const inputRef = useRef<HTMLInputElement>(null);
-  const isWebSearch = query.startsWith('?');
-  const isCommand = query.startsWith('>');
+  const isWebSearch = query[0] === '?';
+  const isCommand = query[0] === '>';
   const results =
     isWebSearch || isCommand
       ? { cards: [], notes: [], url: null }
       : search(query);
-  const actions =
-    !query || isWebSearch
-      ? []
-      : catalog.filter(({ command, label }) => {
-          const lower = query.toLowerCase();
-          return isCommand
-            ? `${command} ${label}`.toLowerCase().includes(lower) ||
-                lower.startsWith(command)
-            : label.toLowerCase().includes(lower);
-        });
-  const groups: ResultGroup[] = [
-    ...(results.cards.length ? ['cards' as const] : []),
-    ...(results.notes.length ? ['notes' as const] : []),
-    ...(actions.length ? ['actions' as const] : []),
-    ...(!results.cards.length &&
-    !results.notes.length &&
-    !actions.length &&
-    results.url
-      ? ['url' as const]
-      : []),
-  ];
+  const actions = catalog?.filterLineActions(query, isCommand) ?? [];
+  const groups = [
+    results.cards.length && 'cards',
+    results.notes.length && 'notes',
+    actions.length && 'actions',
+    !results.cards.length &&
+      !results.notes.length &&
+      !actions.length &&
+      results.url &&
+      'url',
+  ].filter(Boolean) as ResultGroup[];
   const group = groups[Math.min(selectedGroup, groups.length - 1)];
   const itemCount = isWebSearch
     ? 1
@@ -94,7 +86,7 @@ export function Line(props: LineProps) {
   }, [query, isFocused]);
   useEffect(() => {
     void import('./lineActionCatalog')
-      .then((module) => setCatalog(module.LINE_ACTIONS))
+      .then(setCatalog)
       .catch((error: unknown) => notify(String(error)));
   }, [notify]);
   useEffect(() => {

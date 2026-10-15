@@ -289,11 +289,15 @@ describe('DeckWorkspace - layout', () => {
       view.get('[data-card-id="card_1"] img').getAttribute('src'),
     ).toContain(encodeURIComponent('https://example.com/card_1'));
     expect(
-      within(view.get('[data-card-id="card_1"]'), strings.editNote).textContent,
-    ).toBe('◉');
+      within(view.get('[data-card-id="card_1"]'), strings.editNote)
+        .querySelector('svg')
+        ?.getAttribute('aria-hidden'),
+    ).toBe('true');
     expect(
-      within(view.get('[data-card-id="card_2"]'), strings.editNote).textContent,
-    ).toBe('✎');
+      within(view.get('[data-card-id="card_2"]'), strings.editNote)
+        .querySelector('svg')
+        ?.getAttribute('aria-hidden'),
+    ).toBe('true');
 
     const later = deckSection(view, 'deck_2');
     expect(later.dataset.color).toBe('blue');
@@ -324,7 +328,7 @@ describe('DeckWorkspace - layout', () => {
     );
     const { view } = await mount({ decks });
     const reading = deckSection(view, 'deck_1');
-    expect(within(reading, strings.collapseDeck).textContent).toBe('›');
+    expect(within(reading, strings.expandDeck).textContent).toBe('›');
     expect(reading.querySelector('[data-deck="card"]')).toBeNull();
     expect(reading.querySelector('[data-deck="add-card"]')).toBeNull();
     view.unmount();
@@ -935,8 +939,10 @@ describe('DeckWorkspace - notes', () => {
     );
     expect((await storedCard('card_2'))?.note).toBe('Read twice');
     expect(
-      within(view.get('[data-card-id="card_2"]'), strings.editNote).textContent,
-    ).toBe('◉');
+      within(view.get('[data-card-id="card_2"]'), strings.editNote)
+        .querySelector('svg')
+        ?.getAttribute('aria-hidden'),
+    ).toBe('true');
 
     await act(view, () => click(view.getByText(strings.close)));
     await eventually(view, () =>

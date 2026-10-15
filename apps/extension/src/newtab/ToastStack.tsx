@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { isTypingTarget } from '../keys/keymap';
 import { playSpring } from '../motion/spring';
+import { Icon } from './Icon';
 
 const TOAST_DURATION_MS = 4_000;
 
@@ -63,7 +64,12 @@ export default function ToastStack({
   }, [run, undo]);
 
   return (
-    <div data-deck="toast-stack" className="deck-toast-stack">
+    <div
+      data-deck="toast-stack"
+      className="deck-toast-stack"
+      role="status"
+      aria-live="polite"
+    >
       {notices.map((notice) => (
         <Toast key={notice.id} notice={notice} dismiss={dismiss} run={run} />
       ))}
@@ -100,10 +106,10 @@ function Toast({
       ref={toastRef}
       data-deck="toast"
       data-kind={notice.kind}
-      role={notice.kind === 'error' ? 'alert' : 'status'}
+      role={notice.kind === 'error' ? 'alert' : undefined}
       className="deck-toast"
     >
-      <span>{notice.text}</span>
+      <span className="deck-blurrable">{notice.text}</span>
       {notice.action ? (
         <button type="button" onClick={() => void run(notice)}>
           {notice.action.label}
@@ -113,9 +119,10 @@ function Toast({
         <button
           type="button"
           aria-label={strings.dismiss}
+          title={strings.dismiss}
           onClick={() => dismiss(notice.id)}
         >
-          ×
+          <Icon name="close" />
         </button>
       ) : null}
     </div>

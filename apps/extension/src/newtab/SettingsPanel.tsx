@@ -16,6 +16,8 @@ import {
 } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { useDismissable } from '../hooks/useDismissable';
+import { Icon } from './Icon';
 import { BackupService } from '../storage/backup';
 import type { ImportMode, ImportPreview } from '../storage/backup';
 import { openDeckDatabase } from '../storage/database';
@@ -97,6 +99,7 @@ export default function SettingsPanel({
   const latestSettings = useRef(settings);
   const writeQueue = useRef<Promise<void>>(Promise.resolve());
   const wallpaperInput = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const importInput = useRef<HTMLInputElement>(null);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [importDraft, setImportDraft] = useState<{
@@ -148,15 +151,7 @@ export default function SettingsPanel({
     onClose();
   };
 
-  useEffect(() => {
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.stopImmediatePropagation();
-      void close();
-    };
-    window.addEventListener('keydown', onEscape, true);
-    return () => window.removeEventListener('keydown', onEscape, true);
-  });
+  useDismissable(panelRef, close, undefined, false);
 
   const loadSnapshots = useCallback(() => {
     void backups.listSnapshots().then(setSnapshots).catch(showError);
@@ -319,6 +314,7 @@ export default function SettingsPanel({
         onClick={() => void close()}
       />
       <aside
+        ref={panelRef}
         data-deck="settings"
         className="deck-settings"
         aria-label={strings.settings}
@@ -329,8 +325,9 @@ export default function SettingsPanel({
             type="button"
             onClick={() => void close()}
             aria-label={strings.closeSettings}
+            title={strings.closeSettings}
           >
-            ×
+            <Icon name="close" size={20} />
           </button>
         </header>
         <SettingsGroup title={strings.appearance}>

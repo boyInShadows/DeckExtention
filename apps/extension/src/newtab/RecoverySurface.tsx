@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { Snapshot } from 'deck-schema';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { Icon } from './Icon';
 import { BackupService } from '../storage/backup';
 import { openDeckDatabase } from '../storage/database';
 import { DeckRepository } from '../storage/repository';
@@ -146,8 +147,9 @@ export function RecoveryNotice({
         type="button"
         onClick={() => setIsDismissed(true)}
         aria-label={strings.dismiss}
+        title={strings.dismiss}
       >
-        ×
+        <Icon name="close" />
       </button>
     </aside>
   );

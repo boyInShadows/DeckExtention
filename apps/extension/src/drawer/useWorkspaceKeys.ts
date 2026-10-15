@@ -191,6 +191,11 @@ export function useWorkspaceKeys(options: WorkspaceKeysOptions): void {
       const { mainRef, keymap, cards, isPaused } = latest.current;
       const main = mainRef.current;
       if (!main || isPaused || isTypingTarget(event.target)) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest('button, a, select, [role="menuitem"]')
+      )
+        return;
       const isInGrid =
         event.target === document.body || main.contains(event.target as Node);
       // A card mid keyboard-drag owns the keys until it is dropped.

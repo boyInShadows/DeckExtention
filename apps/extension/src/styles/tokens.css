@@ -65,7 +65,7 @@
   --deck-color-text-muted: #5c6474;
 
   --deck-color-glass: rgb(255 255 255 / 55%);
-  --deck-color-hairline: rgb(0 0 0 / 12%);
+  --deck-color-hairline: rgb(0 0 0 / 18%);
   --deck-color-scrim: rgb(255 255 255 / 45%);
   --deck-color-focus: #2f5bd8;
   --deck-color-shadow: rgb(20 22 28 / 14%);
@@ -102,7 +102,7 @@
     --deck-color-text-muted: #5c6474;
 
     --deck-color-glass: rgb(255 255 255 / 55%);
-    --deck-color-hairline: rgb(0 0 0 / 12%);
+    --deck-color-hairline: rgb(0 0 0 / 18%);
     --deck-color-scrim: rgb(255 255 255 / 45%);
     --deck-color-focus: #2f5bd8;
     --deck-color-shadow: rgb(20 22 28 / 14%);
