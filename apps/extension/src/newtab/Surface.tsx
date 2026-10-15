@@ -287,6 +287,10 @@ export function Surface({ initialData }: SurfaceProps) {
     '--deck-wallpaper-image': wallpaperUrl ? `url("${wallpaperUrl}")` : 'none',
     '--deck-wallpaper-dim': `${settings.wallpaperDim / 100}`,
     '--deck-auto-scrim': `${blackScrimForWhiteText(settings.wallpaperLuminance ?? 0)}`,
+    '--deck-wallpaper-color':
+      settings.wallpaper.kind === 'color'
+        ? `var(--deck-color-wallpaper-${settings.wallpaper.token})`
+        : 'transparent',
   } as CSSProperties;
 
   return (

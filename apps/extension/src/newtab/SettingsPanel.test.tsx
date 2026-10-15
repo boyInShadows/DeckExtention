@@ -170,7 +170,10 @@ async function chooseFile(
   labelText: string,
   file: File | null,
 ) {
-  const input = control<HTMLInputElement>(view, labelText);
+  const input = view
+    .getAll<HTMLInputElement>('input[type="file"]')
+    .find((item) => item.getAttribute('aria-label') === labelText);
+  if (!input) throw new Error(`No file control labelled ${labelText}`);
   Object.defineProperty(input, 'files', {
     configurable: true,
     value: file ? [file] : [],
@@ -216,14 +219,38 @@ describe('SettingsPanel - appearance', () => {
     view.unmount();
   });
 
-  it('saves theme, name, toggles and dim as whole new settings', async () => {
+  it('closes with Escape or the backdrop', async () => {
+    const { view, onClose } = await mount();
+    await view.act(() => {
+      keyDown(window, 'Escape');
+    });
+    await clickAndSettle(view, view.get('[data-deck="settings-backdrop"]'));
+    expect(onClose).toHaveBeenCalledTimes(2);
+    view.unmount();
+  });
+
+  it('writes a drafted name once on close', async () => {
     const { view, onChange } = await mount();
-    const theme = control<HTMLSelectElement>(view, strings.theme);
-    theme.value = 'day';
-    await change(view, theme);
     await view.act(() =>
       type(control<HTMLInputElement>(view, strings.yourName), 'Kasra'),
     );
+    expect(onChange).not.toHaveBeenCalled();
+    await clickAndSettle(view, view.getByLabel(strings.closeSettings));
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange).toHaveBeenCalledWith({
+      ...SETTINGS_DEFAULTS,
+      ownerName: 'Kasra',
+    });
+    view.unmount();
+  });
+
+  it('saves theme, name, toggles and dim without reverting earlier changes', async () => {
+    const { view, onChange } = await mount();
+    await clickAndSettle(view, view.getByLabel(strings.themeDay));
+    await view.act(() =>
+      type(control<HTMLInputElement>(view, strings.yourName), 'Kasra'),
+    );
+    await clickAndSettle(view, view.getByLabel(strings.closeSettings));
     await view.act(() =>
       click(control<HTMLInputElement>(view, strings.showSeconds)),
     );
@@ -235,15 +262,42 @@ describe('SettingsPanel - appearance', () => {
     );
     const dim = control<HTMLInputElement>(view, strings.wallpaperDim);
     await view.act(() => type(dim, '40'));
+    await settle(view);
 
     const changes = onChange.mock.calls.map(([next]) => next);
     expect(changes).toEqual([
       { ...SETTINGS_DEFAULTS, theme: 'day' },
-      { ...SETTINGS_DEFAULTS, ownerName: 'Kasra' },
-      { ...SETTINGS_DEFAULTS, showSeconds: true },
-      { ...SETTINGS_DEFAULTS, isBlurred: true },
-      { ...SETTINGS_DEFAULTS, canSpaceOpenDrawer: false },
-      { ...SETTINGS_DEFAULTS, wallpaperDim: 40 },
+      { ...SETTINGS_DEFAULTS, theme: 'day', ownerName: 'Kasra' },
+      {
+        ...SETTINGS_DEFAULTS,
+        theme: 'day',
+        ownerName: 'Kasra',
+        showSeconds: true,
+      },
+      {
+        ...SETTINGS_DEFAULTS,
+        theme: 'day',
+        ownerName: 'Kasra',
+        showSeconds: true,
+        isBlurred: true,
+      },
+      {
+        ...SETTINGS_DEFAULTS,
+        theme: 'day',
+        ownerName: 'Kasra',
+        showSeconds: true,
+        isBlurred: true,
+        canSpaceOpenDrawer: false,
+      },
+      {
+        ...SETTINGS_DEFAULTS,
+        theme: 'day',
+        ownerName: 'Kasra',
+        showSeconds: true,
+        isBlurred: true,
+        canSpaceOpenDrawer: false,
+        wallpaperDim: 40,
+      },
     ]);
     expect(SETTINGS_DEFAULTS.theme).toBe('night');
     view.unmount();
@@ -258,7 +312,10 @@ describe('SettingsPanel - appearance', () => {
     };
     const { view, onChange } = await mount(withFile);
     await clickAndSettle(view, buttonWithText(view, strings.wallpaperNone));
-    await clickAndSettle(view, buttonWithText(view, strings.wallpaperColor));
+    await clickAndSettle(
+      view,
+      view.getByLabel(`${strings.wallpaperColor}: slate`),
+    );
     expect(onChange.mock.calls.map(([next]) => next)).toEqual([
       {
         ...withFile,
@@ -268,7 +325,7 @@ describe('SettingsPanel - appearance', () => {
       },
       {
         ...withFile,
-        wallpaper: { kind: 'color', token: 'canvas-raised' },
+        wallpaper: { kind: 'color', token: 'slate' },
         wallpaperGradient: null,
         wallpaperLuminance: null,
       },
@@ -359,12 +416,13 @@ describe('SettingsPanel - keys and advanced', () => {
     await view.act(() =>
       type(control<HTMLTextAreaElement>(view, strings.customCss), 'a{}'),
     );
+    await clickAndSettle(view, view.getByLabel(strings.closeSettings));
     expect(onChange.mock.calls.map(([next]) => next)).toEqual([
       {
         ...SETTINGS_DEFAULTS,
         searchUrlTemplate: 'https://duck.example/?q={query}',
+        customCss: 'a{}',
       },
-      { ...SETTINGS_DEFAULTS, customCss: 'a{}' },
     ]);
     view.unmount();
   });

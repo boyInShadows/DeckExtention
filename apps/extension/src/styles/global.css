@@ -122,7 +122,7 @@
   }
 
   .deck-surface[data-wallpaper-kind='color'] .deck-wallpaper {
-    background-color: var(--deck-color-canvas-raised);
+    background-color: var(--deck-wallpaper-color);
     opacity: 1;
   }
 
@@ -577,6 +577,14 @@
     text-align: start;
   }
 
+  .deck-settings-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    border: 0;
+    background: var(--deck-color-scrim);
+  }
+
   .deck-settings header,
   .deck-settings__toggle {
     display: flex;
@@ -591,6 +599,7 @@
 
   .deck-settings [data-deck='settings-group'] {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--deck-space-1);
     padding-block: var(--deck-space-3);
     border-block-end: 1px solid var(--deck-color-hairline);
@@ -598,7 +607,54 @@
 
   .deck-settings label:not(.deck-settings__toggle) {
     display: grid;
+    min-inline-size: 0;
     gap: var(--deck-space-1);
+  }
+
+  .deck-settings label:not(.deck-settings__toggle) > :is(input, textarea) {
+    box-sizing: border-box;
+    min-inline-size: 0;
+    inline-size: 100%;
+  }
+
+  .deck-settings__toggle {
+    min-inline-size: 0;
+    gap: var(--deck-space-1);
+  }
+
+  .deck-settings__checkbox {
+    flex: none;
+  }
+
+  .deck-settings__theme {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--deck-space-1);
+  }
+
+  .deck-settings__theme button[aria-pressed='true'] {
+    border-color: var(--deck-color-focus);
+  }
+
+  .deck-settings__file {
+    display: none;
+  }
+
+  .deck-settings__swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--deck-space-1);
+  }
+
+  .deck-settings__swatch {
+    inline-size: 2rem;
+    block-size: 2rem;
+    border-radius: 50% !important;
+  }
+
+  .deck-settings__swatch[aria-pressed='true'] {
+    outline: 2px solid var(--deck-color-focus);
+    outline-offset: 2px;
   }
 
   .deck-settings textarea {
@@ -609,7 +665,7 @@
 
   .deck-settings__wallpaper {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--deck-space-1);
   }
 

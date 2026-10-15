@@ -259,6 +259,9 @@ describe('Line Enter', () => {
         notify: props.notify,
       }),
     );
+    expect(view.get<HTMLInputElement>('[data-deck="line"] input').value).toBe(
+      '',
+    );
     view.unmount();
   });
 

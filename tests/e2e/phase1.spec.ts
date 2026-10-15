@@ -8,6 +8,66 @@ const READY_SELECTOR = 'html[data-deck-ready="true"]';
 const WARM_RUNS = 20;
 const DRAWER_TEST_TIMEOUT_MS = 120_000;
 
+test('Settings controls fit, close, and render in both themes', async ({
+  browserName,
+}, testInfo) => {
+  expect(browserName).toBe('chromium');
+  const context = await launchExtension();
+  try {
+    const page = await context.newPage();
+    for (const width of [1440, 1024]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('chrome://newtab/');
+      await page.waitForSelector(READY_SELECTOR);
+      await page.locator('[data-deck="settings-toggle"]').click();
+      const panel = page.locator('[data-deck="settings"]');
+      await expect(panel).toBeVisible();
+      for (const theme of ['Night', 'Day']) {
+        await panel.getByRole('button', { name: theme, exact: true }).click();
+        const overflow = await panel.evaluate((element) => {
+          const panelEdge = element.getBoundingClientRect().right;
+          return [...element.querySelectorAll('input, textarea, button')]
+            .filter((control) => getComputedStyle(control).display !== 'none')
+            .filter(
+              (control) =>
+                control.getBoundingClientRect().right > panelEdge + 1,
+            )
+            .map(
+              (control) =>
+                control.getAttribute('aria-label') ?? control.textContent,
+            );
+        });
+        expect(overflow).toEqual([]);
+        await testInfo.attach(
+          `appearance-${theme.toLowerCase()}-${width}.png`,
+          {
+            body: await page.screenshot(),
+            contentType: 'image/png',
+          },
+        );
+      }
+      await page.keyboard.press('Escape');
+      await expect(panel).toHaveCount(0);
+      await expect(page.locator('[data-deck="settings-toggle"]')).toBeFocused();
+      await page.locator('[data-deck="settings-toggle"]').click();
+      await page
+        .locator('[data-deck="settings"]')
+        .getByRole('textbox', { name: 'Your name' })
+        .fill('Kasra');
+      await page
+        .locator('[data-deck="settings-backdrop"]')
+        .click({ position: { x: 30, y: 30 } });
+      await expect(panel).toHaveCount(0);
+      await page.reload();
+      await expect(page.locator('[data-deck="greeting"]')).toContainText(
+        'Kasra',
+      );
+    }
+  } finally {
+    await context.close();
+  }
+});
+
 test('surface persists a pin, exports data, and stays fast when warm', async ({
   browserName,
 }, testInfo) => {

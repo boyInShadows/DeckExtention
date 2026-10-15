@@ -36,6 +36,12 @@
   --deck-color-danger: #f38ba8;
   --deck-color-on-bright: #ffffff;
   --deck-color-on-bright-muted: #e1e4eb;
+  --deck-color-wallpaper-slate: #202a39;
+  --deck-color-wallpaper-indigo: #29254a;
+  --deck-color-wallpaper-teal: #153b3b;
+  --deck-color-wallpaper-rose: #4a2736;
+  --deck-color-wallpaper-sand: #403527;
+  --deck-color-wallpaper-moss: #2b3e2b;
 }
 
 [data-theme='day'] {
@@ -61,6 +67,12 @@
   --deck-color-danger: #b4233f;
   --deck-color-on-bright: #ffffff;
   --deck-color-on-bright-muted: #e1e4eb;
+  --deck-color-wallpaper-slate: #dce4ed;
+  --deck-color-wallpaper-indigo: #e1ddf4;
+  --deck-color-wallpaper-teal: #d4ece9;
+  --deck-color-wallpaper-rose: #f2dce3;
+  --deck-color-wallpaper-sand: #f0e6d2;
+  --deck-color-wallpaper-moss: #e0ead7;
 }
 
 @media (prefers-color-scheme: light) {
@@ -85,6 +97,12 @@
     --deck-color-focus: #2f5bd8;
     --deck-color-shadow: rgb(20 22 28 / 14%);
     --deck-color-danger: #b4233f;
+    --deck-color-wallpaper-slate: #dce4ed;
+    --deck-color-wallpaper-indigo: #e1ddf4;
+    --deck-color-wallpaper-teal: #d4ece9;
+    --deck-color-wallpaper-rose: #f2dce3;
+    --deck-color-wallpaper-sand: #f0e6d2;
+    --deck-color-wallpaper-moss: #e0ead7;
     --deck-color-on-bright: #ffffff;
     --deck-color-on-bright-muted: #e1e4eb;
   }
@@ -95,6 +113,7 @@
  * and motion are named here and referenced everywhere else.
  */
 :root {
+  --deck-color-wallpaper-canvas-raised: var(--deck-color-canvas-raised);
   --deck-font-ui:
     'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 

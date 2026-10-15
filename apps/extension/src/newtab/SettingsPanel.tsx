@@ -2,6 +2,7 @@ import type { Settings, Snapshot, Theme } from 'deck-schema';
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ChangeEvent,
   type ReactNode,
@@ -31,6 +32,14 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: 'day', label: strings.themeDay },
   { value: 'system', label: strings.themeSystem },
 ];
+const WALLPAPER_COLORS = [
+  'slate',
+  'indigo',
+  'teal',
+  'rose',
+  'sand',
+  'moss',
+] as const;
 
 export default function SettingsPanel({
   settings,
@@ -40,18 +49,62 @@ export default function SettingsPanel({
   onClose,
 }: SettingsPanelProps) {
   const [error, setError] = useState('');
+  const [ownerName, setOwnerName] = useState(settings.ownerName);
+  const [customCss, setCustomCss] = useState(settings.customCss);
+  const [searchUrlTemplate, setSearchUrlTemplate] = useState(
+    settings.searchUrlTemplate,
+  );
+  const latestSettings = useRef(settings);
+  const writeQueue = useRef<Promise<void>>(Promise.resolve());
+  const wallpaperInput = useRef<HTMLInputElement>(null);
+  const importInput = useRef<HTMLInputElement>(null);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [backups] = useState(
     () => new BackupService(repository, openDeckDatabase()),
   );
-  const update = (change: Partial<Settings>) =>
-    onChange({ ...settings, ...change });
-
   const showError = useCallback((actionError: unknown) => {
     const detail =
       actionError instanceof Error ? actionError.message : String(actionError);
     setError(`${strings.updateFailed} ${detail}`);
   }, []);
+  const update = (change: Partial<Settings>) => {
+    const next = { ...latestSettings.current, ...change };
+    latestSettings.current = next;
+    writeQueue.current = writeQueue.current
+      .then(() => onChange(next))
+      .catch(showError);
+    return writeQueue.current;
+  };
+
+  const saveDraft = () => {
+    const change: Partial<Settings> = {};
+    if (ownerName !== latestSettings.current.ownerName)
+      change.ownerName = ownerName;
+    if (customCss !== latestSettings.current.customCss)
+      change.customCss = customCss;
+    if (searchUrlTemplate !== latestSettings.current.searchUrlTemplate)
+      change.searchUrlTemplate = searchUrlTemplate;
+    if (Object.keys(change).length) return update(change);
+    return writeQueue.current;
+  };
+
+  const close = async () => {
+    await saveDraft();
+    document
+      .querySelector<HTMLButtonElement>('[data-deck="settings-toggle"]')
+      ?.focus();
+    onClose();
+  };
+
+  useEffect(() => {
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopImmediatePropagation();
+      void close();
+    };
+    window.addEventListener('keydown', onEscape, true);
+    return () => window.removeEventListener('keydown', onEscape, true);
+  });
 
   const loadSnapshots = useCallback(() => {
     void backups.listSnapshots().then(setSnapshots).catch(showError);
@@ -131,183 +184,220 @@ export default function SettingsPanel({
   };
 
   return (
-    <aside
-      data-deck="settings"
-      className="deck-settings"
-      aria-label={strings.settings}
-    >
-      <header>
-        <h2>{strings.settings}</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={strings.closeSettings}
-        >
-          ×
-        </button>
-      </header>
-      <SettingsGroup title={strings.appearance}>
-        <label>
-          {strings.theme}
-          <select
-            value={settings.theme}
-            onChange={(event) =>
-              void update({ theme: event.currentTarget.value as Theme })
-            }
+    <>
+      <button
+        type="button"
+        data-deck="settings-backdrop"
+        className="deck-settings-backdrop"
+        aria-label={strings.dismiss}
+        onClick={() => void close()}
+      />
+      <aside
+        data-deck="settings"
+        className="deck-settings"
+        aria-label={strings.settings}
+      >
+        <header>
+          <h2>{strings.settings}</h2>
+          <button
+            type="button"
+            onClick={() => void close()}
+            aria-label={strings.closeSettings}
+          >
+            ×
+          </button>
+        </header>
+        <SettingsGroup title={strings.appearance}>
+          <div
+            className="deck-settings__theme"
+            role="group"
+            aria-label={strings.theme}
           >
             {THEMES.map(({ value, label }) => (
-              <option key={value} value={value}>
+              <button
+                key={value}
+                type="button"
+                aria-pressed={settings.theme === value}
+                onClick={() => void update({ theme: value })}
+              >
                 {label}
-              </option>
+              </button>
             ))}
-          </select>
-        </label>
-        <label>
-          {strings.yourName}
-          <input
-            value={settings.ownerName}
-            onChange={(event) =>
-              void update({ ownerName: event.currentTarget.value })
-            }
-          />
-        </label>
-        <Toggle
-          label={strings.showSeconds}
-          checked={settings.showSeconds}
-          onChange={(showSeconds) => void update({ showSeconds })}
-        />
-        <Toggle
-          label={strings.privacyBlur}
-          checked={settings.isBlurred}
-          onChange={(isBlurred) => void update({ isBlurred })}
-        />
-        <label>
-          {strings.wallpaperDim}
-          <input
-            type="range"
-            min="0"
-            max="60"
-            value={settings.wallpaperDim}
-            onChange={(event) =>
-              void update({ wallpaperDim: Number(event.currentTarget.value) })
-            }
-          />
-        </label>
-        <div className="deck-settings__wallpaper">
-          <button
-            type="button"
-            onClick={() =>
-              void update({
-                wallpaper: { kind: 'none' },
-                wallpaperGradient: null,
-                wallpaperLuminance: null,
-              })
-            }
-          >
-            {strings.wallpaperNone}
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              void update({
-                wallpaper: { kind: 'color', token: 'canvas-raised' },
-                wallpaperGradient: null,
-                wallpaperLuminance: null,
-              })
-            }
-          >
-            {strings.wallpaperColor}
-          </button>
+          </div>
           <label>
-            {strings.wallpaperLocal}
+            {strings.yourName}
             <input
+              value={ownerName}
+              onChange={(event) => setOwnerName(event.currentTarget.value)}
+              onBlur={saveDraft}
+            />
+          </label>
+          <Toggle
+            label={strings.showSeconds}
+            checked={settings.showSeconds}
+            onChange={(showSeconds) => void update({ showSeconds })}
+          />
+          <Toggle
+            label={strings.privacyBlur}
+            checked={settings.isBlurred}
+            onChange={(isBlurred) => void update({ isBlurred })}
+          />
+          <label>
+            {strings.wallpaperDim}
+            <input
+              type="range"
+              min="0"
+              max="60"
+              value={settings.wallpaperDim}
+              onChange={(event) =>
+                void update({ wallpaperDim: Number(event.currentTarget.value) })
+              }
+            />
+          </label>
+          <div className="deck-settings__wallpaper">
+            <button
+              type="button"
+              onClick={() =>
+                void update({
+                  wallpaper: { kind: 'none' },
+                  wallpaperGradient: null,
+                  wallpaperLuminance: null,
+                })
+              }
+            >
+              {strings.wallpaperNone}
+            </button>
+            <button
+              type="button"
+              onClick={() => wallpaperInput.current?.click()}
+            >
+              {strings.wallpaperLocal}
+            </button>
+            <input
+              ref={wallpaperInput}
+              className="deck-settings__file"
               type="file"
+              aria-label={strings.wallpaperLocal}
               accept="image/*"
               onChange={(event) => void selectWallpaper(event)}
             />
-          </label>
-        </div>
-      </SettingsGroup>
-      <SettingsGroup title={strings.keys}>
-        <Toggle
-          label={strings.spaceOpensDrawer}
-          checked={settings.canSpaceOpenDrawer}
-          onChange={(canSpaceOpenDrawer) => void update({ canSpaceOpenDrawer })}
-        />
-        <QuickSavePermission onError={showError} />
-        <KeymapEditor
-          overrides={settings.keymap}
-          onChange={(keymap) => void update({ keymap })}
-        />
-        <p>{strings.keyHint}</p>
-        <button
-          type="button"
-          onClick={() =>
-            void chrome.tabs.create({ url: 'chrome://extensions/shortcuts' })
-          }
-        >
-          {strings.openShortcutSettings}
-        </button>
-      </SettingsGroup>
-      <SettingsGroup title={strings.backups}>
-        <p>{strings.backupHint}</p>
-        {snapshots.length > 0 ? (
-          snapshots.map((snapshot) => (
-            <button
-              key={snapshot.id}
-              type="button"
-              onClick={() => void restore(snapshot)}
-            >
-              {strings.restore} · {new Date(snapshot.ts).toLocaleDateString()}
-            </button>
-          ))
-        ) : (
-          <p>{strings.noBackups}</p>
-        )}
-        <button type="button" onClick={() => void exportData()}>
-          {strings.exportData}
-        </button>
-        <label>
-          {strings.importData}
+          </div>
+          <div
+            className="deck-settings__swatches"
+            role="group"
+            aria-label={strings.wallpaperColor}
+          >
+            {WALLPAPER_COLORS.map((token) => (
+              <button
+                key={token}
+                type="button"
+                data-deck="wallpaper-swatch"
+                className="deck-settings__swatch"
+                style={{
+                  backgroundColor: `var(--deck-color-wallpaper-${token})`,
+                }}
+                aria-label={`${strings.wallpaperColor}: ${token}`}
+                aria-pressed={
+                  settings.wallpaper.kind === 'color' &&
+                  settings.wallpaper.token === token
+                }
+                onClick={() =>
+                  void update({
+                    wallpaper: { kind: 'color', token },
+                    wallpaperGradient: null,
+                    wallpaperLuminance: null,
+                  })
+                }
+              />
+            ))}
+          </div>
+        </SettingsGroup>
+        <SettingsGroup title={strings.keys}>
+          <Toggle
+            label={strings.spaceOpensDrawer}
+            checked={settings.canSpaceOpenDrawer}
+            onChange={(canSpaceOpenDrawer) =>
+              void update({ canSpaceOpenDrawer })
+            }
+          />
+          <QuickSavePermission onError={showError} />
+          <KeymapEditor
+            overrides={settings.keymap}
+            onChange={(keymap) => void update({ keymap })}
+          />
+          <p>{strings.keyHint}</p>
+          <button
+            type="button"
+            onClick={() =>
+              void chrome.tabs.create({ url: 'chrome://extensions/shortcuts' })
+            }
+          >
+            {strings.openShortcutSettings}
+          </button>
+        </SettingsGroup>
+        <SettingsGroup title={strings.backups}>
+          <p>{strings.backupHint}</p>
+          {snapshots.length > 0 ? (
+            snapshots.map((snapshot) => (
+              <button
+                key={snapshot.id}
+                type="button"
+                onClick={() => void restore(snapshot)}
+              >
+                {strings.restore} · {new Date(snapshot.ts).toLocaleDateString()}
+              </button>
+            ))
+          ) : (
+            <p>{strings.noBackups}</p>
+          )}
+          <button type="button" onClick={() => void exportData()}>
+            {strings.exportData}
+          </button>
+          <button type="button" onClick={() => importInput.current?.click()}>
+            {strings.importData}
+          </button>
           <input
+            ref={importInput}
+            className="deck-settings__file"
             type="file"
+            aria-label={strings.importData}
             accept="application/json,.json"
             onChange={(event) => void importData(event)}
           />
-        </label>
-      </SettingsGroup>
-      <SettingsGroup title={strings.import}>
-        <BookmarkImport
-          repository={repository}
-          backups={backups}
-          onImported={afterImport}
-          onError={showError}
-        />
-      </SettingsGroup>
-      <SettingsGroup title={strings.advanced}>
-        <GrantedAccess onError={showError} />
-        <label>
-          {strings.searchEngine}
-          <input
-            value={settings.searchUrlTemplate}
-            onChange={(event) =>
-              void update({ searchUrlTemplate: event.currentTarget.value })
-            }
+        </SettingsGroup>
+        <SettingsGroup title={strings.import}>
+          <BookmarkImport
+            repository={repository}
+            backups={backups}
+            onImported={afterImport}
+            onError={showError}
           />
-        </label>
-        <label>
-          {strings.customCss}
-          <textarea
-            value={settings.customCss}
-            onChange={(event) =>
-              void update({ customCss: event.currentTarget.value })
-            }
-          />
-        </label>
-        <p>{strings.customCssHint}</p>
-      </SettingsGroup>
-      {error ? <p role="alert">{error}</p> : null}
-    </aside>
+        </SettingsGroup>
+        <SettingsGroup title={strings.advanced}>
+          <GrantedAccess onError={showError} />
+          <label>
+            {strings.searchEngine}
+            <input
+              value={searchUrlTemplate}
+              onChange={(event) =>
+                setSearchUrlTemplate(event.currentTarget.value)
+              }
+              onBlur={saveDraft}
+            />
+          </label>
+          <label>
+            {strings.customCss}
+            <textarea
+              value={customCss}
+              onChange={(event) => setCustomCss(event.currentTarget.value)}
+              onBlur={saveDraft}
+            />
+          </label>
+          <p>{strings.customCssHint}</p>
+        </SettingsGroup>
+        {error ? <p role="alert">{error}</p> : null}
+      </aside>
+    </>
   );
 }
 
@@ -339,6 +429,7 @@ function Toggle({
     <label className="deck-settings__toggle">
       <span>{label}</span>
       <input
+        className="deck-settings__checkbox"
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.currentTarget.checked)}

@@ -90,6 +90,7 @@ export function Line(props: LineProps) {
           openSettings: props.openSettings,
           notify: props.notify,
         });
+        setQuery('');
         return;
       }
       const card = cards[activeIndex];
