@@ -1,11 +1,5 @@
-import {
-  INBOX_DECK_ID,
-  SETTINGS_DEFAULTS,
-  type Card,
-  type Deck,
-  type Page,
-  type Settings,
-} from 'deck-schema';
+import { INBOX_DECK_ID, SETTINGS_DEFAULTS } from 'deck-schema/constants';
+import { type Card, type Deck, type Page, type Settings } from 'deck-schema';
 
 import { strings } from '../i18n/strings';
 import { DeckRepository } from '../storage/repository';

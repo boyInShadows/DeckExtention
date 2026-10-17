@@ -16,15 +16,16 @@ import { BackupService } from '../storage/backup';
 import { ACTIVE_DATABASE_KEY, openDeckDatabase } from '../storage/database';
 import { DeckRepository } from '../storage/repository';
 import { purgeDeleted } from '../storage/trashMaintenance';
+import * as writeValidation from '../storage/writeValidation';
 import { handleToastDecision, quickSave } from './quickSave';
 import { toggleDrawer } from './toggleDrawer';
 
-let repository = new DeckRepository();
+let repository = new DeckRepository({ validation: writeValidation });
 let backups = new BackupService(repository, openDeckDatabase());
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !changes[ACTIVE_DATABASE_KEY]) return;
-  repository = new DeckRepository();
+  repository = new DeckRepository({ validation: writeValidation });
   backups = new BackupService(repository, openDeckDatabase());
   void runBackupMaintenance();
 });

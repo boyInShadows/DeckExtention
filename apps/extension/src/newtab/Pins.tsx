@@ -9,7 +9,9 @@ import type { Card } from 'deck-schema';
 import {
   lazy,
   Suspense,
+  useCallback,
   useEffect,
+  useMemo,
   useState,
   type KeyboardEvent,
   type MouseEvent,
@@ -156,13 +158,22 @@ export function Pins({
   );
   const [initialUrl, setInitialUrl] = useState('');
   const { isOver, setNodeRef } = useDroppable({ id: dragId('pin', 'strip') });
-  const pins = cards
-    .filter((card) => card.pinned && card.deletedAt === null)
-    .toSorted((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0));
-  const reportWriteError = (error: unknown) => {
-    const detail = error instanceof Error ? error.message : String(error);
-    notify({ kind: 'error', text: `${strings.updateFailed} ${detail}` });
-  };
+  const pins = useMemo(
+    () =>
+      cards
+        .filter((card) => card.pinned && card.deletedAt === null)
+        .toSorted((a, b) =>
+          a.order < b.order ? -1 : a.order > b.order ? 1 : 0,
+        ),
+    [cards],
+  );
+  const reportWriteError = useCallback(
+    (error: unknown) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      notify({ kind: 'error', text: `${strings.updateFailed} ${detail}` });
+    },
+    [notify],
+  );
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
       const target = event.target;
@@ -211,7 +222,7 @@ export function Pins({
     };
     window.addEventListener(WORKSPACE_DROP_EVENT, onDrop);
     return () => window.removeEventListener(WORKSPACE_DROP_EVENT, onDrop);
-  });
+  }, [cards, notify, onCardsChange, pins, reportWriteError, repository]);
 
   const savePin = async (
     card: Card,

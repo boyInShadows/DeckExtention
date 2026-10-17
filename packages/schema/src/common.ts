@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import { NOTE_MAX_LENGTH, TITLE_MAX_LENGTH, URL_MAX_LENGTH } from './constants';
+export {
+  CUSTOM_CSS_MAX_LENGTH,
+  NOTE_MAX_LENGTH,
+  TITLE_MAX_LENGTH,
+  URL_MAX_LENGTH,
+} from './constants';
 
 /**
  * Shared primitives. Every persisted record in Deck is built from these, so a
@@ -20,11 +27,6 @@ const ORDER_KEY_PATTERN = /^[0-9A-Za-z]{1,64}$/;
 
 /** Design-token name, never a raw colour. Enforces AGENTS.md section 6. */
 const TOKEN_NAME_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
-
-export const TITLE_MAX_LENGTH = 300;
-export const URL_MAX_LENGTH = 4096;
-export const NOTE_MAX_LENGTH = 20_000;
-export const CUSTOM_CSS_MAX_LENGTH = 100_000;
 
 export const IdSchema = z.string().regex(ID_PATTERN, 'invalid id');
 

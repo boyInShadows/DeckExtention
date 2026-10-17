@@ -1,5 +1,11 @@
 import type { Card, Settings } from 'deck-schema';
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 
 import { strings } from '../i18n/strings';
 import type { filterLineActions } from './lineActionCatalog';
@@ -73,9 +79,14 @@ export function Line(props: LineProps) {
       );
   const activeIndex = itemCount > 0 ? Math.min(selected, itemCount - 1) : 0;
 
-  const focusKey =
-    props.settings.keymap.find(({ action }) => action === 'focusLine')?.chord ??
-    '/';
+  const keymap = useMemo(
+    () =>
+      new Map(
+        props.settings.keymap.map(({ action, chord }) => [action, chord]),
+      ),
+    [props.settings.keymap],
+  );
+  const focusKey = keymap.get('focusLine') ?? '/';
   useEffect(() => {
     if (query || isFocused) return;
     const timer = window.setInterval(

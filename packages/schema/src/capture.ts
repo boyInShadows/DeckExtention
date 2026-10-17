@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import { TimestampSchema } from './common';
+export {
+  INBOX_DECK_ID,
+  OPEN_PAGE_HASH_PREFIX,
+  OPEN_SETTINGS_HASH,
+} from './constants';
 
 /**
  * The contract between the service worker (Quick Save, FableTasks P2.S4) and
@@ -7,7 +12,6 @@ import { TimestampSchema } from './common';
  */
 
 /** The Inbox is a singleton system deck with a stable id (MasterPlan I3). */
-export const INBOX_DECK_ID = 'deck_inbox';
 
 /**
  * Quick Save reads the page it saves and shows a toast on it. Both are
@@ -40,7 +44,5 @@ export const CaptureNoticeSchema = z.strictObject({
 });
 
 /** `#page=<id>` opens the drawer on that page; `#settings` opens Settings. */
-export const OPEN_PAGE_HASH_PREFIX = '#page=';
-export const OPEN_SETTINGS_HASH = '#settings';
 
 export type CaptureNotice = z.infer<typeof CaptureNoticeSchema>;

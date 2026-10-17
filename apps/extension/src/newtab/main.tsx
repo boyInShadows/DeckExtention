@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import { OPEN_SETTINGS_HASH } from 'deck-schema';
+import { OPEN_SETTINGS_HASH } from 'deck-schema/constants';
 
 import { strings } from '../i18n/strings';
 import { Surface } from './Surface';
@@ -23,10 +23,6 @@ const root = createRoot(container);
 
 function renderSurface(surfaceData: SurfaceData): void {
   document.documentElement.dataset.theme = surfaceData.settings.theme;
-  if (surfaceData.settings.wallpaperGradient) {
-    document.body.style.backgroundImage =
-      surfaceData.settings.wallpaperGradient;
-  }
   root.render(
     <StrictMode>
       <Surface initialData={surfaceData} />

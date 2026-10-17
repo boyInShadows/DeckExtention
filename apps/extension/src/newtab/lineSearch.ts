@@ -1,4 +1,4 @@
-import { UrlSchema } from 'deck-schema';
+import { URL_MAX_LENGTH } from 'deck-schema/constants';
 
 export interface SearchableCard {
   id: string;
@@ -43,8 +43,7 @@ export function parseLineUrl(input: string): string | null {
       url.hostname !== 'localhost'
     )
       return null;
-    const parsed = UrlSchema.safeParse(url.href);
-    return parsed.success ? parsed.data : null;
+    return url.href.length <= URL_MAX_LENGTH ? url.href : null;
   } catch {
     return null;
   }

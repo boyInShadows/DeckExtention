@@ -1,12 +1,5 @@
+import { SETTINGS_DEFAULTS, SETTINGS_ENTITY_ID } from 'deck-schema/constants';
 import {
-  CardSchema,
-  DeckSchema,
-  IdSchema,
-  OpSchema,
-  PageSchema,
-  SETTINGS_DEFAULTS,
-  SETTINGS_ENTITY_ID,
-  SettingsSchema,
   type Card,
   type Deck,
   type Op,
@@ -15,14 +8,29 @@ import {
   type Settings,
 } from 'deck-schema';
 import type { StoreNames } from 'idb';
-import type { ZodType } from 'zod';
 
 import {
   openDeckDatabase,
   type DeckDatabase,
   type DeckDatabaseHandle,
 } from './database';
-import { parseDocument, type DeckDocument } from './document';
+import type { DeckDocument } from './document';
+import type {
+  parseCard,
+  parseDeck,
+  parseDocument,
+  parseOps,
+  parsePage,
+  parseSettings,
+} from './writeValidation';
+import {
+  hydratedSettings,
+  isCard,
+  isDeck,
+  isId,
+  isPage,
+  isSettings,
+} from './hydrationValidation';
 import type { purgeDeleted as PurgeDeletedFunction } from './trashMaintenance';
 
 const SETTINGS_KEY = 'settings';
@@ -31,6 +39,14 @@ const WALLPAPER_BLOB_PREFIX = 'wallpaper:';
 const QUARANTINE_PREFIX = 'quarantine:';
 const PURGE_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 type PurgeDeleted = typeof PurgeDeletedFunction;
+type ValidationModule = {
+  parseCard: typeof parseCard;
+  parseDeck: typeof parseDeck;
+  parseDocument: typeof parseDocument;
+  parseOps: typeof parseOps;
+  parsePage: typeof parsePage;
+  parseSettings: typeof parseSettings;
+};
 
 type EntityRecord = Page | Deck | Card;
 type EntityStore = Extract<
@@ -42,6 +58,7 @@ export interface RepositoryOptions {
   databaseName?: string;
   now?: () => number;
   createId?: () => string;
+  validation?: ValidationModule;
 }
 
 function defaultId(): string {
@@ -56,12 +73,18 @@ export class DeckRepository {
   readonly #database: Promise<DeckDatabaseHandle>;
   readonly #now: () => number;
   readonly #createId: () => string;
+  readonly #validationModule: RepositoryOptions['validation'];
   readonly #recoveryIssues = new Set<string>();
 
   constructor(options: RepositoryOptions = {}) {
     this.#database = openDeckDatabase(options.databaseName);
     this.#now = options.now ?? Date.now;
     this.#createId = options.createId ?? defaultId;
+    this.#validationModule = options.validation;
+  }
+
+  async #validation(): Promise<ValidationModule> {
+    return this.#validationModule ?? import('./writeValidation');
   }
 
   async close(): Promise<void> {
@@ -71,8 +94,7 @@ export class DeckRepository {
   async getSettings(): Promise<Settings> {
     const record = await (await this.#database).get('meta', SETTINGS_KEY);
     if (!record) return structuredClone(SETTINGS_DEFAULTS);
-    const result = SettingsSchema.safeParse(record.value);
-    if (result.success) return result.data;
+    if (isSettings(record.value)) return hydratedSettings(record.value);
     await this.#quarantine('settings', SETTINGS_KEY, record.value);
     return structuredClone(SETTINGS_DEFAULTS);
   }
@@ -82,24 +104,22 @@ export class DeckRepository {
   }
 
   async setSettings(value: Settings): Promise<Settings> {
-    const settings = SettingsSchema.parse(structuredClone(value));
+    const { parseSettings } = await this.#validation();
+    const settings = parseSettings(value);
     const database = await this.#database;
     const clientId = await this.#clientId();
+    const op = this.#makeOp(
+      clientId,
+      'settings',
+      SETTINGS_ENTITY_ID,
+      'upsert',
+      settings,
+    );
     const transaction = database.transaction(['meta', 'ops'], 'readwrite');
     await transaction
       .objectStore('meta')
       .put({ key: SETTINGS_KEY, value: settings });
-    await transaction
-      .objectStore('ops')
-      .put(
-        this.#makeOp(
-          clientId,
-          'settings',
-          SETTINGS_ENTITY_ID,
-          'upsert',
-          settings,
-        ),
-      );
+    await transaction.objectStore('ops').put(op);
     await transaction.done;
     return structuredClone(settings);
   }
@@ -125,15 +145,18 @@ export class DeckRepository {
   }
 
   async upsertPage(value: Page): Promise<Page> {
-    return this.#upsert('page', PageSchema.parse(structuredClone(value)));
+    const { parsePage } = await this.#validation();
+    return this.#upsert('page', parsePage(value));
   }
 
   async upsertDeck(value: Deck): Promise<Deck> {
-    return this.#upsert('deck', DeckSchema.parse(structuredClone(value)));
+    const { parseDeck } = await this.#validation();
+    return this.#upsert('deck', parseDeck(value));
   }
 
   async upsertCard(value: Card): Promise<Card> {
-    return this.#upsert('card', CardSchema.parse(structuredClone(value)));
+    const { parseCard } = await this.#validation();
+    return this.#upsert('card', parseCard(value));
   }
 
   /**
@@ -146,53 +169,59 @@ export class DeckRepository {
     decks?: Deck[];
     cards?: Card[];
   }): Promise<void> {
+    const { parsePage, parseDeck, parseCard } = await this.#validation();
     const records = [
       ...(batch.pages ?? []).map((page) => ({
         entity: 'page' as const,
-        value: PageSchema.parse(structuredClone(page)),
+        value: parsePage(page),
       })),
       ...(batch.decks ?? []).map((deck) => ({
         entity: 'deck' as const,
-        value: DeckSchema.parse(structuredClone(deck)),
+        value: parseDeck(deck),
       })),
       ...(batch.cards ?? []).map((card) => ({
         entity: 'card' as const,
-        value: CardSchema.parse(structuredClone(card)),
+        value: parseCard(card),
       })),
     ];
     if (records.length === 0) return;
     const database = await this.#database;
     const clientId = await this.#clientId();
+    const prepared = records.map(({ entity, value }) => ({
+      entity,
+      value,
+      op: this.#makeOp(clientId, entity, value.id, 'upsert', value),
+    }));
     const transaction = database.transaction(
       ['pages', 'decks', 'cards', 'ops'],
       'readwrite',
     );
-    const writes = records.flatMap(({ entity, value }) => [
+    const writes = prepared.flatMap(({ entity, value, op }) => [
       transaction.objectStore(storeFor(entity)).put(value),
-      transaction
-        .objectStore('ops')
-        .put(this.#makeOp(clientId, entity, value.id, 'upsert', value)),
+      transaction.objectStore('ops').put(op),
     ]);
     await Promise.all([...writes, transaction.done]);
   }
 
   async listPages(): Promise<Page[]> {
-    return this.#listValid('pages', PageSchema);
+    return this.#listValid('pages', isPage);
   }
 
   async listDecks(): Promise<Deck[]> {
-    return this.#listValid('decks', DeckSchema);
+    return this.#listValid('decks', isDeck);
   }
 
   async listCards(): Promise<Card[]> {
-    return this.#listValid('cards', CardSchema);
+    return this.#listValid('cards', isCard);
   }
 
   async listOps(): Promise<Op[]> {
-    return OpSchema.array().parse(await (await this.#database).getAll('ops'));
+    const { parseOps } = await this.#validation();
+    return parseOps(await (await this.#database).getAll('ops'));
   }
 
   async readDocument(exportedAt = this.#now()): Promise<DeckDocument> {
+    const { parseDocument } = await this.#validation();
     const database = await this.#database;
     const [pages, decks, cards, settingsRecord] = await Promise.all([
       database.getAll('pages'),
@@ -212,14 +241,13 @@ export class DeckRepository {
 
   async #listValid<T>(
     store: 'pages' | 'decks' | 'cards',
-    schema: ZodType<T>,
+    isValid: (value: unknown) => value is T,
   ): Promise<T[]> {
     const database = await this.#database;
     const records = await database.getAll(store);
     const valid: T[] = [];
     for (const record of records) {
-      const result = schema.safeParse(record);
-      if (result.success) valid.push(result.data);
+      if (isValid(record)) valid.push(record);
       else await this.#quarantine(store, record.id, record);
     }
     return valid;
@@ -236,6 +264,7 @@ export class DeckRepository {
   }
 
   async replaceDocument(value: DeckDocument): Promise<void> {
+    const { parseDocument } = await this.#validation();
     const document = parseDocument(structuredClone(value));
     const database = await this.#database;
     const clientId = await this.#clientId();
@@ -333,11 +362,10 @@ export class DeckRepository {
     const database = await this.#database;
     const storeName = storeFor(entity);
     const clientId = await this.#clientId();
+    const op = this.#makeOp(clientId, entity, value.id, 'upsert', value);
     const transaction = database.transaction([storeName, 'ops'], 'readwrite');
     await transaction.objectStore(storeName).put(value);
-    await transaction
-      .objectStore('ops')
-      .put(this.#makeOp(clientId, entity, value.id, 'upsert', value));
+    await transaction.objectStore('ops').put(op);
     await transaction.done;
     return structuredClone(value);
   }
@@ -367,22 +395,37 @@ export class DeckRepository {
     kind: Op['kind'],
     payload: EntityRecord | Settings | null,
   ): Op {
-    return OpSchema.parse({
-      id: this.#createId(),
-      ts: this.#now(),
+    const id = this.#createId();
+    const ts = this.#now();
+    if (
+      !isId(id) ||
+      !isId(clientId) ||
+      !isId(entityId) ||
+      !Number.isSafeInteger(ts) ||
+      ts < 0 ||
+      (kind === 'upsert' && payload === null)
+    )
+      throw new Error('Invalid operation');
+    return {
+      id,
+      ts,
       kind,
       clientId,
       entity,
       entityId,
       payload,
-    });
+    } as Op;
   }
 
   async #clientId(): Promise<string> {
     const database = await this.#database;
     const existing = await database.get('meta', CLIENT_ID_KEY);
-    if (existing) return IdSchema.parse(existing.value);
+    if (existing) {
+      if (!isId(existing.value)) throw new Error('Stored client ID is invalid');
+      return existing.value;
+    }
     const value = this.#createId();
+    if (!isId(value)) throw new Error('Generated client ID is invalid');
     await database.put('meta', { key: CLIENT_ID_KEY, value });
     return value;
   }

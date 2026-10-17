@@ -401,7 +401,7 @@ describe('Surface first paint', () => {
 
   it('ticks the clock every second, with seconds when asked', async () => {
     vi.useFakeTimers({
-      toFake: ['Date', 'setInterval', 'clearInterval'],
+      toFake: ['Date', 'setTimeout', 'clearTimeout'],
     });
     vi.setSystemTime(EVENING);
     const view = await mount(surfaceData({ showSeconds: true }));
@@ -413,6 +413,25 @@ describe('Surface first paint', () => {
     expect(clock.textContent).toContain('20:00:01');
     expect(clock.getAttribute('datetime')).toBe(
       new Date(EVENING.getTime() + CLOCK_TICK_MS).toISOString(),
+    );
+    view.unmount();
+  });
+
+  it('waits for the next minute boundary when seconds are hidden', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    const start = new Date(2026, 0, 2, 20, 0, 20);
+    vi.setSystemTime(start);
+    const view = await mount(surfaceData({ showSeconds: false }));
+    const clock = view.get('[data-deck="clock"]');
+    await view.act(() => {
+      vi.advanceTimersByTime(39_999);
+    });
+    expect(clock.getAttribute('datetime')).toBe(start.toISOString());
+    await view.act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(clock.getAttribute('datetime')).toBe(
+      new Date(start.getTime() + 40_000).toISOString(),
     );
     view.unmount();
   });

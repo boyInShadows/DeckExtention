@@ -4,12 +4,16 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
 } from 'react';
 
-import { OPEN_PAGE_HASH_PREFIX, OPEN_SETTINGS_HASH } from 'deck-schema';
+import {
+  OPEN_PAGE_HASH_PREFIX,
+  OPEN_SETTINGS_HASH,
+} from 'deck-schema/constants';
 
 import { strings } from '../i18n/strings';
 import { WorkspaceDnd } from '../drawer/WorkspaceDnd';
@@ -31,7 +35,8 @@ const RecoveryNotice = lazy(() =>
 const loadDrawer = () => import('../drawer/drawer');
 const Drawer = lazy(loadDrawer);
 const ToastStack = lazy(() => import('./ToastStack'));
-const CLOCK_UPDATE_MS = 1_000;
+const SECOND_MS = 1_000;
+const MINUTE_MS = 60_000;
 const DRAWER_EXIT_MS = 480;
 const BRIGHT_WALLPAPER_THRESHOLD = 0.18;
 
@@ -46,6 +51,10 @@ export function Surface({ initialData }: SurfaceProps) {
   const [decks, setDecks] = useState(initialData.decks);
   const [pages, setPages] = useState(initialData.pages);
   const [settings, setSettings] = useState(initialData.settings);
+  const keymap = useMemo(
+    () => new Map(settings.keymap.map(({ action, chord }) => [action, chord])),
+    [settings.keymap],
+  );
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(
     location.hash === OPEN_SETTINGS_HASH,
@@ -117,7 +126,6 @@ export function Surface({ initialData }: SurfaceProps) {
         const saved = await initialData.repository.setSettings(next);
         setSettings(saved);
         document.documentElement.dataset.theme = saved.theme;
-        document.body.style.backgroundImage = saved.wallpaperGradient ?? '';
         notify({ kind: 'success', text: strings.saved });
       } catch (saveError) {
         notifyFailure(saveError);
@@ -192,8 +200,7 @@ export function Surface({ initialData }: SurfaceProps) {
         event.target instanceof HTMLTextAreaElement
       )
         return;
-      const blurKey = settings.keymap.find(({ action }) => action === 'blur');
-      if (event.key === (blurKey?.chord ?? 'b'))
+      if (event.key === (keymap.get('blur') ?? 'b'))
         void saveSettings({ ...settings, isBlurred: !settings.isBlurred });
       if (event.key === '?') setIsHelpOpen(true);
     };
@@ -215,6 +222,7 @@ export function Surface({ initialData }: SurfaceProps) {
   }, [
     closeDrawer,
     isDrawerOpen,
+    keymap,
     notifyFailure,
     openDrawer,
     saveSettings,
@@ -222,12 +230,22 @@ export function Surface({ initialData }: SurfaceProps) {
   ]);
 
   useEffect(() => {
-    const interval = window.setInterval(
-      () => setNow(new Date()),
-      CLOCK_UPDATE_MS,
-    );
-    return () => window.clearInterval(interval);
-  }, []);
+    const period = settings.showSeconds ? SECOND_MS : MINUTE_MS;
+    let timer: number;
+    const tick = () => {
+      setNow(new Date());
+      timer = window.setTimeout(tick, period - (Date.now() % period));
+    };
+    timer = window.setTimeout(tick, period - (Date.now() % period));
+    return () => window.clearTimeout(timer);
+  }, [settings.showSeconds]);
+
+  useLayoutEffect(() => {
+    document.body.style.backgroundImage = settings.wallpaperGradient ?? '';
+    return () => {
+      document.body.style.backgroundImage = '';
+    };
+  }, [settings.wallpaperGradient]);
 
   useEffect(() => {
     let objectUrl: string | null = null;

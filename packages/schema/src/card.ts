@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { HOSTNAME_MAX_LENGTH } from './constants';
+export { HOSTNAME_MAX_LENGTH } from './constants';
 import {
   IdSchema,
   NoteSchema,
@@ -8,8 +10,6 @@ import {
   UrlSchema,
   softDeletableFields,
 } from './common';
-
-export const HOSTNAME_MAX_LENGTH = 253;
 
 /**
  * A Card is a link that may also be a note and a task (MasterPlan I5).
