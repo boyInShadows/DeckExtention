@@ -5,6 +5,7 @@
  * (AGENTS.md section 3.3). A translation adds a sibling of each file.
  */
 export const strings = {
+  taskSaved: 'Task saved to Inbox',
   linePlaceholder: 'Search or type >',
   lineKeyboardHint: 'Space: Deck · ?: keys',
   greetingMorning: 'Good morning',

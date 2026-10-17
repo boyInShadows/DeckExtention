@@ -166,6 +166,10 @@ export function InboxTriage(props: InboxTriageProps) {
   };
 
   const open = async (card: Card, isNewTab: boolean) => {
+    if (!card.url) {
+      (props.onEditNote ?? setNoteCard)(card);
+      return;
+    }
     try {
       props.onCardsChange(
         replaceEntity(props.cards, await openCard(repository, card, isNewTab)),
@@ -278,7 +282,13 @@ export function InboxTriage(props: InboxTriageProps) {
             <FaviconTile url={card.url} hostname={card.hostname} />
             <span className="deck-blurrable">
               <strong>{card.title}</strong>
-              <small>{card.note ? `● ${card.hostname}` : card.hostname}</small>
+              <small>
+                {card.url
+                  ? card.note
+                    ? `● ${card.hostname}`
+                    : card.hostname
+                  : strings.taskMode}
+              </small>
             </span>
             <time dateTime={new Date(card.createdAt).toISOString()}>
               {savedAgo(card.createdAt)}

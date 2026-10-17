@@ -263,6 +263,41 @@ afterEach(async () => {
 });
 
 describe('DeckWorkspace - layout', () => {
+  it('persists task mode, counts completions and edits a URL-free task without navigation', async () => {
+    const task = card('task_local', 'deck_1', 'a0', {
+      kind: 'task',
+      url: undefined,
+      hostname: '',
+      title: 'Buy milk',
+      done: false,
+    });
+    await repository.upsertCard(task);
+    const { view } = await mount({ cards: [task] });
+    try {
+      const section = deckSection(view, 'deck_1');
+      await act(view, () => click(within(section, strings.deckMenu)));
+      await act(view, () => click(view.get('[data-deck="deck-task-mode"]')));
+      await eventually(view, async () =>
+        expect(
+          (await repository.listDecks()).find((deck) => deck.id === 'deck_1')
+            ?.isTaskMode,
+        ).toBe(true),
+      );
+      expect(
+        section.querySelector('[data-deck="deck-count"]')?.textContent,
+      ).toBe('0 / 1');
+      await act(view, () => click(view.get('[data-deck="card-done"]')));
+      await eventually(view, () =>
+        expect(
+          section.querySelector('[data-deck="deck-count"]')?.textContent,
+        ).toBe('1 / 1'),
+      );
+      await act(view, () => click(view.get('[data-deck="task-title"]')));
+      expect(view.query('[data-deck="note"]')).not.toBeNull();
+    } finally {
+      view.unmount();
+    }
+  });
   it('asks for a page when none is selected', async () => {
     const { view } = await mount({ selectedPageId: null });
     expect(view.container.textContent).toBe(strings.selectPage);

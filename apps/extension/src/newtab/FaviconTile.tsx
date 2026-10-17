@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from './Icon';
 
 const ICON_SIZE = 32;
 const GENERIC_URL = 'https://deck-favicon-placeholder.invalid/';
@@ -41,10 +42,16 @@ export default function FaviconTile({
   url,
   hostname,
 }: {
-  url: string;
+  url: string | undefined;
   hostname: string;
 }) {
   const [isFavicon, setIsFavicon] = useState(false);
+  if (!url)
+    return (
+      <span data-deck="task-icon" className="deck-site-icon" aria-hidden="true">
+        <Icon name="note" />
+      </span>
+    );
   const name = hostname.replace(/^www\./i, '');
   let hash = 0;
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) | 0;

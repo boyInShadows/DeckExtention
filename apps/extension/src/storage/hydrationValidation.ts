@@ -19,12 +19,14 @@ const DECK_FIELDS = [
   'order',
   'color',
   'isCollapsed',
+  'isTaskMode',
   'note',
   'expiresAt',
 ];
 const CARD_FIELDS = [
   ...BASE_FIELDS,
   'deckId',
+  'kind',
   'url',
   'title',
   'hostname',
@@ -108,6 +110,7 @@ export function isDeck(value: unknown): value is Deck {
     isOrder(value.order) &&
     (value.color === null || isToken(value.color)) &&
     typeof value.isCollapsed === 'boolean' &&
+    isOptional(value.isTaskMode, (item) => typeof item === 'boolean') &&
     isOptional(value.note, (note) => isString(note, NOTE_MAX_LENGTH)) &&
     isOptional(value.expiresAt, isTime)
   );
@@ -118,7 +121,10 @@ export function isCard(value: unknown): value is Card {
     isBase(value) &&
     hasOnlyFields(value, CARD_FIELDS) &&
     isId(value.deckId) &&
-    isUrl(value.url) &&
+    isOptional(value.kind, (kind) => kind === 'link' || kind === 'task') &&
+    (value.url === undefined
+      ? value.kind === 'task' && value.pinned === false
+      : isUrl(value.url)) &&
     isString(value.title, TITLE_MAX_LENGTH) &&
     isString(value.hostname, HOSTNAME_MAX_LENGTH) &&
     isOrder(value.order) &&

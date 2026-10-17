@@ -95,6 +95,7 @@ export default function HelpOverlay({
         ...scopeRows(keymap, 'surface'),
         ['?', strings.keyHelp],
         ['Space', strings.keySpace],
+        ['Ctrl Shift Enter', strings.taskShortcut],
         ['Esc', strings.keyEscape],
       ],
     },

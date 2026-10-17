@@ -78,7 +78,7 @@ export function planBookmarkImport(
   const knownUrls = new Set(
     existing.cards
       .filter(({ deletedAt }) => deletedAt === null)
-      .map(({ url }) => normalizeUrl(url)),
+      .flatMap(({ url }) => (url ? [normalizeUrl(url)] : [])),
   );
   let duplicates = 0;
   let unsupported = 0;

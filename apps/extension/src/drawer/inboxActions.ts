@@ -86,6 +86,7 @@ export async function pinCards(
   now: () => number = Date.now,
 ): Promise<Card[]> {
   const pinning = pick(cards, ids).filter(({ pinned }) => !pinned);
+  if (pinning.some((card) => !card.url)) throw new Error(strings.taskNeedsUrl);
   const pinCount = cards.filter(
     (card) => card.pinned && card.deletedAt === null,
   ).length;
@@ -136,7 +137,8 @@ export async function openCard(
   isNewTab: boolean,
   now: () => number = Date.now,
 ): Promise<Card> {
-  if (!/^https?:\/\//i.test(card.url)) throw new Error(strings.invalidUrl);
+  if (!card.url || !/^https?:\/\//i.test(card.url))
+    throw new Error(strings.invalidUrl);
   const opened = await markOpened(repository, card, now);
   if (isNewTab) window.open(card.url, '_blank', 'noopener');
   else location.assign(card.url);

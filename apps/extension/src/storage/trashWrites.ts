@@ -3,6 +3,8 @@ import {
   DeckSchema,
   PageSchema,
   type Card,
+  type Deck,
+  type Page,
   type Op,
   type OpEntity,
 } from 'deck-schema';
@@ -114,7 +116,7 @@ export async function changeTree(
       (card) => deckIds.has(card.deckId) && card.deletedAt === matchingStamp,
     )
     .map((card) => CardSchema.parse(card));
-  const changes = [
+  const changes: { entity: TrashEntity; value: Page | Deck | Card }[] = [
     { entity, value: root },
     ...childDecks.map((value) => ({ entity: 'deck' as const, value })),
     ...childCards.map((value) => ({ entity: 'card' as const, value })),
@@ -125,7 +127,7 @@ export async function changeTree(
       ...value,
       deletedAt,
       updatedAt: now(),
-      ...('kind' in value &&
+      ...('pageId' in value &&
       value.kind === 'session' &&
       isRestore &&
       'expiresAt' in value &&

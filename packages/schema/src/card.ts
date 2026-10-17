@@ -18,26 +18,35 @@ import {
  * to the hostname precisely so that saving a card costs zero network calls
  * (AGENTS.md section 3.2).
  */
-export const CardSchema = z.strictObject({
-  ...softDeletableFields,
-  deckId: IdSchema,
-  url: UrlSchema,
-  title: TitleSchema,
-  hostname: z.string().max(HOSTNAME_MAX_LENGTH),
-  order: OrderKeySchema,
-  /** Mirrored onto the surface's Pins strip. */
-  pinned: z.boolean(),
-  /** Surface-only label override; the saved-card title stays intact. */
-  pinLabel: TitleSchema.optional(),
-  /** Optional emoji used instead of the favicon tile. */
-  pinIcon: z.string().max(16).optional(),
-  /** Present only once the card has been used as a task. */
-  done: z.boolean().optional(),
-  note: NoteSchema.optional(),
-  /** null means never opened - that is what Resurface selects on (I6). */
-  lastOpenedAt: TimestampSchema.nullable(),
-  /** Keep in Resurface means reviewed, without claiming the link was opened. */
-  reviewedAt: TimestampSchema.optional(),
-});
+export const CardSchema = z
+  .strictObject({
+    ...softDeletableFields,
+    deckId: IdSchema,
+    kind: z.enum(['link', 'task']).optional(),
+    url: UrlSchema.optional(),
+    title: TitleSchema,
+    hostname: z.string().max(HOSTNAME_MAX_LENGTH),
+    order: OrderKeySchema,
+    /** Mirrored onto the surface's Pins strip. */
+    pinned: z.boolean(),
+    /** Surface-only label override; the saved-card title stays intact. */
+    pinLabel: TitleSchema.optional(),
+    /** Optional emoji used instead of the favicon tile. */
+    pinIcon: z.string().max(16).optional(),
+    /** Present only once the card has been used as a task. */
+    done: z.boolean().optional(),
+    note: NoteSchema.optional(),
+    /** null means never opened - that is what Resurface selects on (I6). */
+    lastOpenedAt: TimestampSchema.nullable(),
+    /** Keep in Resurface means reviewed, without claiming the link was opened. */
+    reviewedAt: TimestampSchema.optional(),
+  })
+  .refine(
+    (card) => card.url !== undefined || (card.kind === 'task' && !card.pinned),
+    {
+      message: 'A link needs a URL; URL-free tasks cannot be pinned',
+      path: ['url'],
+    },
+  );
 
 export type Card = z.infer<typeof CardSchema>;

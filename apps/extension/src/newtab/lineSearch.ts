@@ -5,6 +5,8 @@ export interface SearchableCard {
   title: string;
   hostname: string;
   note?: string | undefined;
+  kind?: 'link' | 'task' | undefined;
+  url?: string | undefined;
 }
 
 export interface SearchResults<T> {
@@ -101,13 +103,20 @@ export function buildSearchIndex<T extends SearchableCard>(cards: T[]) {
       return { entry, cardScore, noteMatch };
     });
     const foundCards = matches
-      .filter(({ cardScore }) => cardScore > 0)
+      .filter(
+        ({ cardScore, entry }) =>
+          cardScore > 0 && !(entry.card.kind === 'task' && !entry.card.url),
+      )
       .toSorted((a, b) => b.cardScore - a.cardScore)
       .map(({ entry }) => entry.card);
     const foundNotes = matches
-      .filter(({ noteMatch }) => noteMatch)
+      .filter(
+        ({ noteMatch, entry, cardScore }) =>
+          noteMatch ||
+          (entry.card.kind === 'task' && !entry.card.url && cardScore > 0),
+      )
       .map(({ entry }) => {
-        const note = entry.card.note ?? '';
+        const note = entry.card.note ?? entry.card.title;
         const start = Math.max(
           0,
           entry.note.indexOf(terms[0] ?? '') - NOTE_CONTEXT_CHARS,

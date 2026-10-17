@@ -137,11 +137,11 @@ afterEach(async () => {
   await deleteDB(LEGACY_DATABASE_NAME);
 });
 
-describe('database v1 to v2 migration', () => {
+describe('database v1 to current migration', () => {
   it('preserves records and stores a pre-upgrade snapshot', async () => {
     await createLegacyDatabase();
     const database = await openDeckDatabase(LEGACY_DATABASE_NAME);
-    expect(database.version).toBe(2);
+    expect(database.version).toBe(SCHEMA_VERSION);
     expect(await database.getAll('pages')).toEqual([page]);
     expect(await database.getAll('decks')).toEqual([deck]);
     expect(await database.getAll('cards')).toEqual([card]);

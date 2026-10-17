@@ -45,17 +45,17 @@ export function CardRow({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
   const [title, setTitle] = useState(card.title);
-  const [url, setUrl] = useState(card.url);
+  const [url, setUrl] = useState(card.url ?? '');
   const update = async (change: Partial<Card>): Promise<boolean> => {
     try {
+      const next = { ...card, ...change, updatedAt: now() };
+      const { url: nextUrl, ...withoutUrl } = next;
       props.onCardsChange(
         replaceEntity(
           props.cards,
-          await props.data.repository.upsertCard({
-            ...card,
-            ...change,
-            updatedAt: now(),
-          }),
+          await props.data.repository.upsertCard(
+            nextUrl === undefined ? withoutUrl : next,
+          ),
         ),
       );
       props.onSuccess?.(strings.cardSaved);
@@ -108,6 +108,17 @@ export function CardRow({
     }
   };
   const saveEdit = async () => {
+    if (card.kind === 'task' && !url.trim()) {
+      if (
+        await update({
+          url: undefined,
+          hostname: '',
+          title: title.trim() || card.title,
+        })
+      )
+        setIsEditing(false);
+      return;
+    }
     const parsed = parseCardUrl(url);
     if (!parsed) return props.onError(strings.invalidUrl);
     const nextTitle = title.trim() || card.title;
@@ -121,6 +132,7 @@ export function CardRow({
       setIsEditing(false);
   };
   const openIncognito = async () => {
+    if (!card.url) return props.onError(strings.taskNeedsUrl);
     try {
       if (!(await chrome.extension.isAllowedIncognitoAccess()))
         return props.onError(strings.incognitoUnavailable);
@@ -143,6 +155,7 @@ export function CardRow({
       data-card-id={card.id}
       className="deck-card"
       data-done={card.done || undefined}
+      data-kind={card.kind}
       data-dragging={isDragging || undefined}
       data-drag-over={isOver || undefined}
       tabIndex={0}
@@ -191,6 +204,16 @@ export function CardRow({
             {strings.cancel}
           </button>
         </form>
+      ) : !card.url ? (
+        <button
+          type="button"
+          data-deck="task-title"
+          className="deck-card__task-title deck-blurrable"
+          onClick={() => onEditNote(card)}
+        >
+          <strong>{card.title}</strong>
+          <small>{strings.taskMode}</small>
+        </button>
       ) : (
         <a
           className="deck-blurrable"
@@ -210,7 +233,7 @@ export function CardRow({
           title={strings.editCard}
           onClick={() => {
             setTitle(card.title);
-            setUrl(card.url);
+            setUrl(card.url ?? '');
             setIsEditing(true);
           }}
         >
@@ -227,6 +250,7 @@ export function CardRow({
         <button
           type="button"
           role="checkbox"
+          data-deck="card-done"
           aria-label={strings.markDone}
           title={strings.markDone}
           aria-checked={Boolean(card.done)}
@@ -261,7 +285,7 @@ export function CardRow({
           onClose={() => setIsMenuOpen(false)}
           onEdit={() => {
             setTitle(card.title);
-            setUrl(card.url);
+            setUrl(card.url ?? '');
             setIsEditing(true);
             setIsMenuOpen(false);
           }}
@@ -287,6 +311,7 @@ export function CardRow({
           }}
           pinned={card.pinned}
           done={Boolean(card.done)}
+          hasUrl={Boolean(card.url)}
         />
       ) : null}
     </article>
@@ -304,6 +329,7 @@ function CardMenu({
   onTrash,
   pinned,
   done,
+  hasUrl,
 }: {
   anchor: HTMLButtonElement | null;
   onClose: () => void;
@@ -315,10 +341,13 @@ function CardMenu({
   onTrash: () => void;
   pinned: boolean;
   done: boolean;
+  hasUrl: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    ref.current
+      ?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')
+      ?.focus();
   }, []);
   useDismissable(ref, onClose, anchor);
   if (!anchor) return null;
@@ -335,7 +364,7 @@ function CardMenu({
           event.preventDefault();
           const items = [
             ...(ref.current?.querySelectorAll<HTMLElement>(
-              '[role="menuitem"]',
+              '[role="menuitem"]:not(:disabled)',
             ) ?? []),
           ];
           const index = items.indexOf(document.activeElement as HTMLElement);
@@ -355,13 +384,18 @@ function CardMenu({
       <button type="button" role="menuitem" onClick={onNote}>
         {strings.editNote}
       </button>
-      <button type="button" role="menuitem" onClick={onPin}>
+      <button type="button" role="menuitem" onClick={onPin} disabled={!hasUrl}>
         {pinned ? strings.unpin : strings.pinCard}
       </button>
       <button type="button" role="menuitem" onClick={onDone}>
         {done ? strings.markNotDone : strings.markDone}
       </button>
-      <button type="button" role="menuitem" onClick={onIncognito}>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onIncognito}
+        disabled={!hasUrl}
+      >
         {strings.openIncognito}
       </button>
       <button type="button" role="menuitem" onClick={onTrash}>

@@ -51,6 +51,7 @@ export function DeckMenu({
   const [subMenu, setSubMenu] = useState<
     'color' | 'page' | 'permission' | null
   >(null);
+  const hasLinks = cards.some((card) => card.url !== undefined);
   const rect = anchor.getBoundingClientRect();
   const isRtl = document.documentElement.dir === 'rtl';
   const inline = isRtl ? window.innerWidth - rect.right : rect.left;
@@ -77,7 +78,9 @@ export function DeckMenu({
     );
   }, [onError]);
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    ref.current
+      ?.querySelector<HTMLElement>('[role^="menuitem"]:not(:disabled)')
+      ?.focus();
   }, [subMenu]);
   useDismissable(ref, onClose, anchor);
 
@@ -116,7 +119,7 @@ export function DeckMenu({
     event.preventDefault();
     const items = [
       ...(ref.current?.querySelectorAll<HTMLElement>(
-        '[role="menuitem"]:not(:disabled)',
+        '[role^="menuitem"]:not(:disabled)',
       ) ?? []),
     ];
     const current = items.indexOf(document.activeElement as HTMLElement);
@@ -210,6 +213,15 @@ export function DeckMenu({
         <>
           <button
             type="button"
+            role="menuitemcheckbox"
+            data-deck="deck-task-mode"
+            aria-checked={Boolean(deck.isTaskMode)}
+            onClick={() => choose({ isTaskMode: !deck.isTaskMode })}
+          >
+            {strings.taskMode}
+          </button>
+          <button
+            type="button"
             role="menuitem"
             onClick={() => {
               onRename();
@@ -249,7 +261,7 @@ export function DeckMenu({
           <button
             type="button"
             role="menuitem"
-            disabled={cards.length === 0}
+            disabled={!hasLinks}
             data-deck={
               deck.kind === 'session' ? 'session-restore' : 'deck-open-links'
             }
@@ -263,7 +275,7 @@ export function DeckMenu({
             <button
               type="button"
               role="menuitem"
-              disabled={cards.length === 0}
+              disabled={!hasLinks}
               onClick={() => void onOpen('restore-and-trash')}
               data-deck="session-restore-trash"
             >
@@ -273,7 +285,7 @@ export function DeckMenu({
           <button
             type="button"
             role="menuitem"
-            disabled={cards.length === 0 || wasGroupDeclined === null}
+            disabled={!hasLinks || wasGroupDeclined === null}
             onClick={() => void openGroup()}
             data-deck="deck-open-group"
           >

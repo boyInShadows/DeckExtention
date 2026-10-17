@@ -42,6 +42,7 @@ import { CardRow } from './CardRow';
 import { DeckMenu } from './DeckMenu';
 import { SESSION_LIFETIME_MS } from '../sessions/constants';
 import { openDeck, type DeckOpenMode } from '../sessions/openDeck';
+import '../tasks/tasks.css';
 
 const DROP_SETTLE_MS = 160;
 const DROP_SETTLE_EASING = 'var(--deck-ease-hover)';
@@ -391,6 +392,7 @@ function DeckColumn({
       }}
       data-deck="deck"
       data-deck-id={deck.id}
+      data-task-mode={deck.isTaskMode || undefined}
       className="deck-column"
       data-color={deck.color ?? undefined}
       data-dragging={isDragging || undefined}
@@ -477,7 +479,14 @@ function DeckColumn({
             {deck.title}
           </button>
         )}
-        <small>{visibleCards.length}</small>
+        <small data-deck="deck-count">
+          {deck.isTaskMode
+            ? strings.taskProgress(
+                visibleCards.filter((card) => card.done).length,
+                visibleCards.length,
+              )
+            : visibleCards.length}
+        </small>
         {deck.kind === 'session' && deck.expiresAt === undefined ? (
           <small data-deck="session-kept">{strings.sessionKeptLabel}</small>
         ) : null}

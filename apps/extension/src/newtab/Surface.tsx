@@ -26,6 +26,7 @@ import { Line } from './Line';
 import { Pins } from './Pins';
 import { greetingForHour } from './surfaceModel';
 import type ResurfacePanel from '../resurface/Resurface';
+import type { Card } from 'deck-schema';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
 const HelpOverlay = lazy(() => import('./HelpOverlay'));
@@ -53,6 +54,7 @@ export function Surface({ initialData }: SurfaceProps) {
   const [decks, setDecks] = useState(initialData.decks);
   const [pages, setPages] = useState(initialData.pages);
   const [settings, setSettings] = useState(initialData.settings);
+  const [requestedNote, setRequestedNote] = useState<Card | null>(null);
   const [Resurface, setResurface] = useState<typeof ResurfacePanel | null>(
     null,
   );
@@ -358,6 +360,10 @@ export function Surface({ initialData }: SurfaceProps) {
             </p>
           ) : null}
           <Line
+            openNote={(card) => {
+              setRequestedNote(card);
+              openDrawer();
+            }}
             onDataChange={reloadWorkspace}
             notifyNotice={notify}
             cards={cards}
@@ -457,6 +463,8 @@ export function Surface({ initialData }: SurfaceProps) {
         <Suspense>
           {isDrawerMounted ? (
             <Drawer
+              requestedNote={requestedNote}
+              onNoteOpened={() => setRequestedNote(null)}
               keymapOverrides={settings.keymap}
               data={initialData}
               cards={cards}

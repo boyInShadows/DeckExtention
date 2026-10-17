@@ -106,7 +106,7 @@
   "snapshot": {
     "id": "sn_00001a",
     "ts": 1757000200000,
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "blob": "{\"pages\":[],\"decks\":[],\"cards\":[]}"
   }
 }

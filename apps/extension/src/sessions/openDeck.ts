@@ -23,11 +23,20 @@ async function savedLinks(
   );
   if (!deck || (mode.startsWith('restore') && deck.kind !== 'session'))
     throw new Error(strings.sessionMissing);
-  const cards = (await repository.listCards())
+  const records = await repository.listCards();
+  if (
+    mode === 'restore-and-trash' &&
+    records.some(
+      (card) => card.deckId === deckId && card.deletedAt === null && !card.url,
+    )
+  )
+    throw new Error(strings.sessionHasTasks);
+  const cards = records
     .filter(
       (card) =>
         card.deckId === deckId &&
         card.deletedAt === null &&
+        card.url !== undefined &&
         (!card.pinned || deck.kind === 'session'),
     )
     .toSorted((a, b) => (a.order < b.order ? -1 : a.order === b.order ? 0 : 1));

@@ -90,6 +90,41 @@ it('groups all 65 links in order in the requested window, titles/colors the grou
   ).toBe(true);
 });
 
+it('skips URL-free tasks when opening links and refuses to trash a session containing an unrestored task', async () => {
+  await repository.upsertCard({
+    id: 'task_local',
+    deckId: 'deck_test',
+    kind: 'task',
+    title: 'Unrestored note',
+    hostname: '',
+    order: 'a0',
+    pinned: false,
+    lastOpenedAt: null,
+    createdAt: 1,
+    updatedAt: 1,
+    deletedAt: null,
+  });
+  expect(await openDeck(repository, 'deck_test', 7)).toBe(65);
+  expect(
+    api.tabs.create.mock.calls.every(
+      ([options]) => typeof options.url === 'string',
+    ),
+  ).toBe(true);
+  expect(
+    (await repository.listCards()).find((card) => card.id === 'task_local')
+      ?.lastOpenedAt,
+  ).toBeNull();
+  api.tabs.create.mockClear();
+  await expect(
+    openDeck(repository, 'deck_test', 7, 'restore-and-trash'),
+  ).rejects.toThrow('Move URL-free tasks');
+  expect(api.tabs.create).not.toHaveBeenCalled();
+  expect(
+    (await repository.listCards()).find((card) => card.id === 'task_local')
+      ?.deletedAt,
+  ).toBeNull();
+});
+
 it('restores without removing the session unless removal was selected; Trash remains recoverable', async () => {
   await openDeck(repository, 'deck_test', 7, 'restore');
   expect((await repository.listDecks())[0]?.deletedAt).toBeNull();

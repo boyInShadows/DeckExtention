@@ -89,7 +89,10 @@ export default function Resurface({
       revision.current += 1;
       setDaily(null);
       onDataChange();
-      if (action === 'open') await chrome.tabs.create({ url: saved.url });
+      if (action === 'open') {
+        if (!saved.url) throw new Error(strings.invalidUrl);
+        await chrome.tabs.create({ url: saved.url });
+      }
       if (action === 'keep')
         notify({ kind: 'success', text: strings.resurfaceKept });
       if (action === 'trash')

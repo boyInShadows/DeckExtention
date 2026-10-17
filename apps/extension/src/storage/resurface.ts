@@ -87,6 +87,7 @@ function eligibleCards(
         card.reviewedAt === undefined &&
         !card.pinned &&
         liveDecks.has(card.deckId) &&
+        card.url !== undefined &&
         /^https?:\/\//i.test(card.url),
     )
     .toSorted((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));

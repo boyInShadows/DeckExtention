@@ -21,7 +21,7 @@ import { Icon } from './Icon';
 import { BackupService } from '../storage/backup';
 import type { ImportMode, ImportPreview } from '../storage/backup';
 import { openDeckDatabase } from '../storage/database';
-import { parseDocumentJson } from '../storage/document';
+import { migrateDocument } from '../storage/documentMigration';
 import { processWallpaper } from '../wallpaper/processWallpaper';
 import type { SurfaceData } from './bootstrap';
 import { downloadExport } from './downloadExport';
@@ -65,7 +65,7 @@ const currentTimestamp = () => Date.now();
 function snapshotSummary(snapshot: Snapshot): string {
   const size = `${Math.ceil(new Blob([snapshot.blob]).size / 1024)} KB`;
   try {
-    const document = parseDocumentJson(snapshot.blob);
+    const document = migrateDocument(JSON.parse(snapshot.blob) as unknown);
     return strings.backupSummary({
       pages: document.pages.length,
       decks: document.decks.length,

@@ -9,6 +9,8 @@ type Migration = (document: unknown) => unknown;
 // established shape and exercises an atomic database upgrade.
 const DEFAULT_MIGRATIONS = new Map<number, Migration>([
   [1, (value) => ({ ...(value as object), schemaVersion: 2 })],
+  // v3 expands cards with explicit URL-free tasks. Existing links need no rewrite.
+  [2, (value) => ({ ...(value as object), schemaVersion: 3 })],
 ]);
 
 export function migrateDocument(

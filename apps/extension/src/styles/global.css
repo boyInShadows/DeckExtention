@@ -1150,7 +1150,8 @@
     block-size: 1.25rem;
   }
 
-  .deck-card a {
+  .deck-card a,
+  .deck-card__task-title {
     display: grid;
     min-inline-size: 0;
     color: inherit;

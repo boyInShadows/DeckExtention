@@ -76,6 +76,7 @@ async function mount(cards: Card[] = []) {
     settings: SETTINGS_DEFAULTS,
     repository,
     openSettings: vi.fn(),
+    openNote: vi.fn(),
     saveSettings: vi.fn().mockResolvedValue(undefined),
     notify: vi.fn(),
     notifyInfo: vi.fn(),

@@ -35,6 +35,7 @@ interface LineProps {
   openDrawer: () => void;
   openHelp: () => void;
   onDataChange?: () => void;
+  openNote: (card: Card) => void;
 }
 
 export function Line(props: LineProps) {
@@ -58,6 +59,7 @@ export function Line(props: LineProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const isTabActionPending = useRef(false);
+  const isTaskPending = useRef(false);
   const isWebSearch = query[0] === '?';
   const isCommand = query[0] === '>';
   const isTabsCommand = /^>tabs(?:\s|$)/i.test(query);
@@ -243,6 +245,11 @@ export function Line(props: LineProps) {
             ? results.cards[index]
             : undefined;
       if (!card) return;
+      if (!card.url) {
+        props.openNote(card);
+        setQuery('');
+        return;
+      }
       const { openCard } = await import('../drawer/inboxActions');
       await openCard(props.repository, card, isNewTab);
     } catch (lineError) {
@@ -252,7 +259,36 @@ export function Line(props: LineProps) {
     }
   };
 
+  const saveTask = async () => {
+    if (isTaskPending.current) return;
+    isTaskPending.current = true;
+    const text = query;
+    try {
+      const { createTask } = await import('../tasks/quickTask');
+      await createTask(props.repository, text);
+      setQuery((current) => (current === text ? '' : current));
+      props.onDataChange?.();
+      props.notifySuccess(strings.taskSaved);
+    } catch (error) {
+      props.notify(
+        `${strings.updateFailed} ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      isTaskPending.current = false;
+    }
+  };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    if (
+      event.key === 'Enter' &&
+      (event.ctrlKey || event.metaKey) &&
+      event.shiftKey &&
+      !event.altKey
+    ) {
+      event.preventDefault();
+      if (!event.repeat) void saveTask();
+      return;
+    }
     if (
       group === 'tabs' &&
       (event.key === 'ArrowDown' || event.key === 'ArrowUp')

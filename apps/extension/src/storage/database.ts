@@ -4,7 +4,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { migrateDocument } from './documentMigration';
 
 export const DATABASE_NAME = 'deck';
-export const DATABASE_VERSION = 2;
+export const DATABASE_VERSION = 3;
 export const ACTIVE_DATABASE_KEY = 'deckDb';
 
 export interface MetaRecord {
@@ -30,19 +30,26 @@ type MigrationValidation = { migrateDocument: typeof migrateDocument };
 
 async function prepareMigration(
   name: string,
+  version: number,
   validation: MigrationValidation,
 ): Promise<void> {
-  const legacy = await openDB<DeckDatabase>(name, 1);
+  const legacy = await openDB<DeckDatabase>(name, version, {
+    blocking(_current, _next, event) {
+      (event.target as IDBDatabase).close();
+    },
+  });
   try {
+    const tx = legacy.transaction(['pages', 'decks', 'cards', 'meta']);
     const [pages, decks, cards, settings] = await Promise.all([
-      legacy.getAll('pages'),
-      legacy.getAll('decks'),
-      legacy.getAll('cards'),
-      legacy.get('meta', 'settings'),
+      tx.objectStore('pages').getAll(),
+      tx.objectStore('decks').getAll(),
+      tx.objectStore('cards').getAll(),
+      tx.objectStore('meta').get('settings'),
     ]);
+    await tx.done;
     const now = Date.now();
     const original = {
-      schemaVersion: 1,
+      schemaVersion: version,
       exportedAt: now,
       pages,
       decks,
@@ -53,7 +60,7 @@ async function prepareMigration(
     const snapshot: Snapshot = {
       id: crypto.randomUUID(),
       ts: now,
-      schemaVersion: 1,
+      schemaVersion: version,
       blob: JSON.stringify(original),
     };
     await legacy.put('snapshots', snapshot);
@@ -82,9 +89,9 @@ function upgradeDatabase(
     database.createObjectStore('meta', { keyPath: 'key' });
     return;
   }
-  if (oldVersion !== 1 || !isPrepared)
+  if (![1, 2].includes(oldVersion) || !isPrepared)
     throw new Error('Database migration was not prepared');
-  // v1 records already use the v2 shape. The version transaction commits
+  // v3 accepts existing link records unchanged. The version transaction commits
   // atomically without overwriting writes made since the snapshot.
 }
 
@@ -111,10 +118,10 @@ export async function openDeckDatabase(
     (entry) => entry.name === selectedName,
   )?.version;
   let isPrepared = false;
-  if (version === 1) {
+  if (version !== undefined && version > 0 && version < DATABASE_VERSION) {
     const validator = validation ?? (await import('./documentMigration'));
     try {
-      await prepareMigration(selectedName, validator);
+      await prepareMigration(selectedName, version, validator);
       isPrepared = true;
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'VersionError'))
@@ -122,6 +129,9 @@ export async function openDeckDatabase(
     }
   }
   return openDB<DeckDatabase>(selectedName, DATABASE_VERSION, {
+    blocking(_current, _next, event) {
+      (event.target as IDBDatabase).close();
+    },
     upgrade(database, oldVersion) {
       upgradeDatabase(database, oldVersion, isPrepared);
     },

@@ -112,6 +112,10 @@ export function useWorkspaceKeys(options: WorkspaceKeysOptions): void {
       const { repository, onNote, onMove } = latest.current;
       const position = positionOf(grid, document.activeElement);
       if (action === 'open' || action === 'openInNewTab') {
+        if (!card.url) {
+          onNote(card);
+          return true;
+        }
         enqueue(async (cards) =>
           replaceEntity(
             cards,

@@ -163,7 +163,7 @@ function describeDuplicate(
   };
 }
 
-async function ensureInbox(
+export async function ensureInbox(
   repository: DeckRepository,
   decks: Deck[],
   pages: Page[],

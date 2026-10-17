@@ -21,6 +21,8 @@ const lineActions = vi.hoisted(() => ({
     >(),
 }));
 vi.mock('./lineActions', () => lineActions);
+const taskCreator = vi.hoisted(() => ({ createTask: vi.fn() }));
+vi.mock('../tasks/quickTask', () => taskCreator);
 
 const upsertCard = vi.fn((value: Card) => Promise.resolve(value));
 const REPOSITORY = { upsertCard } as unknown as SurfaceData['repository'];
@@ -54,6 +56,7 @@ function setup(settings: Settings = SETTINGS_DEFAULTS, cards = CARDS) {
     settings,
     repository: REPOSITORY,
     openSettings: vi.fn<() => void>(),
+    openNote: vi.fn(),
     saveSettings: vi.fn<(next: Settings) => Promise<void>>(() =>
       Promise.resolve(),
     ),
@@ -97,9 +100,86 @@ function activeText(view: RenderResult): string | undefined {
 }
 
 beforeEach(() => {
+  taskCreator.createTask.mockReset();
   upsertCard.mockClear();
   lineActions.executeAction.mockReset().mockResolvedValue(undefined);
   lineActions.searchWeb.mockReset().mockResolvedValue(undefined);
+});
+
+it('saves literal text with Ctrl+Shift+Enter and does not open the selected link', async () => {
+  const test = setup();
+  taskCreator.createTask.mockResolvedValue({});
+  const view = await test.render();
+  try {
+    await typeQuery(view, 'alpha');
+    await press(view, 'Enter', { ctrlKey: true, shiftKey: true });
+    await vi.waitFor(() =>
+      expect(test.props.notifySuccess).toHaveBeenCalledWith(strings.taskSaved),
+    );
+    expect(taskCreator.createTask).toHaveBeenCalledWith(REPOSITORY, 'alpha');
+    expect(upsertCard).not.toHaveBeenCalled();
+    expect(input(view).value).toBe('');
+  } finally {
+    view.unmount();
+  }
+});
+
+it('keeps failed task text and serializes saves while preserving newly typed text', async () => {
+  const test = setup();
+  const view = await test.render();
+  try {
+    taskCreator.createTask.mockRejectedValueOnce(new Error('disk full'));
+    await typeQuery(view, 'task text');
+    await press(view, 'Enter', { ctrlKey: true, shiftKey: true });
+    await vi.waitFor(() =>
+      expect(test.props.notify).toHaveBeenCalledWith(
+        expect.stringContaining('disk full'),
+      ),
+    );
+    expect(input(view).value).toBe('task text');
+    let finish: (value: unknown) => void = () => undefined;
+    taskCreator.createTask.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    await press(view, 'Enter', { ctrlKey: true, shiftKey: true });
+    await press(view, 'Enter', { ctrlKey: true, shiftKey: true });
+    await vi.waitFor(() =>
+      expect(taskCreator.createTask).toHaveBeenCalledTimes(2),
+    );
+    await typeQuery(view, 'another draft');
+    await view.act(async () => {
+      finish({});
+    });
+    expect(input(view).value).toBe('another draft');
+  } finally {
+    view.unmount();
+  }
+});
+
+it('finds a URL-free task in Notes and opens its editor on Enter', async () => {
+  const task = card('task_local', 'Buy milk', {
+    kind: 'task',
+    url: undefined,
+    hostname: '',
+  });
+  const test = setup(SETTINGS_DEFAULTS, [task]);
+  const view = await test.render();
+  try {
+    await typeQuery(view, 'milk');
+    await vi.waitFor(() =>
+      expect(view.query('[data-deck="note-result"]')).not.toBeNull(),
+    );
+    expect(
+      view.query('[data-deck="line-results"] [data-deck="card"]'),
+    ).toBeNull();
+    await press(view, 'Enter');
+    expect(test.props.openNote).toHaveBeenCalledWith(task);
+    expect(upsertCard).not.toHaveBeenCalled();
+  } finally {
+    view.unmount();
+  }
 });
 
 afterEach(() => {

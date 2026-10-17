@@ -116,6 +116,7 @@ async function persistCardMove(
 async function persistCardPin(activeId: string, state: WorkspaceDropState) {
   const moved = state.cards.find(({ id }) => id === activeId);
   if (!moved || moved.pinned) return;
+  if (!moved.url) throw new Error(strings.taskNeedsUrl);
   const pins = activeRecords(state.cards).filter(({ pinned }) => pinned);
   if (pins.length >= MAX_PIN_COUNT) throw new Error(strings.pinLimitReached);
   const saved = await state.repository.upsertCard({

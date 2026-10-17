@@ -5,7 +5,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
-import type { Card, Deck, KeyBinding, Page } from 'deck-schema';
+import type { Card, Deck, Page } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
 import {
   useCallback,
@@ -14,17 +14,14 @@ import {
   useMemo,
   useRef,
   useState,
-  type RefObject,
 } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { useDismissable } from '../hooks/useDismissable';
 import { Icon } from '../newtab/Icon';
-import type { SurfaceData } from '../newtab/bootstrap';
 import { focusOnMount } from '../newtab/focusOnMount';
 import { downloadExport } from '../newtab/downloadExport';
 import { playSpring } from '../motion/spring';
-import type { UndoAction } from './UndoToast';
 import {
   activePages,
   DRAWER_PAGE_KEY,
@@ -52,6 +49,8 @@ import { NotePanel, type NotePanelHandle } from './NotePanel';
 import { replaceEntity } from './workspaceModel';
 import { SystemPages } from './SystemPages';
 import { SESSIONS_PAGE_ID } from '../sessions/constants';
+import { useRequestedNote } from './useRequestedNote';
+import type { DrawerProps } from './DrawerProps';
 
 function currentTimestamp(): number {
   return Date.now();
@@ -60,24 +59,6 @@ function currentTimestamp(): number {
 function focusPageName(element: HTMLInputElement | null): void {
   element?.focus();
   element?.select();
-}
-
-interface DrawerProps {
-  /** Settings.keymap - resolved here so the keymap code stays off the surface. */
-  keymapOverrides: readonly KeyBinding[];
-  cards: Card[];
-  data: SurfaceData;
-  decks: Deck[];
-  isOpen: boolean;
-  pages: Page[];
-  onCardsChange: (cards: Card[]) => void;
-  onClose: () => void;
-  onDecksChange: (decks: Deck[]) => void;
-  onError: (message: string) => void;
-  onSuccess?: (message: string) => void;
-  onPagesChange: (pages: Page[]) => void;
-  offerUndo: (action: UndoAction) => void;
-  beforeCloseRef?: RefObject<(() => Promise<boolean>) | null>;
 }
 
 function SortablePage({
@@ -192,6 +173,8 @@ export default function Drawer({
   onCardsChange,
   offerUndo,
   beforeCloseRef,
+  requestedNote,
+  onNoteOpened,
 }: DrawerProps) {
   const keymap = useMemo(
     () => resolveKeymap(keymapOverrides),
@@ -260,13 +243,24 @@ export default function Drawer({
   }, [beforeCloseRef, flushNote]);
   const selectPage = useCallback(
     async (id: string) => {
-      if (!(await flushNote())) return;
+      if (!(await flushNote())) return false;
       setNoteEntity(null);
       setSelectedId(id);
       localStorage.setItem(DRAWER_PAGE_KEY, id);
+      return true;
     },
     [flushNote],
   );
+  useRequestedNote({
+    repository: data.repository,
+    requestedNote,
+    decks,
+    isEnabled: isOpen && isPagesLoaded,
+    selectPage,
+    onOpen: setNoteEntity,
+    onOpened: onNoteOpened,
+    onError,
+  });
   useEffect(() => {
     if (!noteEntity || !isOpen) return;
     const dismiss = (event: MouseEvent) => {
@@ -592,7 +586,9 @@ export default function Drawer({
               ({ kind, deletedAt }) => kind === 'session' && deletedAt === null,
             ).length
           }
-          selectPage={selectPage}
+          selectPage={async (id) => {
+            await selectPage(id);
+          }}
         />
         <div
           ref={scrollRef}
