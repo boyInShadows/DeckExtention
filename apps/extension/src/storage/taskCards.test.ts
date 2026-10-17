@@ -184,7 +184,7 @@ it('the pre-upgrade snapshot can reconstruct a v2 rollback copy without touching
   }
 });
 
-it('exports, wipes and imports a mixed task/link library with task mode and preserves every field', async () => {
+it('exports, wipes and imports a mixed task/link library with task mode and Shelf choices, preserving every field', async () => {
   const repository = new DeckRepository({
     databaseName: DATABASE,
     now: () => NOW,
@@ -200,12 +200,23 @@ it('exports, wipes and imports a mixed task/link library with task mode and pres
       decks: [{ ...deck, isTaskMode: true }],
       cards: [link, task],
     });
+    await repository.setSettings({
+      ...SETTINGS_DEFAULTS,
+      showShelf: true,
+      shelfDeckIds: [deck.id, 'missing_deck'],
+    });
     const saved = (await backups.exportData()).document;
+    expect(saved.settings.shelfDeckIds).toEqual([deck.id, 'missing_deck']);
     await repository.replaceDocument({
       ...saved,
       pages: [],
       decks: [],
       cards: [],
+      settings: SETTINGS_DEFAULTS,
+    });
+    expect(await repository.getSettings()).toMatchObject({
+      showShelf: false,
+      shelfDeckIds: [],
     });
     await backups.importData(saved, 'replace');
     expect((await backups.exportData()).document).toEqual(saved);

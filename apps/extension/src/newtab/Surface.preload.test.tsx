@@ -22,6 +22,11 @@ vi.mock('../resurface/Resurface', () => ({
     throw new Error('Resurface chunk missing');
   },
 }));
+vi.mock('../shelf/Shelf', () => ({
+  get default() {
+    throw new Error('Shelf chunk missing');
+  },
+}));
 vi.mock('../drawer/WorkspaceDnd', () => ({ WorkspaceDnd: PassThrough }));
 
 function PassThrough({ children }: { children: ComponentChildren }) {
@@ -54,13 +59,13 @@ afterEach(() => {
 });
 
 describe('Surface drawer preload failure', () => {
-  it('keeps the surface usable and reports missing drawer or Resurface chunks', async () => {
+  it('keeps the surface usable and reports missing drawer, Resurface and Shelf chunks', async () => {
     const data: SurfaceData = {
       cards: [],
       decks: [],
       pages: [],
       defaultDeckId: 'deck_a',
-      settings: SETTINGS_DEFAULTS,
+      settings: { ...SETTINGS_DEFAULTS, showShelf: true },
       repository: {
         getRecoveryIssueCount: () => 0,
       } as SurfaceData['repository'],
@@ -77,10 +82,11 @@ describe('Surface drawer preload failure', () => {
         await vi.dynamicImportSettled();
       });
       const notices = view.getAll('[data-deck="toast"][data-kind="error"]');
-      expect(notices).toHaveLength(2);
+      expect(notices).toHaveLength(3);
       const errors = notices.map((item) => item.textContent).join(' ');
       expect(errors).toContain(strings.updateFailed);
       expect(errors).toContain('Resurface chunk missing');
+      expect(errors).toContain('Shelf chunk missing');
       expect(view.query('[data-deck="line"]')).not.toBeNull();
     });
     view.unmount();

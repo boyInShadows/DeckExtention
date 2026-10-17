@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { CUSTOM_CSS_MAX_LENGTH, TokenNameSchema, UrlSchema } from './common';
+import {
+  CUSTOM_CSS_MAX_LENGTH,
+  IdSchema,
+  TokenNameSchema,
+  UrlSchema,
+} from './common';
 import { WALLPAPER_DIM_MAX } from './constants';
 export { SETTINGS_DEFAULTS, WALLPAPER_DIM_MAX } from './constants';
 
@@ -35,6 +40,8 @@ export const SettingsSchema = z.strictObject({
   showDate: z.boolean().default(true),
   use12HourClock: z.boolean().default(false),
   showResurface: z.boolean().default(true),
+  showShelf: z.boolean().default(false),
+  shelfDeckIds: z.array(IdSchema).default([]),
   /** The `B` blur toggle; persisted across tabs (P1.S5). */
   isBlurred: z.boolean(),
   /** Space on an empty Line opens the drawer. On by default, per AGENTS.md 2. */

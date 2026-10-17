@@ -1,9 +1,18 @@
 import type { ReactNode } from 'react';
 
 type IconName =
-  'close' | 'menu' | 'edit' | 'check' | 'note' | 'inbox' | 'trash' | 'sessions';
+  | 'close'
+  | 'menu'
+  | 'edit'
+  | 'check'
+  | 'note'
+  | 'inbox'
+  | 'trash'
+  | 'sessions'
+  | 'chevron';
 
 const PATHS: Record<IconName, ReactNode> = {
+  chevron: <path d="m6 9 6 6 6-6" />,
   close: <path d="M5 5 19 19M19 5 5 19" />,
   menu: (
     <>

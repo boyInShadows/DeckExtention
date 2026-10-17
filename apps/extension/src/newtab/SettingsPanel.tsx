@@ -5,6 +5,8 @@ import {
   type Settings,
   type Snapshot,
   type Theme,
+  type Page,
+  type Deck,
 } from 'deck-schema';
 import {
   useCallback,
@@ -30,9 +32,12 @@ import { GrantedAccess } from './GrantedAccess';
 import { KeymapEditor } from './KeymapEditor';
 import { QuickSavePermission } from './QuickSavePermission';
 import type { NoticeInput } from './ToastStack';
+import { ShelfSettings, type SettingsChange } from '../shelf/ShelfSettings';
 
 interface SettingsPanelProps {
   settings: Settings;
+  pages: Page[];
+  decks: Deck[];
   repository: SurfaceData['repository'];
   onChange: (settings: Settings) => Promise<void>;
   /** Pages, decks or cards were written behind the surface's back. */
@@ -79,6 +84,8 @@ function snapshotSummary(snapshot: Snapshot): string {
 
 export default function SettingsPanel({
   settings,
+  pages,
+  decks,
   repository,
   onChange,
   onDataChange,
@@ -122,8 +129,10 @@ export default function SettingsPanel({
     },
     [notify],
   );
-  const update = (change: Partial<Settings>) => {
-    const next = { ...latestSettings.current, ...change };
+  const update = (change: SettingsChange) => {
+    const patch =
+      typeof change === 'function' ? change(latestSettings.current) : change;
+    const next = { ...latestSettings.current, ...patch };
     latestSettings.current = next;
     writeQueue.current = writeQueue.current
       .then(() => onChange(next))
@@ -379,6 +388,12 @@ export default function SettingsPanel({
             label={strings.showResurface}
             checked={settings.showResurface}
             onChange={(showResurface) => void update({ showResurface })}
+          />
+          <ShelfSettings
+            settings={settings}
+            pages={pages}
+            decks={decks}
+            update={update}
           />
           <label>
             {strings.wallpaperDim}

@@ -26,6 +26,7 @@ import { Line } from './Line';
 import { Pins } from './Pins';
 import { greetingForHour } from './surfaceModel';
 import type ResurfacePanel from '../resurface/Resurface';
+import type ShelfPanel from '../shelf/Shelf';
 import type { Card } from 'deck-schema';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
@@ -55,6 +56,7 @@ export function Surface({ initialData }: SurfaceProps) {
   const [pages, setPages] = useState(initialData.pages);
   const [settings, setSettings] = useState(initialData.settings);
   const [requestedNote, setRequestedNote] = useState<Card | null>(null);
+  const [Shelf, setShelf] = useState<typeof ShelfPanel | null>(null);
   const [Resurface, setResurface] = useState<typeof ResurfacePanel | null>(
     null,
   );
@@ -173,6 +175,21 @@ export function Surface({ initialData }: SurfaceProps) {
       isCurrent = false;
     };
   }, [settings.showResurface, notifyFailure]);
+
+  useEffect(() => {
+    if (!settings.showShelf) return;
+    let isCurrent = true;
+    void import('../shelf/Shelf')
+      .then((module) => {
+        if (isCurrent) setShelf(() => module.default);
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) notifyFailure(error);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [settings.showShelf, notifyFailure]);
 
   // Quick Save hands over here when its toast could not show (P2.S4).
   useEffect(() => {
@@ -385,6 +402,21 @@ export function Surface({ initialData }: SurfaceProps) {
             offerUndo={offerUndo}
             notify={notify}
           />
+          {settings.showShelf && Shelf ? (
+            <Shelf
+              cards={cards}
+              decks={decks}
+              pages={pages}
+              selectedDeckIds={settings.shelfDeckIds}
+              repository={initialData.repository}
+              onDataChange={reloadWorkspace}
+              onError={notifyError}
+              onOpenNote={(card) => {
+                setRequestedNote(card);
+                openDrawer();
+              }}
+            />
+          ) : null}
         </div>
         <Suspense>
           {settings.showResurface && Resurface ? (
@@ -452,6 +484,8 @@ export function Surface({ initialData }: SurfaceProps) {
           {isSettingsOpen ? (
             <SettingsPanel
               settings={settings}
+              pages={pages}
+              decks={decks}
               repository={initialData.repository}
               onChange={saveSettings}
               onDataChange={reloadWorkspace}

@@ -151,6 +151,8 @@ async function mount(
   const view = await render(
     <SettingsPanel
       settings={settings}
+      pages={[]}
+      decks={[]}
       repository={repository as unknown as DeckRepository}
       onChange={onChange}
       onDataChange={onDataChange}

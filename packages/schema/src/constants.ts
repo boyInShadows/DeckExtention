@@ -20,6 +20,8 @@ export const SETTINGS_DEFAULTS: Settings = Object.freeze({
   showDate: true,
   use12HourClock: false,
   showResurface: true,
+  showShelf: false,
+  shelfDeckIds: [],
   isBlurred: false,
   canSpaceOpenDrawer: true,
   wallpaper: { kind: 'none' },

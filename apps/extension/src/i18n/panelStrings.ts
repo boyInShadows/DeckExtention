@@ -64,6 +64,13 @@ export const panelStrings = {
   resurface: 'Worth another look?',
   taskNeedsUrl: 'Only links can be pinned. Keep this task in a deck.',
   taskMode: 'Task mode',
+  shelf: 'Shelf',
+  showShelf: 'Show decks on the surface',
+  shelfDecks: 'Decks on your Shelf',
+  shelfHint:
+    'Choose decks to show below Pins. Open links here; edit in the drawer.',
+  shelfNoDecks: 'Create a deck in the drawer to add it here.',
+  shelfCount: (count: number) => `${count} cards`,
   sessionHasTasks:
     'Move URL-free tasks out before restoring and trashing this session.',
   taskProgress: (done: number, total: number) => `${done} / ${total}`,

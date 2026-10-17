@@ -42,6 +42,32 @@ const card = {
 };
 
 describe('warm hydration guards', () => {
+  it('keeps Shelf off for legacy settings and validates selected deck IDs like Zod', () => {
+    const legacy = Object.fromEntries(
+      Object.entries(SETTINGS_DEFAULTS).filter(
+        ([key]) => !['showShelf', 'shelfDeckIds'].includes(key),
+      ),
+    );
+    expect(SettingsSchema.parse(legacy)).toMatchObject({
+      showShelf: false,
+      shelfDeckIds: [],
+    });
+    expect(isSettings(legacy)).toBe(true);
+    if (!isSettings(legacy)) throw new Error('Invalid legacy settings');
+    expect(hydratedSettings(legacy)).toMatchObject({
+      showShelf: false,
+      shelfDeckIds: [],
+    });
+    for (const patch of [
+      { showShelf: 'yes' },
+      { shelfDeckIds: 'deck_test' },
+      { shelfDeckIds: ['bad'] },
+      { showShelf: true, shelfDeckIds: ['deck_test'] },
+    ]) {
+      const value = { ...SETTINGS_DEFAULTS, ...patch };
+      expect(isSettings(value)).toBe(SettingsSchema.safeParse(value).success);
+    }
+  });
   it('accepts pre-Resurface settings and supplies the same default as Zod', () => {
     const legacy = Object.fromEntries(
       Object.entries(SETTINGS_DEFAULTS).filter(

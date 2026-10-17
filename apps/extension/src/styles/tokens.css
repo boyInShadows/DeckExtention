@@ -175,6 +175,8 @@
   --deck-clock-width: 8ch;
   --deck-control-size: 2.25rem;
   --deck-resurface-width: 20rem;
+  --deck-shelf-max-height: 35dvb;
+  --deck-shelf-row-height: 2.75rem;
   --deck-resurface-surface-height: 54rem;
   --deck-line-height: 3.5rem;
   --deck-results-max-block: min(60vh, 32rem);
