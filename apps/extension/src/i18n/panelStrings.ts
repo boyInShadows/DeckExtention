@@ -194,6 +194,19 @@ export const panelStrings = {
     'Allow Deck in Incognito from Chrome’s extension details first.',
   allDone: 'All done ✓',
   openAll: 'Open all',
+  openAsTabGroup: 'Open as tab group',
+  restoreSession: 'Restore',
+  restoreSessionAndTrash: 'Restore and move to Trash',
+  noSavedLinks: 'This deck has no saved links to open.',
+  openTabFailed: 'Chrome could not open a saved link.',
+  openedTabs: (opened: number, total: number) =>
+    `${opened} of ${total} tabs opened. Saved links are kept.`,
+  tabsOpened: (count: number) => `${count} tabs opened`,
+  accessTabGroups: 'Tab group access',
+  accessTabGroupsReason:
+    'groups opened links and names and colors the group from your deck.',
+  tabGroupsPermissionDeclined:
+    'Tab group access was declined. Retry in Settings → Advanced.',
   deckColor: 'Color',
   defaultColor: 'Default',
   moveToPage: 'Move to page',
@@ -220,8 +233,6 @@ export const panelStrings = {
   selectDestination: 'Destination page',
   trashedPage: 'Page moved to Trash',
   markDone: 'Toggle done',
-  tabsPermissionDeclined:
-    'Open all needs tabs access. Retry in Settings › Advanced.',
   preview: 'Preview',
   edit: 'Edit',
   close: 'Close',
@@ -241,8 +252,7 @@ export const panelStrings = {
   allowAccess: 'Allow',
   revokeAccess: 'Revoke',
   accessTabs: 'Tab access',
-  accessTabsReason:
-    'saves this window with Stash and opens saved decks as new tabs.',
+  accessTabsReason: 'reads this window’s links to save them with Stash.',
   accessSearch: 'Web search',
   accessSearchReason: 'runs ? queries through your Chrome search engine.',
   retryAccess: 'Ask again',

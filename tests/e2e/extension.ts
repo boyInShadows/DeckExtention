@@ -63,15 +63,17 @@ function chromeExecutable(): string {
   return executable;
 }
 
-export async function launchExtension(): Promise<BrowserContext> {
+export async function launchExtension(
+  extensionPath = EXTENSION_PATH,
+): Promise<BrowserContext> {
   const context = await chromium.launchPersistentContext('', {
     channel: 'chromium',
     executablePath: chromeExecutable(),
     headless: true,
     ignoreDefaultArgs: ['--disable-extensions'],
     args: [
-      `--disable-extensions-except=${EXTENSION_PATH}`,
-      `--load-extension=${EXTENSION_PATH}`,
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`,
     ],
   });
   return withCoverage(context);

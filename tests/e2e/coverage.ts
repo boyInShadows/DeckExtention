@@ -64,16 +64,23 @@ function bindTo<T extends object>(
 export function withCoverage(context: BrowserContext): BrowserContext {
   if (!IS_COVERAGE_RUN) return context;
   const started = trackPages(context);
+  const wrapped = new WeakMap<Page, Page>();
 
-  const coveredPage = (page: Page): Page =>
-    bindTo(page, {
+  const coveredPage = (page: Page): Page => {
+    const existing = wrapped.get(page);
+    if (existing) return existing;
+    const result = bindTo(page, {
       close: async (...args: Parameters<Page['close']>) => {
         await collect(page, started);
         return page.close(...args);
       },
     });
+    wrapped.set(page, result);
+    return result;
+  };
 
   return bindTo(context, {
+    pages: () => context.pages().map(coveredPage),
     newPage: async () => {
       const page = await context.newPage();
       await started.get(page);

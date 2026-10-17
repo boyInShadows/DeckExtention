@@ -28,6 +28,7 @@ function mockChrome() {
         .mockResolvedValue(Array.from({ length: 30 }, (_, i) => tab(i + 1))),
       get: vi.fn(async (id: number) => tab(id)),
       create: vi.fn().mockResolvedValue({ id: 99 }),
+      update: vi.fn().mockResolvedValue({}),
       remove: vi.fn().mockResolvedValue(undefined),
     },
   };

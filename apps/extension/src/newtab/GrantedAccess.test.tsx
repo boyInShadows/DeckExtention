@@ -2,6 +2,7 @@
 import {
   BOOKMARKS_PERMISSION_DECLINED_KEY,
   TABS_PERMISSION_DECLINED_KEY,
+  TAB_GROUPS_PERMISSION_DECLINED_KEY,
 } from '../permissions/keys';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -49,6 +50,25 @@ afterEach(() => {
 });
 
 describe('GrantedAccess', () => {
+  it('lists, revokes and enables retry for optional tab group access', async () => {
+    const permissions = stubPermissions({ permissions: ['tabGroups'] });
+    permissions.storage.local.get.mockResolvedValue({
+      [TAB_GROUPS_PERMISSION_DECLINED_KEY]: true,
+    });
+    const view = await render(<GrantedAccess onError={vi.fn()} />);
+    await settle(view);
+    expect(rows(view)).toEqual([strings.accessTabGroups]);
+    await view.act(() => click(view.getByText(strings.revokeAccess)));
+    expect(permissions.remove).toHaveBeenCalledWith({
+      permissions: ['tabGroups'],
+    });
+    expect(rows(view)).toEqual([]);
+    await view.act(() => click(view.get('[data-deck="permission-retry"]')));
+    expect(permissions.storage.local.remove).toHaveBeenCalledWith(
+      TAB_GROUPS_PERMISSION_DECLINED_KEY,
+    );
+    view.unmount();
+  });
   it('lists only the in-context permissions that are granted', async () => {
     stubPermissions({ permissions: ['storage', 'search'] });
     const view = await render(<GrantedAccess onError={vi.fn()} />);

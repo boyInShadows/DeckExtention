@@ -41,6 +41,7 @@ import { focusOnMount } from '../newtab/focusOnMount';
 import { CardRow } from './CardRow';
 import { DeckMenu } from './DeckMenu';
 import { SESSION_LIFETIME_MS } from '../sessions/constants';
+import { openDeck, type DeckOpenMode } from '../sessions/openDeck';
 
 const DROP_SETTLE_MS = 160;
 const DROP_SETTLE_EASING = 'var(--deck-ease-hover)';
@@ -276,12 +277,42 @@ function DeckColumn({
   });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
-  const [menuStart, setMenuStart] = useState<'permission' | null>(null);
+  const isOpening = useRef(false);
   const [isEditing, setIsEditing] = useState(isNew);
   const [title, setTitle] = useState(deck.title);
   const menuButton = useRef<HTMLButtonElement>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [url, setUrl] = useState('');
+  const open = async (mode: DeckOpenMode = 'tabs') => {
+    if (isOpening.current) return;
+    isOpening.current = true;
+    setIsMenuOpen(false);
+    try {
+      const tab = await chrome.tabs.getCurrent();
+      if (!tab) throw new Error(strings.openTabFailed);
+      const count = await openDeck(
+        props.data.repository,
+        deck.id,
+        tab.windowId,
+        mode,
+      );
+      props.onSuccess?.(strings.tabsOpened(count));
+    } catch (error) {
+      props.onError(message(error));
+    } finally {
+      try {
+        const [cards, decks] = await Promise.all([
+          props.data.repository.listCards(),
+          props.data.repository.listDecks(),
+        ]);
+        props.onCardsChange(cards);
+        props.onDecksChange(decks);
+      } catch (error) {
+        props.onError(message(error));
+      }
+      isOpening.current = false;
+    }
+  };
   const commitTitle = () => {
     const trimmed = title.trim();
     setIsEditing(false);
@@ -393,11 +424,7 @@ function DeckColumn({
           hidden
           type="button"
           data-deck="deck-open-all"
-          onClick={() => {
-            setMenuStart('permission');
-            setMenuAnchor(menuButton.current);
-            setIsMenuOpen(true);
-          }}
+          onClick={() => void open()}
         />
         <button
           ref={setActivatorNodeRef}
@@ -461,7 +488,6 @@ function DeckColumn({
           title={strings.deckMenu}
           aria-expanded={isMenuOpen}
           onClick={(event) => {
-            setMenuStart(null);
             setMenuAnchor(event.currentTarget);
             setIsMenuOpen((value) => !value);
           }}
@@ -472,13 +498,16 @@ function DeckColumn({
       {isMenuOpen && menuAnchor ? (
         <DeckMenu
           anchor={menuAnchor}
-          initialSubMenu={menuStart}
           deck={deck}
           pages={props.pages}
-          cards={visibleCards}
-          allCards={props.cards}
-          repository={props.data.repository}
-          onCardsChange={props.onCardsChange}
+          cards={
+            deck.kind === 'session'
+              ? props.cards.filter(
+                  (card) => card.deckId === deck.id && card.deletedAt === null,
+                )
+              : visibleCards
+          }
+          onOpen={open}
           saveDeck={saveDeck}
           onRename={() => {
             setTitle(deck.title);

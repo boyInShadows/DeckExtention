@@ -120,7 +120,7 @@ export async function changeTree(
     ...childCards.map((value) => ({ entity: 'card' as const, value })),
   ];
   const kind = isRestore ? 'restore' : 'delete';
-  const writes = changes.flatMap(({ entity: itemEntity, value }) => {
+  const prepared = changes.map(({ entity: itemEntity, value }) => {
     const next = {
       ...value,
       deletedAt,
@@ -133,16 +133,17 @@ export async function changeTree(
         ? { expiresAt: now() + SESSION_LIFETIME_MS }
         : {}),
     };
-    const storeName =
+    const storeName: 'pages' | 'decks' | 'cards' =
       itemEntity === 'page'
         ? 'pages'
         : itemEntity === 'deck'
           ? 'decks'
           : 'cards';
-    return [
-      transaction.objectStore(storeName).put(next),
-      transaction.objectStore('ops').put(makeOp(itemEntity, value.id, kind)),
-    ];
+    return { storeName, next, op: makeOp(itemEntity, value.id, kind) };
   });
+  const writes = prepared.flatMap(({ storeName, next, op }) => [
+    transaction.objectStore(storeName).put(next),
+    transaction.objectStore('ops').put(op),
+  ]);
   await Promise.all([...writes, transaction.done]);
 }

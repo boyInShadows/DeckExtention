@@ -446,7 +446,15 @@ describe('DeckWorkspace - decks', () => {
     view.unmount();
   });
 
-  it('opens deck rename with F2 and the Open all explanation with n', async () => {
+  it('opens deck rename with F2 and opens the deck directly with n', async () => {
+    const create = vi.fn().mockResolvedValue({ id: 1 });
+    vi.stubGlobal('chrome', {
+      tabs: {
+        create,
+        getCurrent: vi.fn().mockResolvedValue({ windowId: 7 }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+    });
     const { view } = await mount();
     const reading = deckSection(view, 'deck_1');
     reading.focus();
@@ -459,7 +467,7 @@ describe('DeckWorkspace - decks', () => {
     );
     reading.focus();
     await act(view, () => keyDown(reading, 'n'));
-    expect(reading.textContent).toContain(strings.accessTabsReason);
+    await eventually(view, () => expect(create).toHaveBeenCalledTimes(2));
     view.unmount();
   });
 });
@@ -606,14 +614,20 @@ describe('DeckWorkspace - deck menu', () => {
 });
 
 describe('DeckWorkspace - open all', () => {
-  function stubChrome(request: () => Promise<boolean>) {
-    const create = vi.fn(() => Promise.resolve({}));
+  function stubChrome(request: () => Promise<boolean>, isGranted = false) {
+    const create = vi.fn(() => Promise.resolve({ id: 1 }));
     vi.stubGlobal('chrome', {
       permissions: {
-        contains: vi.fn(() => Promise.resolve(false)),
+        contains: vi.fn(() => Promise.resolve(isGranted)),
         request: vi.fn(request),
       },
-      tabs: { create },
+      tabs: {
+        create,
+        getCurrent: vi.fn().mockResolvedValue({ windowId: 7 }),
+        update: vi.fn().mockResolvedValue({}),
+        group: vi.fn().mockResolvedValue(2),
+      },
+      tabGroups: { update: vi.fn().mockResolvedValue({}) },
       storage: {
         local: {
           get: vi.fn(() => Promise.resolve({})),
@@ -624,35 +638,42 @@ describe('DeckWorkspace - open all', () => {
     return create;
   }
 
-  async function openAll(view: RenderResult) {
+  async function openGroup(view: RenderResult) {
     const section = deckSection(view, 'deck_1');
     await act(view, () => click(within(section, strings.deckMenu)));
-    await act(view, () => click(within(section, strings.openAll)));
-    expect(within(section, strings.accessTabsReason)).toBeTruthy();
+    await act(view, () => click(within(section, strings.openAsTabGroup)));
+    expect(within(section, strings.accessTabGroupsReason)).toBeTruthy();
     await act(view, () => click(within(section, strings.allowAccess)));
   }
 
-  it('opens cards in order with the first tab active once tabs access is granted', async () => {
+  it('opens cards in order without requesting tab-reading permission', async () => {
     const create = stubChrome(() => Promise.resolve(true));
     const { view } = await mount();
-    await openAll(view);
-    await eventually(view, () => expect(create).toHaveBeenCalledTimes(2));
+    const section = deckSection(view, 'deck_1');
+    await act(view, () => click(within(section, strings.deckMenu)));
+    await act(view, () => click(within(section, strings.openAll)));
+    await eventually(view, () =>
+      expect(chrome.tabs.update).toHaveBeenCalledWith(1, { active: true }),
+    );
+    expect(create).toHaveBeenCalledTimes(2);
     expect(create).toHaveBeenCalledWith({
       url: 'https://example.com/card_1',
-      active: true,
+      active: false,
+      windowId: 7,
     });
     expect((await storedCard('card_1'))?.lastOpenedAt).toEqual(
       expect.any(Number),
     );
+    expect(chrome.permissions.request).not.toHaveBeenCalled();
     view.unmount();
   });
 
   it('explains a declined permission and opens nothing', async () => {
     const create = stubChrome(() => Promise.resolve(false));
     const { view, onError } = await mount();
-    await openAll(view);
+    await openGroup(view);
     await eventually(view, () =>
-      expect(onError).toHaveBeenCalledWith(strings.tabsPermissionDeclined),
+      expect(onError).toHaveBeenCalledWith(strings.tabGroupsPermissionDeclined),
     );
     expect(create).not.toHaveBeenCalled();
     const section = deckSection(view, 'deck_1');
@@ -661,10 +682,39 @@ describe('DeckWorkspace - open all', () => {
     view.unmount();
   });
 
+  it('requests only tabGroups on Allow, then groups and names the opened deck', async () => {
+    stubChrome(() => Promise.resolve(true));
+    const { view } = await mount();
+    await openGroup(view);
+    await eventually(view, () =>
+      expect(chrome.tabGroups.update).toHaveBeenCalledWith(2, {
+        title: 'Reading',
+        color: 'grey',
+      }),
+    );
+    expect(chrome.permissions.request).toHaveBeenCalledExactlyOnceWith({
+      permissions: ['tabGroups'],
+    });
+    view.unmount();
+  });
+
+  it('uses an existing tabGroups grant without another prompt', async () => {
+    stubChrome(() => Promise.resolve(false), true);
+    const { view } = await mount();
+    const section = deckSection(view, 'deck_1');
+    await act(view, () => click(within(section, strings.deckMenu)));
+    await act(view, () => click(within(section, strings.openAsTabGroup)));
+    await eventually(view, () =>
+      expect(chrome.tabGroups.update).toHaveBeenCalled(),
+    );
+    expect(chrome.permissions.request).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
   it('reports a permission request that fails', async () => {
     stubChrome(() => Promise.reject(FAILURE));
     const { view, onError } = await mount();
-    await openAll(view);
+    await openGroup(view);
     await eventually(view, () =>
       expect(onError).toHaveBeenCalledWith(FAILED_MESSAGE),
     );

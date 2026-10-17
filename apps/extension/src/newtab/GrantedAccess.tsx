@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   BOOKMARKS_PERMISSION_DECLINED_KEY,
   TABS_PERMISSION_DECLINED_KEY,
+  TAB_GROUPS_PERMISSION_DECLINED_KEY,
 } from '../permissions/keys';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
@@ -16,6 +17,11 @@ const IN_CONTEXT_ACCESS = [
     permission: 'tabs',
     name: strings.accessTabs,
     reason: strings.accessTabsReason,
+  },
+  {
+    permission: 'tabGroups',
+    name: strings.accessTabGroups,
+    reason: strings.accessTabGroupsReason,
   },
   {
     permission: 'search',
@@ -54,11 +60,16 @@ export function GrantedAccess({
   }, [onError]);
   useEffect(() => {
     chrome.storage.local
-      .get([TABS_PERMISSION_DECLINED_KEY, BOOKMARKS_PERMISSION_DECLINED_KEY])
+      .get([
+        TABS_PERMISSION_DECLINED_KEY,
+        TAB_GROUPS_PERMISSION_DECLINED_KEY,
+        BOOKMARKS_PERMISSION_DECLINED_KEY,
+      ])
       .then((items) => {
         setDeclined(
           [
             TABS_PERMISSION_DECLINED_KEY,
+            TAB_GROUPS_PERMISSION_DECLINED_KEY,
             BOOKMARKS_PERMISSION_DECLINED_KEY,
           ].filter((key) => items[key] === true),
         );
@@ -106,7 +117,9 @@ export function GrantedAccess({
         >
           {key === TABS_PERMISSION_DECLINED_KEY
             ? strings.accessTabs
-            : strings.bookmarks}
+            : key === TAB_GROUPS_PERMISSION_DECLINED_KEY
+              ? strings.accessTabGroups
+              : strings.bookmarks}
           : {strings.retryAccess}
         </button>
       ))}

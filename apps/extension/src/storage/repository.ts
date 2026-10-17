@@ -38,6 +38,7 @@ import {
 } from './hydrationValidation';
 import type { purgeDeleted as PurgeDeletedFunction } from './trashMaintenance';
 import type { expireSessions as ExpireSessionsFunction } from './sessionExpiry';
+import type { markCardsOpened as MarkCardsOpenedFunction } from './cardOpened';
 
 const SETTINGS_KEY = 'settings';
 const CLIENT_ID_KEY = 'clientId';
@@ -220,6 +221,18 @@ export class DeckRepository {
 
   async listCards(): Promise<Card[]> {
     return this.#listValid('cards', isCard);
+  }
+
+  async markCardsOpened(
+    ids: string[],
+    workerMark?: typeof MarkCardsOpenedFunction,
+  ): Promise<void> {
+    if (!ids.length) return;
+    const mark = workerMark ?? (await import('./cardOpened')).markCardsOpened;
+    const clientId = await this.#clientId();
+    await mark(await this.#database, ids, this.#now(), (card) =>
+      this.#makeOp(clientId, 'card', card.id, 'upsert', card),
+    );
   }
 
   async listOps(): Promise<Op[]> {

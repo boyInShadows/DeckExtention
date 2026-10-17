@@ -10,56 +10,53 @@ import {
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { useDismissable } from '../hooks/useDismissable';
 import { Icon } from '../newtab/Icon';
-import { TABS_PERMISSION_DECLINED_KEY } from '../permissions/keys';
-import type { DeckRepository } from '../storage/repository';
-import { markOpened } from './inboxActions';
+import { TAB_GROUPS_PERMISSION_DECLINED_KEY } from '../permissions/keys';
+import type { DeckOpenMode } from '../sessions/openDeck';
 import { SESSION_LIFETIME_MS } from '../sessions/constants';
 
 const COLORS = ['slate', 'blue', 'green', 'amber', 'rose'] as const;
 const MENU_GAP = 8;
 const MENU_WIDTH = 224;
-const MENU_HEIGHT = 330;
+const MENU_HEIGHT = 430;
 
 export function DeckMenu({
   anchor,
   deck,
   pages,
   cards,
-  allCards,
-  repository,
-  onCardsChange,
+  onOpen,
   saveDeck,
   onRename,
   onEditNote,
   onTrash,
   onClose,
   onError,
-  initialSubMenu = null,
 }: {
   anchor: HTMLElement;
   deck: Deck;
   pages: Page[];
   cards: Card[];
-  allCards: Card[];
-  repository: DeckRepository;
-  onCardsChange: (cards: Card[]) => void;
+  onOpen: (mode: DeckOpenMode) => Promise<void>;
   saveDeck: (change: Partial<Deck>) => Promise<void>;
   onRename: () => void;
   onEditNote: (deck: Deck) => void;
   onTrash: () => void;
   onClose: () => void;
   onError: (value: string) => void;
-  initialSubMenu?: 'permission' | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [wasTabsDeclined, setWasTabsDeclined] = useState<boolean | null>(null);
+  const [wasGroupDeclined, setWasGroupDeclined] = useState<boolean | null>(
+    null,
+  );
   const [subMenu, setSubMenu] = useState<
     'color' | 'page' | 'permission' | null
-  >(initialSubMenu);
+  >(null);
   const rect = anchor.getBoundingClientRect();
   const isRtl = document.documentElement.dir === 'rtl';
   const inline = isRtl ? window.innerWidth - rect.right : rect.left;
   const style = {
+    maxBlockSize: `calc(100dvh - ${MENU_GAP * 2}px)`,
+    overflowY: 'auto',
     insetInlineStart: Math.max(
       MENU_GAP,
       Math.min(inline, window.innerWidth - MENU_WIDTH - MENU_GAP),
@@ -73,9 +70,9 @@ export function DeckMenu({
   } satisfies CSSProperties;
 
   useEffect(() => {
-    void chrome.storage.local.get(TABS_PERMISSION_DECLINED_KEY).then(
+    void chrome.storage.local.get(TAB_GROUPS_PERMISSION_DECLINED_KEY).then(
       (items) =>
-        setWasTabsDeclined(items[TABS_PERMISSION_DECLINED_KEY] === true),
+        setWasGroupDeclined(items[TAB_GROUPS_PERMISSION_DECLINED_KEY] === true),
       (error) => onError(String(error)),
     );
   }, [onError]);
@@ -88,36 +85,27 @@ export function DeckMenu({
     onClose();
     anchor.focus();
   };
-  const openAll = async () => {
-    const opened: Card[] = [];
+  const openGroup = async (shouldRequest = false) => {
     try {
       const permission = {
-        permissions: ['tabs'] as chrome.runtime.ManifestOptionalPermission[],
+        permissions: [
+          'tabGroups',
+        ] as chrome.runtime.ManifestOptionalPermission[],
       };
-      const isGranted = await chrome.permissions.contains(permission);
-      if (!isGranted && wasTabsDeclined)
-        return onError(strings.tabsPermissionDeclined);
-      const allowed =
-        isGranted || (await chrome.permissions.request(permission));
+      if (wasGroupDeclined) return onError(strings.tabGroupsPermissionDeclined);
+      const allowed = shouldRequest
+        ? await chrome.permissions.request(permission)
+        : await chrome.permissions.contains(permission);
+      if (!allowed && !shouldRequest) return setSubMenu('permission');
       if (!allowed) {
         await chrome.storage.local.set({
-          [TABS_PERMISSION_DECLINED_KEY]: true,
+          [TAB_GROUPS_PERMISSION_DECLINED_KEY]: true,
         });
-        setWasTabsDeclined(true);
-        return onError(strings.tabsPermissionDeclined);
+        setWasGroupDeclined(true);
+        return onError(strings.tabGroupsPermissionDeclined);
       }
-      for (const [index, card] of cards.entries()) {
-        await chrome.tabs.create({ url: card.url, active: index === 0 });
-        opened.push(await markOpened(repository, card));
-      }
-      const byId = new Map(opened.map((item) => [item.id, item]));
-      onCardsChange(allCards.map((item) => byId.get(item.id) ?? item));
-      close();
+      await onOpen('group');
     } catch (error) {
-      if (opened.length) {
-        const byId = new Map(opened.map((item) => [item.id, item]));
-        onCardsChange(allCards.map((item) => byId.get(item.id) ?? item));
-      }
       onError(
         `${strings.updateFailed} ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -127,8 +115,9 @@ export function DeckMenu({
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
     const items = [
-      ...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ??
-        []),
+      ...(ref.current?.querySelectorAll<HTMLElement>(
+        '[role="menuitem"]:not(:disabled)',
+      ) ?? []),
     ];
     const current = items.indexOf(document.activeElement as HTMLElement);
     const next =
@@ -156,12 +145,12 @@ export function DeckMenu({
     >
       {subMenu === 'permission' ? (
         <>
-          <p>{strings.accessTabsReason}</p>
+          <p>{strings.accessTabGroupsReason}</p>
           <button
             type="button"
             role="menuitem"
-            disabled={wasTabsDeclined === null}
-            onClick={() => void openAll()}
+            disabled={wasGroupDeclined === null || wasGroupDeclined}
+            onClick={() => void openGroup(true)}
           >
             {strings.allowAccess}
           </button>
@@ -260,10 +249,35 @@ export function DeckMenu({
           <button
             type="button"
             role="menuitem"
-            disabled={cards.length === 0 || wasTabsDeclined === null}
-            onClick={() => setSubMenu('permission')}
+            disabled={cards.length === 0}
+            data-deck={
+              deck.kind === 'session' ? 'session-restore' : 'deck-open-links'
+            }
+            onClick={() =>
+              void onOpen(deck.kind === 'session' ? 'restore' : 'tabs')
+            }
           >
-            {strings.openAll}
+            {deck.kind === 'session' ? strings.restoreSession : strings.openAll}
+          </button>
+          {deck.kind === 'session' ? (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={cards.length === 0}
+              onClick={() => void onOpen('restore-and-trash')}
+              data-deck="session-restore-trash"
+            >
+              {strings.restoreSessionAndTrash}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            disabled={cards.length === 0 || wasGroupDeclined === null}
+            onClick={() => void openGroup()}
+            data-deck="deck-open-group"
+          >
+            {strings.openAsTabGroup}
           </button>
           <button
             type="button"

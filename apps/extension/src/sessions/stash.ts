@@ -5,6 +5,7 @@ import { captureTarget, type CaptureTarget } from '../capture/quickSave';
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { DeckRepository } from '../storage/repository';
 import { SESSION_LIFETIME_MS } from './constants';
+import { openDeck } from './openDeck';
 
 interface StashTab {
   id: number;
@@ -148,15 +149,5 @@ export async function undoStash(
   deckId: string,
   windowId: number,
 ): Promise<void> {
-  const deck = (await repository.listDecks()).find(({ id }) => id === deckId);
-  if (deck?.kind !== 'session' || deck.deletedAt !== null)
-    throw new Error(strings.sessionMissing);
-  const cards = (await repository.listCards())
-    .filter((card) => card.deckId === deckId && card.deletedAt === null)
-    .toSorted((a, b) => (a.order < b.order ? -1 : a.order === b.order ? 0 : 1));
-  for (const card of cards) {
-    if (!captureTarget(card.url, card.title))
-      throw new Error(strings.invalidUrl);
-    await chrome.tabs.create({ windowId, url: card.url, active: false });
-  }
+  await openDeck(repository, deckId, windowId, 'restore');
 }
