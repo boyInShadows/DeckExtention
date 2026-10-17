@@ -127,7 +127,36 @@ export const panelStrings = {
   keyHint: 'Chrome manages extension shortcuts.',
   openShortcutSettings: 'Open shortcut settings',
   drawerRequired: 'Open the drawer first.',
-  stashComing: 'Stash arrives in Phase 3.',
+  sessions: 'Sessions',
+  sessionsEmpty: 'No sessions yet. Use >stash to save this window.',
+  sessionTitle: (time: number, count: number) => {
+    const date = new Date(time);
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+    const month = date.toLocaleDateString('en-US', { month: 'short' });
+    const clock = date.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    return `${weekday} ${date.getDate()} ${month}, ${clock} · ${count} ${count === 1 ? 'tab' : 'tabs'}`;
+  },
+  stashPermissionReason:
+    'Deck needs tab access to save this window before closing its tabs.',
+  stashPermissionDeclined:
+    'Tab access was declined. No tabs were closed; retry from Settings.',
+  stashFailed:
+    'Could not stash this window. Your saved session, if any, is kept.',
+  stashEmpty: 'No unpinned web tabs to stash.',
+  stashedTabs: (count: number) =>
+    `Stashed ${count} ${count === 1 ? 'tab' : 'tabs'}`,
+  stashRemaining: (count: number) =>
+    `${count} tabs stayed open or changed. All captured links are saved.`,
+  sessionMissing: 'This session is no longer available.',
+  pinSession: 'Keep session',
+  unpinSession: 'Expire session in 30 days',
+  sessionKept: 'Session kept; it will not expire.',
+  sessionExpiring: 'Session expires in 30 days.',
+  sessionKeptLabel: 'Kept',
   searchEngine: 'Search engine',
   searchCustom: 'Custom',
   searchTemplate: 'Search template',
@@ -211,8 +240,9 @@ export const panelStrings = {
   quickSaveReason: 'reads the page you save and shows a small toast on it.',
   allowAccess: 'Allow',
   revokeAccess: 'Revoke',
-  accessTabs: 'Open all',
-  accessTabsReason: 'opens every link in a deck as new tabs.',
+  accessTabs: 'Tab access',
+  accessTabsReason:
+    'saves this window with Stash and opens saved decks as new tabs.',
   accessSearch: 'Web search',
   accessSearchReason: 'runs ? queries through your Chrome search engine.',
   retryAccess: 'Ask again',

@@ -836,9 +836,17 @@ describe('Drawer - keys', () => {
       view.getByText(strings.trash).closest('button')?.dataset.selected,
     ).toBe('true');
     await press(view, '[');
+    expect(
+      view.getByText(strings.sessions).closest('button')?.dataset.selected,
+    ).toBe('true');
+    await press(view, '[');
     expect(inboxButton(view).dataset.selected).toBe('true');
     await press(view, '[');
     expect(inboxButton(view).dataset.selected).toBe('true');
+    await press(view, ']');
+    expect(
+      view.getByText(strings.sessions).closest('button')?.dataset.selected,
+    ).toBe('true');
     await press(view, ']');
     expect(
       view.getByText(strings.trash).closest('button')?.dataset.selected,

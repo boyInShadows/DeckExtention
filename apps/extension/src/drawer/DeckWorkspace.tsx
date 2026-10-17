@@ -29,12 +29,18 @@ import {
 } from './inboxModel';
 import { MoveLine } from './MoveLine';
 import { useWorkspaceKeys } from './useWorkspaceKeys';
-import type { Keymap } from '../keys/keymap';
+import {
+  actionForChord,
+  chordFromEvent,
+  isTypingTarget,
+  type Keymap,
+} from '../keys/keymap';
 import { NotePanel } from './NotePanel';
 import { MarkdownNote } from './MarkdownNote';
 import { focusOnMount } from '../newtab/focusOnMount';
 import { CardRow } from './CardRow';
 import { DeckMenu } from './DeckMenu';
+import { SESSION_LIFETIME_MS } from '../sessions/constants';
 
 const DROP_SETTLE_MS = 160;
 const DROP_SETTLE_EASING = 'var(--deck-ease-hover)';
@@ -181,6 +187,9 @@ export function DeckWorkspace(props: WorkspaceProps) {
   return (
     <main ref={mainRef} data-deck="decks" className="deck-workspace">
       <div className="deck-grid">
+        {props.selectedDeckKind === 'session' && visible.length === 0 ? (
+          <p data-deck="sessions-empty">{strings.sessionsEmpty}</p>
+        ) : null}
         <SortableContext
           items={visible.map(({ id }) => dragId('deck', id))}
           strategy={rectSortingStrategy}
@@ -196,14 +205,16 @@ export function DeckWorkspace(props: WorkspaceProps) {
             />
           ))}
         </SortableContext>
-        <button
-          type="button"
-          className="deck-add"
-          data-deck="deck-add"
-          onClick={() => void addDeck()}
-        >
-          {strings.addDeck}
-        </button>
+        {props.selectedDeckKind !== 'session' ? (
+          <button
+            type="button"
+            className="deck-add"
+            data-deck="deck-add"
+            onClick={() => void addDeck()}
+          >
+            {strings.addDeck}
+          </button>
+        ) : null}
       </div>
       {noteEntity ? (
         <NotePanel
@@ -279,13 +290,23 @@ function DeckColumn({
   };
   const saveDeck = async (change: Partial<Deck>) => {
     try {
-      const saved = await props.data.repository.upsertDeck({
+      const next = {
         ...deck,
         ...change,
         updatedAt: now(),
-      });
+      };
+      const { expiresAt, ...withoutExpiry } = next;
+      const saved = await props.data.repository.upsertDeck(
+        expiresAt === undefined ? withoutExpiry : next,
+      );
       props.onDecksChange(replaceEntity(props.decks, saved));
-      if (change.pageId && change.pageId !== deck.pageId)
+      if ('expiresAt' in change)
+        props.onSuccess?.(
+          saved.expiresAt === undefined
+            ? strings.sessionKept
+            : strings.sessionExpiring,
+        );
+      else if (change.pageId && change.pageId !== deck.pageId)
         props.offerUndo?.({
           label: strings.movedDeck,
           undo: async () => {
@@ -344,6 +365,28 @@ function DeckColumn({
       data-dragging={isDragging || undefined}
       data-drag-over={isOver || undefined}
       tabIndex={0}
+      onKeyDown={(event) => {
+        if (
+          !props.isOpen ||
+          deck.kind !== 'session' ||
+          isTypingTarget(event.target) ||
+          (event.target as HTMLElement).closest(
+            '[data-deck="card"], input, textarea, [role="menu"]',
+          )
+        )
+          return;
+        const chord = chordFromEvent(event);
+        if (!chord || actionForChord(props.keymap, 'drawer', chord) !== 'pin')
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        void saveDeck({
+          expiresAt:
+            deck.expiresAt === undefined
+              ? now() + SESSION_LIFETIME_MS
+              : undefined,
+        });
+      }}
     >
       <header className="deck-column__header">
         <button
@@ -408,6 +451,9 @@ function DeckColumn({
           </button>
         )}
         <small>{visibleCards.length}</small>
+        {deck.kind === 'session' && deck.expiresAt === undefined ? (
+          <small data-deck="session-kept">{strings.sessionKeptLabel}</small>
+        ) : null}
         <button
           ref={menuButton}
           type="button"

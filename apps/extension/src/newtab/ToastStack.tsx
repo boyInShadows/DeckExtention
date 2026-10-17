@@ -93,7 +93,8 @@ function Toast({
     return () => animation?.cancel();
   }, []);
   useEffect(() => {
-    if (notice.kind === 'error') return;
+    if (notice.kind === 'error' || (notice.kind === 'info' && notice.action))
+      return;
     const timer = window.setTimeout(
       () => dismiss(notice.id),
       TOAST_DURATION_MS,
@@ -115,7 +116,7 @@ function Toast({
           {notice.action.label}
         </button>
       ) : null}
-      {notice.kind === 'error' ? (
+      {notice.kind === 'error' || (notice.kind === 'info' && notice.action) ? (
         <button
           type="button"
           aria-label={strings.dismiss}

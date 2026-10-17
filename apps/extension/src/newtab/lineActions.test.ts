@@ -29,6 +29,7 @@ function contextFor(settings: Settings = SETTINGS_DEFAULTS) {
     ),
     openSettings: vi.fn<() => void>(),
     notify: vi.fn<(message: string) => void>(),
+    notifyNotice: vi.fn(),
   };
 }
 
@@ -81,10 +82,15 @@ describe('executeAction', () => {
     expect(context.notify).toHaveBeenCalledWith(panelStrings.drawerRequired);
   });
 
-  it('explains that stash is not available yet', async () => {
+  it('starts stash through the worker once tab access is granted', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ error: null });
+    vi.stubGlobal('chrome', {
+      permissions: { contains: vi.fn().mockResolvedValue(true) },
+      runtime: { sendMessage },
+    });
     const context = contextFor();
     await executeAction('stash', context);
-    expect(context.notify).toHaveBeenCalledWith(panelStrings.stashComing);
+    expect(sendMessage).toHaveBeenCalledWith({ type: 'deck:stash' });
   });
 
   it('downloads a dated JSON export and releases the object URL', async () => {

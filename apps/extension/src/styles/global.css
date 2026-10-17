@@ -610,7 +610,7 @@
 
   .deck-pages {
     display: grid;
-    grid-template-rows: auto auto auto 1fr auto;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
     gap: var(--deck-space-1);
     min-block-size: 0;
     padding: var(--deck-space-2);
@@ -1608,6 +1608,7 @@
     }
 
     .deck-pages {
+      grid-template-rows: auto auto auto minmax(0, 1fr) auto;
       padding-inline: var(--deck-space-1);
     }
 

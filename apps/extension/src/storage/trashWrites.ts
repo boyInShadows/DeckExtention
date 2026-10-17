@@ -8,6 +8,7 @@ import {
 } from 'deck-schema';
 
 import type { DeckDatabaseHandle } from './database';
+import { SESSION_LIFETIME_MS } from '../sessions/constants';
 
 type TrashEntity = Exclude<OpEntity, 'settings'>;
 type TrashKind = 'delete' | 'restore';
@@ -99,7 +100,7 @@ export async function changeTree(
           .filter(
             (deck) =>
               deck.pageId === id &&
-              deck.kind !== 'inbox' &&
+              deck.kind === 'normal' &&
               deck.deletedAt === matchingStamp,
           )
           .map((deck) => DeckSchema.parse(deck))
@@ -120,7 +121,18 @@ export async function changeTree(
   ];
   const kind = isRestore ? 'restore' : 'delete';
   const writes = changes.flatMap(({ entity: itemEntity, value }) => {
-    const next = { ...value, deletedAt, updatedAt: now() };
+    const next = {
+      ...value,
+      deletedAt,
+      updatedAt: now(),
+      ...('kind' in value &&
+      value.kind === 'session' &&
+      isRestore &&
+      'expiresAt' in value &&
+      value.expiresAt !== undefined
+        ? { expiresAt: now() + SESSION_LIFETIME_MS }
+        : {}),
+    };
     const storeName =
       itemEntity === 'page'
         ? 'pages'

@@ -60,6 +60,7 @@ function setup(settings: Settings = SETTINGS_DEFAULTS, cards = CARDS) {
     notify: vi.fn<(message: string) => void>(),
     notifyInfo: vi.fn<(message: string) => void>(),
     notifySuccess: vi.fn<(message: string) => void>(),
+    notifyNotice: vi.fn(),
     canSpaceOpenDrawer: settings.canSpaceOpenDrawer,
     openDrawer: vi.fn<() => void>(),
     openHelp: vi.fn<() => void>(),
@@ -365,6 +366,7 @@ describe('Line Enter', () => {
         openSettings: props.openSettings,
         notify: props.notifyInfo,
         notifySuccess: props.notifySuccess,
+        notifyNotice: props.notifyNotice,
       }),
     );
     expect(view.get<HTMLInputElement>('[data-deck="line"] input').value).toBe(

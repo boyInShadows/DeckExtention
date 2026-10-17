@@ -12,6 +12,7 @@ vi.mock('../storage/repository', () => ({
   DeckRepository: class {
     close = vi.fn();
     purge = mocks.purge;
+    expireSessions = vi.fn().mockResolvedValue(0);
     constructor() {
       mocks.repository();
     }

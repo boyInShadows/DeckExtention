@@ -13,6 +13,7 @@ import type { SurfaceData } from './bootstrap';
 import type { SearchResults } from './lineSearch';
 import type LineResults from './LineResults';
 import { shouldSpaceOpenDrawer } from './surfaceModel';
+import type { NoticeInput } from './ToastStack';
 
 const MAX_GROUP_ROWS = 8;
 const PLACEHOLDER_ROTATE_MS = 6_000;
@@ -27,6 +28,7 @@ interface LineProps {
   notify: (message: string) => void;
   notifyInfo: (message: string) => void;
   notifySuccess: (message: string) => void;
+  notifyNotice: (notice: NoticeInput) => void;
   canSpaceOpenDrawer: boolean;
   openDrawer: () => void;
   openHelp: () => void;
@@ -171,6 +173,7 @@ export function Line(props: LineProps) {
           openSettings: props.openSettings,
           notify: props.notifyInfo,
           notifySuccess: props.notifySuccess,
+          notifyNotice: props.notifyNotice,
         });
         setQuery('');
         return;

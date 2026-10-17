@@ -4,6 +4,8 @@ import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from './bootstrap';
 import { downloadExport } from './downloadExport';
 import type { ActionId } from './lineActionCatalog';
+import type { NoticeInput } from './ToastStack';
+import { startStash } from '../sessions/stashActions';
 
 interface ActionContext {
   settings: Settings;
@@ -11,6 +13,7 @@ interface ActionContext {
   saveSettings: (settings: Settings) => Promise<void>;
   openSettings: () => void;
   notify: (message: string) => void;
+  notifyNotice: (notice: NoticeInput) => void;
   notifySuccess?: (message: string) => void;
 }
 
@@ -39,7 +42,7 @@ export async function executeAction(
     return;
   }
   if (id === 'stash') {
-    context.notify(strings.stashComing);
+    await startStash(context.notifyNotice);
     return;
   }
   await downloadExport(context.repository);

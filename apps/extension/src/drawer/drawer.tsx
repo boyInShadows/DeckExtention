@@ -50,6 +50,8 @@ import { handleWorkspaceDrop } from './workspaceDrop';
 import { WORKSPACE_DROP_EVENT, type WorkspaceDropDetail } from './WorkspaceDnd';
 import { NotePanel, type NotePanelHandle } from './NotePanel';
 import { replaceEntity } from './workspaceModel';
+import { SystemPages } from './SystemPages';
+import { SESSIONS_PAGE_ID } from '../sessions/constants';
 
 function currentTimestamp(): number {
   return Date.now();
@@ -347,11 +349,15 @@ export default function Drawer({
   ]);
 
   useEffect(() => {
-    void Promise.all([
-      data.repository.listPages(),
-      data.repository.listDecks(),
-      data.repository.listCards(),
-    ])
+    void data.repository
+      .expireSessions()
+      .then(() =>
+        Promise.all([
+          data.repository.listPages(),
+          data.repository.listDecks(),
+          data.repository.listCards(),
+        ]),
+      )
       .then(([storedPages, storedDecks, storedCards]) => {
         onPagesChange(storedPages);
         onDecksChange(storedDecks);
@@ -383,6 +389,7 @@ export default function Drawer({
     // The Inbox is the rail's first stop, then the user pages in order.
     const railIds = [
       INBOX_PAGE_ID,
+      SESSIONS_PAGE_ID,
       TRASH_PAGE_ID,
       ...orderedPages.map(({ id }) => id),
     ];
@@ -504,7 +511,7 @@ export default function Drawer({
         (deck) =>
           deck.pageId === page.id &&
           deck.deletedAt === null &&
-          (destinationId !== null || deck.kind === 'inbox'),
+          (destinationId !== null || deck.kind !== 'normal'),
       );
       if (moving.length) {
         await data.repository.upsertMany({
@@ -577,29 +584,16 @@ export default function Drawer({
         <header>
           <h2>{strings.pages}</h2>
         </header>
-        <button
-          type="button"
-          data-deck="page"
-          data-system
-          aria-label={strings.inbox}
-          onClick={() => selectPage(INBOX_PAGE_ID)}
-          data-selected={selectedId === INBOX_PAGE_ID || undefined}
-        >
-          <Icon name="inbox" />
-          <span className="deck-pages__label">{strings.inbox}</span>
-          {inboxCount ? <small>{inboxCount}</small> : null}
-        </button>
-        <button
-          type="button"
-          data-deck="page"
-          data-system
-          aria-label={strings.trash}
-          onClick={() => selectPage(TRASH_PAGE_ID)}
-          data-selected={selectedId === TRASH_PAGE_ID || undefined}
-        >
-          <Icon name="trash" />
-          <span className="deck-pages__label">{strings.trash}</span>
-        </button>
+        <SystemPages
+          selectedId={selectedId}
+          inboxCount={inboxCount}
+          sessionCount={
+            decks.filter(
+              ({ kind, deletedAt }) => kind === 'session' && deletedAt === null,
+            ).length
+          }
+          selectPage={selectPage}
+        />
         <div
           ref={scrollRef}
           className="deck-pages__scroll"
@@ -674,7 +668,9 @@ export default function Drawer({
           decks={decks}
           cards={cards}
           selectedPageId={selectedId}
-          selectedDeckKind="normal"
+          selectedDeckKind={
+            selectedId === SESSIONS_PAGE_ID ? 'session' : 'normal'
+          }
           onDecksChange={onDecksChange}
           onCardsChange={onCardsChange}
           isNoteOpen={noteEntity !== null}
@@ -708,7 +704,7 @@ export default function Drawer({
               ({ pageId, deletedAt, kind }) =>
                 pageId === deletingPage.id &&
                 deletedAt === null &&
-                kind !== 'inbox',
+                kind === 'normal',
             ).length
           }
           onCancel={() => setDeletingPage(null)}

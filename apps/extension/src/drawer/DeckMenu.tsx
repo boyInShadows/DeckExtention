@@ -13,6 +13,7 @@ import { Icon } from '../newtab/Icon';
 import { TABS_PERMISSION_DECLINED_KEY } from '../permissions/keys';
 import type { DeckRepository } from '../storage/repository';
 import { markOpened } from './inboxActions';
+import { SESSION_LIFETIME_MS } from '../sessions/constants';
 
 const COLORS = ['slate', 'blue', 'green', 'amber', 'rose'] as const;
 const MENU_GAP = 8;
@@ -228,6 +229,24 @@ export function DeckMenu({
           >
             {strings.renameDeck}
           </button>
+          {deck.kind === 'session' ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() =>
+                choose({
+                  expiresAt:
+                    deck.expiresAt === undefined
+                      ? Date.now() + SESSION_LIFETIME_MS
+                      : undefined,
+                })
+              }
+            >
+              {deck.expiresAt === undefined
+                ? strings.unpinSession
+                : strings.pinSession}
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"
@@ -253,13 +272,15 @@ export function DeckMenu({
           >
             {strings.deckColor}
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => setSubMenu('page')}
-          >
-            {strings.moveToPage}
-          </button>
+          {deck.kind === 'normal' ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => setSubMenu('page')}
+            >
+              {strings.moveToPage}
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"

@@ -9,16 +9,38 @@ import {
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { NoticeInput } from './ToastStack';
+import { STASH_NOTICE_KEY, STASH_PERMISSION_HASH } from '../sessions/constants';
+import { StashNoticeSchema } from '../sessions/messages';
+import { sendStashMessage, startStash } from '../sessions/stashActions';
 
 export async function readPendingNotices(
   notify: (notice: NoticeInput) => void,
 ): Promise<void> {
+  if (location.hash === STASH_PERMISSION_HASH) {
+    history.replaceState(null, '', location.pathname);
+    await startStash(notify);
+  }
   const items = await chrome.storage.local.get([
     CAPTURE_NOTICE_KEY,
     SETTINGS_NOTICE_KEY,
     DRAWER_COMMAND_ERROR_KEY,
     BACKUP_ERROR_KEY,
+    STASH_NOTICE_KEY,
   ]);
+  const stash = StashNoticeSchema.safeParse(items[STASH_NOTICE_KEY]);
+  if (stash.success)
+    notify({
+      kind: stash.data.kind,
+      text: stash.data.message,
+      ...(stash.data.deckId
+        ? {
+            action: {
+              label: strings.undo,
+              run: () => sendStashMessage(stash.data.deckId),
+            },
+          }
+        : {}),
+    });
   const notice = CaptureNoticeSchema.safeParse(items[CAPTURE_NOTICE_KEY]);
   const settingsNotice = CaptureNoticeSchema.safeParse(
     items[SETTINGS_NOTICE_KEY],
@@ -45,6 +67,7 @@ export async function readPendingNotices(
       text: `${strings.backupFailed} ${backupError.data.message}`,
     });
   const consumed = [
+    ...(stash.success ? [STASH_NOTICE_KEY] : []),
     ...(notice.success ? [CAPTURE_NOTICE_KEY] : []),
     ...(settingsNotice.success ? [SETTINGS_NOTICE_KEY] : []),
     ...(drawerError.success ? [DRAWER_COMMAND_ERROR_KEY] : []),

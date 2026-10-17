@@ -339,6 +339,7 @@ export function Surface({ initialData }: SurfaceProps) {
             </p>
           ) : null}
           <Line
+            notifyNotice={notify}
             cards={cards}
             settings={settings}
             repository={initialData.repository}

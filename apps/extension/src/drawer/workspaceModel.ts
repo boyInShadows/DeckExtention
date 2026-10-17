@@ -9,7 +9,7 @@ export function activeDecks(
     .filter(
       (deck) =>
         deck.deletedAt === null &&
-        deck.pageId === pageId &&
+        (kind === 'session' || deck.pageId === pageId) &&
         (kind === undefined || deck.kind === kind),
     )
     .toSorted((left, right) => compareOrder(left.order, right.order));

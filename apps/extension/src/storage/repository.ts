@@ -37,6 +37,7 @@ import {
   isSettings,
 } from './hydrationValidation';
 import type { purgeDeleted as PurgeDeletedFunction } from './trashMaintenance';
+import type { expireSessions as ExpireSessionsFunction } from './sessionExpiry';
 
 const SETTINGS_KEY = 'settings';
 const CLIENT_ID_KEY = 'clientId';
@@ -358,6 +359,17 @@ export class DeckRepository {
       await this.#database,
       cutoff,
       this.#now() - PURGE_AFTER_MS,
+    );
+  }
+
+  async expireSessions(
+    workerExpire?: typeof ExpireSessionsFunction,
+  ): Promise<number> {
+    const expire =
+      workerExpire ?? (await import('./sessionExpiry')).expireSessions;
+    const clientId = await this.#clientId();
+    return expire(await this.#database, this.#now(), (entity, id) =>
+      this.#makeOp(clientId, entity, id, 'delete', null),
     );
   }
 
