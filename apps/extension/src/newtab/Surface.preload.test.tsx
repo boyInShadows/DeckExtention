@@ -35,7 +35,10 @@ beforeEach(() => {
   vi.stubGlobal('chrome', {
     tabs: { getCurrent: () => Promise.resolve({ id: 7 }) },
     storage: { local: { get: () => Promise.resolve({}), remove: vi.fn() } },
-    runtime: { onMessage: { addListener: vi.fn(), removeListener: vi.fn() } },
+    runtime: {
+      sendMessage: vi.fn(() => Promise.resolve({ error: null })),
+      onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
+    },
   });
   performance.mark('deck-start');
 });

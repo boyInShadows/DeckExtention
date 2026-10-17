@@ -242,6 +242,7 @@ function stubBrowser(): void {
     tabs: { getCurrent: () => Promise.resolve({ id: 7 }) },
     storage: { local: { get: storageGet, remove: storageRemove } },
     runtime: {
+      sendMessage: vi.fn(() => Promise.resolve({ error: null })),
       onMessage: {
         addListener: (listener: MessageListener) => {
           messageListeners = [...messageListeners, listener];

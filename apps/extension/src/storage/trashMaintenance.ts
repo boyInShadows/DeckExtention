@@ -33,13 +33,22 @@ export async function purgeDeleted(
     (page) =>
       expired(page) && !remainingDecks.some((deck) => deck.pageId === page.id),
   );
-  const oldOps = [
-    ...ops.filter((op) => op.ts <= opCutoff),
-    ...ops
+  // Ops are an audit trail for future sync; retain the newest event per entity.
+  const newest = ops.toSorted((a, b) => b.ts - a.ts);
+  const kept = new Set(
+    newest
       .filter((op) => op.ts > opCutoff)
-      .toSorted((a, b) => b.ts - a.ts)
-      .slice(MAX_OPS),
-  ];
+      .slice(0, MAX_OPS)
+      .map(({ id }) => id),
+  );
+  const seen = new Set<string>();
+  for (const op of newest) {
+    const key = `${op.entity}:${op.entityId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.add(op.id);
+  }
+  const oldOps = ops.filter(({ id }) => !kept.has(id));
   const writes = [
     ...removedCards.map(({ id }) =>
       transaction.objectStore('cards').delete(id),

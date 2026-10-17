@@ -11,6 +11,7 @@ import {
   type Settings,
 } from 'deck-schema';
 export { parseDocument } from './document';
+export { migrateDocument } from './documentMigration';
 
 export const parsePage = (value: Page): Page =>
   PageSchema.parse(structuredClone(value));

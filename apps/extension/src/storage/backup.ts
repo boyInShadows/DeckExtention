@@ -10,10 +10,11 @@ import {
 import { ACTIVE_DATABASE_KEY, type DeckDatabaseHandle } from './database';
 import {
   parseDocument,
-  parseDocumentJson,
   serializeDocument,
   type DeckDocument,
 } from './document';
+import { migrateDocument } from './documentMigration';
+export { migrateDocument } from './documentMigration';
 import { DeckRepository } from './repository';
 
 const SNAPSHOT_RETENTION = 7;
@@ -46,36 +47,6 @@ export interface BackupOptions {
     get(key: string): Promise<Record<string, unknown>>;
     set(items: Record<string, unknown>): Promise<void>;
   } | null;
-}
-
-type VersionedDocument = { schemaVersion?: unknown };
-type Migration = (document: unknown) => unknown;
-
-export function migrateDocument(
-  value: unknown,
-  migrations: ReadonlyMap<number, Migration> = new Map(),
-): DeckDocument {
-  let copy: unknown = structuredClone(value);
-  const initialVersion = (copy as VersionedDocument)?.schemaVersion;
-  if (!Number.isInteger(initialVersion))
-    throw new Error('Missing schemaVersion');
-  let version = Number(initialVersion);
-  if (version > SCHEMA_VERSION)
-    throw new Error('Export uses a newer schema version');
-  while (version < SCHEMA_VERSION) {
-    const migrate = migrations.get(version);
-    if (!migrate)
-      throw new Error(`No migration from schema version ${version}`);
-    copy = structuredClone(migrate(structuredClone(copy)));
-    const nextVersion = (copy as VersionedDocument)?.schemaVersion;
-    if (nextVersion !== version + 1) {
-      throw new Error(
-        `Migration ${version} did not advance exactly one version`,
-      );
-    }
-    version += 1;
-  }
-  return parseDocument(copy);
 }
 
 export class BackupService {
@@ -120,8 +91,9 @@ export class BackupService {
   async ensureDailySnapshot(): Promise<boolean> {
     const latest = await this.#latestSnapshots();
     const valid = latest.find((snapshot) => {
+      if (snapshot.schemaVersion !== SCHEMA_VERSION) return false;
       try {
-        parseDocumentJson(snapshot.blob);
+        migrateDocument(JSON.parse(snapshot.blob) as unknown);
         return true;
       } catch {
         return false;
@@ -186,7 +158,9 @@ export class BackupService {
       const failures: unknown[] = [liveError];
       for (const snapshot of snapshots) {
         try {
-          const document = parseDocumentJson(snapshot.blob);
+          const document = migrateDocument(
+            JSON.parse(snapshot.blob) as unknown,
+          );
           return {
             document,
             json: serializeDocument(document),
@@ -205,12 +179,18 @@ export class BackupService {
   }
 
   previewImport(value: unknown, mode: ImportMode): Promise<ImportPreview> {
-    const incoming = migrateDocument(value);
+    const incoming = normalizeImportedTimestamps(
+      migrateDocument(value),
+      this.#now(),
+    );
     return this.#preview(incoming, mode);
   }
 
   async importData(value: unknown, mode: ImportMode): Promise<ImportResult> {
-    const incoming = migrateDocument(value);
+    const incoming = normalizeImportedTimestamps(
+      migrateDocument(value),
+      this.#now(),
+    );
     const preview = await this.#preview(incoming, mode);
     const snapshot = await this.createSnapshot();
     if (mode === 'replace') {
@@ -311,6 +291,24 @@ export class BackupService {
     await Promise.all(expired.map(({ id }) => transaction.store.delete(id)));
     await transaction.done;
   }
+}
+
+function normalizeImportedTimestamps(
+  document: DeckDocument,
+  now: number,
+): DeckDocument {
+  const normalize = <T extends Page | Deck | Card>(records: T[]): T[] =>
+    records.map((record) => ({
+      ...record,
+      createdAt: Math.min(record.createdAt, now),
+      updatedAt: Math.min(record.updatedAt, now),
+    }));
+  return parseDocument({
+    ...document,
+    pages: normalize(document.pages),
+    decks: normalize(document.decks),
+    cards: normalize(document.cards),
+  });
 }
 
 function selectNewer<T extends Page | Deck | Card>(

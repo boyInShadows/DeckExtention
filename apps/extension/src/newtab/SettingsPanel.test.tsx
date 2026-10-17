@@ -1,5 +1,10 @@
 // @vitest-environment happy-dom
-import { SETTINGS_DEFAULTS, type Settings, type Snapshot } from 'deck-schema';
+import {
+  SCHEMA_VERSION,
+  SETTINGS_DEFAULTS,
+  type Settings,
+  type Snapshot,
+} from 'deck-schema';
 import {
   afterEach,
   beforeEach,
@@ -59,10 +64,10 @@ const NOW = 1_800_000_000_000;
 const SNAPSHOT: Snapshot = {
   id: 'snap_1',
   ts: NOW,
-  schemaVersion: 1,
+  schemaVersion: SCHEMA_VERSION,
   blob: '{}',
 };
-const EXPORT_JSON = '{"schemaVersion":1}';
+const EXPORT_JSON = `{"schemaVersion":${SCHEMA_VERSION}}`;
 const BLOB_URL = 'blob:deck-export';
 const BOOKMARK_TREE = [
   {
@@ -515,7 +520,7 @@ describe('SettingsPanel - keys and advanced', () => {
 describe('SettingsPanel - backups', () => {
   it('lists seven dated snapshots with counts and restores the chosen one', async () => {
     const blob = JSON.stringify({
-      schemaVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
       exportedAt: NOW,
       pages: [],
       decks: [],

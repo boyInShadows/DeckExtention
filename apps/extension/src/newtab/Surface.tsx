@@ -11,6 +11,7 @@ import {
 } from 'react';
 
 import {
+  MAINTENANCE_MESSAGE,
   OPEN_PAGE_HASH_PREFIX,
   OPEN_SETTINGS_HASH,
 } from 'deck-schema/constants';
@@ -172,6 +173,12 @@ export function Surface({ initialData }: SurfaceProps) {
       }
       idle = window.requestIdleCallback(() => {
         void loadDrawer().catch(notifyFailure);
+        void chrome.runtime
+          .sendMessage({ type: MAINTENANCE_MESSAGE })
+          .then((reply: { error: string | null }) => {
+            if (reply.error) notifyFailure(reply.error);
+          })
+          .catch(notifyFailure);
       });
     });
     return () => {

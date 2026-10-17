@@ -326,6 +326,154 @@ test('an unavailable IndexedDB opens recovery and exports the independent snapsh
   }
 });
 
+test('a failed v2 migration preserves v1 records and offers recovery export', async () => {
+  const context = await launchExtension();
+  try {
+    const page = await context.newPage();
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector(READY_SELECTOR);
+    await expect
+      .poll(() =>
+        page.evaluate(async () =>
+          Boolean(
+            (await chrome.storage.local.get('deckLatestSnapshot'))
+              .deckLatestSnapshot,
+          ),
+        ),
+      )
+      .toBe(true);
+    await page.evaluate(async () => {
+      const request = indexedDB.open('deck-recovery-failed-v2', 1);
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        database.createObjectStore('pages', { keyPath: 'id' });
+        database.createObjectStore('decks', { keyPath: 'id' });
+        database.createObjectStore('cards', { keyPath: 'id' });
+        database
+          .createObjectStore('ops', { keyPath: 'id' })
+          .createIndex('by-ts', 'ts');
+        database
+          .createObjectStore('snapshots', { keyPath: 'id' })
+          .createIndex('by-ts', 'ts');
+        database.createObjectStore('meta', { keyPath: 'key' });
+      };
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const transaction = database.transaction('pages', 'readwrite');
+      transaction.objectStore('pages').put({
+        id: 'legacy_page',
+        title: 42,
+        order: 'a0',
+        createdAt: 1,
+        updatedAt: 1,
+        deletedAt: null,
+      });
+      await new Promise<void>((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+      database.close();
+      await chrome.storage.local.set({ deckDb: 'deck-recovery-failed-v2' });
+    });
+    await page.reload();
+    await expect(page.locator('[data-deck="recovery"]')).toBeVisible();
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Export now' }).click();
+    expect((await downloadPromise).suggestedFilename()).toMatch(
+      /^deck-.*\.json$/,
+    );
+    const legacy = await page.evaluate(async () => {
+      const request = indexedDB.open('deck-recovery-failed-v2', 1);
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const result = await new Promise<{ version: number; title: unknown }>(
+        (resolve, reject) => {
+          const record = database
+            .transaction('pages')
+            .objectStore('pages')
+            .get('legacy_page');
+          record.onsuccess = () =>
+            resolve({ version: database.version, title: record.result?.title });
+          record.onerror = () => reject(record.error);
+        },
+      );
+      database.close();
+      return result;
+    });
+    expect(legacy).toEqual({ version: 1, title: 42 });
+  } finally {
+    await context.close();
+  }
+});
+
+test('maintenance compacts 10,000 ops and records storage and hydration', async ({
+  browserName,
+}, testInfo) => {
+  expect(browserName).toBe('chromium');
+  const context = await launchExtension();
+  try {
+    const page = await context.newPage();
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector(READY_SELECTOR);
+    const metrics = await page.evaluate(async () => {
+      const open = indexedDB.open('deck');
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        open.onsuccess = () => resolve(open.result);
+        open.onerror = () => reject(open.error);
+      });
+      const transaction = database.transaction(
+        ['ops', 'snapshots'],
+        'readwrite',
+      );
+      transaction.objectStore('snapshots').clear();
+      for (let index = 0; index < 10_000; index += 1) {
+        transaction.objectStore('ops').put({
+          id: `op_load_${index}`,
+          ts: Date.now() - index,
+          kind: 'upsert',
+          clientId: 'load_client',
+          entity: 'settings',
+          entityId: 'settings',
+          payload: { theme: 'night' },
+        });
+      }
+      await new Promise<void>((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+      await chrome.storage.local.remove('deckLatestSnapshot');
+      const reply = await chrome.runtime.sendMessage({
+        type: 'deck:maintenance',
+      });
+      if (reply?.error) throw new Error(reply.error);
+      const start = performance.now();
+      const all = await new Promise<unknown[]>((resolve, reject) => {
+        const request = database.transaction('ops').objectStore('ops').getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const hydrationMs = performance.now() - start;
+      const usageBytes = (await navigator.storage.estimate()).usage ?? 0;
+      const opsBytes = new Blob([JSON.stringify(all)]).size;
+      database.close();
+      return { retainedOps: all.length, hydrationMs, usageBytes, opsBytes };
+    });
+    expect(metrics.retainedOps).toBeLessThanOrEqual(5_000);
+    expect(metrics.hydrationMs).toBeGreaterThan(0);
+    expect(metrics.usageBytes).toBeGreaterThan(0);
+    await testInfo.attach('oplog-10k-metrics.json', {
+      body: JSON.stringify(metrics),
+      contentType: 'application/json',
+    });
+  } finally {
+    await context.close();
+  }
+});
+
 test('drawer triggers and page state survive repeated open and close cycles', async ({
   browserName,
 }) => {

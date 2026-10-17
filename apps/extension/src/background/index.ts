@@ -11,6 +11,7 @@
  */
 
 import { BACKUP_ERROR_KEY } from 'deck-schema';
+import { MAINTENANCE_MESSAGE } from 'deck-schema/constants';
 import { captureStrings } from '../i18n/captureStrings';
 import { BackupService } from '../storage/backup';
 import { ACTIVE_DATABASE_KEY, openDeckDatabase } from '../storage/database';
@@ -21,26 +22,34 @@ import { handleToastDecision, quickSave } from './quickSave';
 import { toggleDrawer } from './toggleDrawer';
 
 let repository = new DeckRepository({ validation: writeValidation });
-let backups = new BackupService(repository, openDeckDatabase());
+let backups = new BackupService(
+  repository,
+  openDeckDatabase(undefined, writeValidation),
+);
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !changes[ACTIVE_DATABASE_KEY]) return;
   repository = new DeckRepository({ validation: writeValidation });
-  backups = new BackupService(repository, openDeckDatabase());
+  backups = new BackupService(
+    repository,
+    openDeckDatabase(undefined, writeValidation),
+  );
   void runBackupMaintenance();
 });
 
-async function runBackupMaintenance(): Promise<void> {
+async function runBackupMaintenance(): Promise<string | null> {
   try {
     // Chrome extension workers cannot import() the repository's lazy purge chunk.
     if (await backups.ensureDailySnapshot())
       await repository.purge(undefined, purgeDeleted);
     await chrome.storage.local.remove(BACKUP_ERROR_KEY);
+    return null;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await chrome.storage.local.set({
       [BACKUP_ERROR_KEY]: { message, occurredAt: Date.now() },
     });
+    return message;
   }
 }
 
@@ -77,6 +86,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!sender.tab || sender.id !== chrome.runtime.id) return false;
+  if (message?.type === MAINTENANCE_MESSAGE) {
+    void runBackupMaintenance().then((error) => sendResponse({ error }));
+    return true;
+  }
   void handleToastDecision(repository, message, sender).then((reply) => {
     if (reply) sendResponse(reply);
   });

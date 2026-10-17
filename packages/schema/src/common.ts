@@ -3,6 +3,7 @@ import { NOTE_MAX_LENGTH, TITLE_MAX_LENGTH, URL_MAX_LENGTH } from './constants';
 export {
   CUSTOM_CSS_MAX_LENGTH,
   NOTE_MAX_LENGTH,
+  SCHEMA_VERSION,
   TITLE_MAX_LENGTH,
   URL_MAX_LENGTH,
 } from './constants';
@@ -14,7 +15,6 @@ export {
  */
 
 /** Bumped whenever a persisted shape changes. Snapshots carry it. */
-export const SCHEMA_VERSION = 1;
 
 /** URL-safe ids (nanoid alphabet). Long enough for uuid v4 too. */
 const ID_PATTERN = /^[A-Za-z0-9_-]{6,64}$/;

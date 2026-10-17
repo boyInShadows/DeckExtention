@@ -1,4 +1,8 @@
-import { SETTINGS_DEFAULTS, SETTINGS_ENTITY_ID } from 'deck-schema/constants';
+import {
+  SCHEMA_VERSION,
+  SETTINGS_DEFAULTS,
+  SETTINGS_ENTITY_ID,
+} from 'deck-schema/constants';
 import {
   type Card,
   type Deck,
@@ -19,6 +23,7 @@ import type {
   parseCard,
   parseDeck,
   parseDocument,
+  migrateDocument,
   parseOps,
   parsePage,
   parseSettings,
@@ -43,6 +48,7 @@ type ValidationModule = {
   parseCard: typeof parseCard;
   parseDeck: typeof parseDeck;
   parseDocument: typeof parseDocument;
+  migrateDocument: typeof migrateDocument;
   parseOps: typeof parseOps;
   parsePage: typeof parsePage;
   parseSettings: typeof parseSettings;
@@ -77,7 +83,7 @@ export class DeckRepository {
   readonly #recoveryIssues = new Set<string>();
 
   constructor(options: RepositoryOptions = {}) {
-    this.#database = openDeckDatabase(options.databaseName);
+    this.#database = openDeckDatabase(options.databaseName, options.validation);
     this.#now = options.now ?? Date.now;
     this.#createId = options.createId ?? defaultId;
     this.#validationModule = options.validation;
@@ -230,7 +236,7 @@ export class DeckRepository {
       database.get('meta', SETTINGS_KEY),
     ]);
     return parseDocument({
-      schemaVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
       exportedAt,
       pages,
       decks,
