@@ -36,6 +36,8 @@ export const CardSchema = z.strictObject({
   note: NoteSchema.optional(),
   /** null means never opened - that is what Resurface selects on (I6). */
   lastOpenedAt: TimestampSchema.nullable(),
+  /** Keep in Resurface means reviewed, without claiming the link was opened. */
+  reviewedAt: TimestampSchema.optional(),
 });
 
 export type Card = z.infer<typeof CardSchema>;

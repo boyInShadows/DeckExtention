@@ -34,6 +34,7 @@ export const SettingsSchema = z.strictObject({
   showSeconds: z.boolean(),
   showDate: z.boolean().default(true),
   use12HourClock: z.boolean().default(false),
+  showResurface: z.boolean().default(true),
   /** The `B` blur toggle; persisted across tabs (P1.S5). */
   isBlurred: z.boolean(),
   /** Space on an empty Line opens the drawer. On by default, per AGENTS.md 2. */

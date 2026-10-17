@@ -35,6 +35,7 @@ const CARD_FIELDS = [
   'done',
   'note',
   'lastOpenedAt',
+  'reviewedAt',
 ];
 const SETTINGS_FIELDS = [
   'theme',
@@ -42,6 +43,7 @@ const SETTINGS_FIELDS = [
   'showSeconds',
   'showDate',
   'use12HourClock',
+  'showResurface',
   'isBlurred',
   'canSpaceOpenDrawer',
   'wallpaper',
@@ -122,6 +124,7 @@ export function isCard(value: unknown): value is Card {
     isOrder(value.order) &&
     typeof value.pinned === 'boolean' &&
     (value.lastOpenedAt === null || isTime(value.lastOpenedAt)) &&
+    isOptional(value.reviewedAt, isTime) &&
     isOptional(value.pinLabel, (label) => isString(label, TITLE_MAX_LENGTH)) &&
     isOptional(value.pinIcon, (icon) => isString(icon, 16)) &&
     isOptional(value.done, (done) => typeof done === 'boolean') &&
@@ -171,6 +174,7 @@ export function isSettings(value: unknown): value is Settings {
     typeof value.showSeconds === 'boolean' &&
     isOptional(value.showDate, (item) => typeof item === 'boolean') &&
     isOptional(value.use12HourClock, (item) => typeof item === 'boolean') &&
+    isOptional(value.showResurface, (item) => typeof item === 'boolean') &&
     typeof value.isBlurred === 'boolean' &&
     typeof value.canSpaceOpenDrawer === 'boolean' &&
     typeof value.wallpaperDim === 'number' &&

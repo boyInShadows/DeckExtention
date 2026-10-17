@@ -19,6 +19,7 @@ export const SETTINGS_DEFAULTS: Settings = Object.freeze({
   showSeconds: false,
   showDate: true,
   use12HourClock: false,
+  showResurface: true,
   isBlurred: false,
   canSpaceOpenDrawer: true,
   wallpaper: { kind: 'none' },

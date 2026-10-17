@@ -7,7 +7,13 @@ import {
 } from 'deck-schema';
 import { describe, expect, it } from 'vitest';
 
-import { isCard, isDeck, isPage, isSettings } from './hydrationValidation';
+import {
+  hydratedSettings,
+  isCard,
+  isDeck,
+  isPage,
+  isSettings,
+} from './hydrationValidation';
 
 const page = {
   id: 'page_test',
@@ -36,6 +42,17 @@ const card = {
 };
 
 describe('warm hydration guards', () => {
+  it('accepts pre-Resurface settings and supplies the same default as Zod', () => {
+    const legacy = Object.fromEntries(
+      Object.entries(SETTINGS_DEFAULTS).filter(
+        ([key]) => key !== 'showResurface',
+      ),
+    );
+    expect(isSettings(legacy)).toBe(true);
+    expect(SettingsSchema.parse(legacy).showResurface).toBe(true);
+    if (!isSettings(legacy)) throw new Error('Invalid legacy settings');
+    expect(hydratedSettings(legacy).showResurface).toBe(true);
+  });
   it.each([
     [PageSchema, isPage, page],
     [PageSchema, isPage, { ...page, title: 42 }],
@@ -47,8 +64,20 @@ describe('warm hydration guards', () => {
     [CardSchema, isCard, { ...card, url: 'ftp://files.test/x' }],
     [CardSchema, isCard, { ...card, url: 'not a URL' }],
     [CardSchema, isCard, { ...card, lastOpenedAt: -1 }],
+    [CardSchema, isCard, { ...card, reviewedAt: 1 }],
+    [CardSchema, isCard, { ...card, reviewedAt: -1 }],
     [CardSchema, isCard, { ...card, pinIcon: 'x'.repeat(17) }],
     [SettingsSchema, isSettings, SETTINGS_DEFAULTS],
+    [
+      SettingsSchema,
+      isSettings,
+      { ...SETTINGS_DEFAULTS, showResurface: false },
+    ],
+    [
+      SettingsSchema,
+      isSettings,
+      { ...SETTINGS_DEFAULTS, showResurface: 'yes' },
+    ],
     [SettingsSchema, isSettings, { ...SETTINGS_DEFAULTS, ownerName: 42 }],
     [
       SettingsSchema,

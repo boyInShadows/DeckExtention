@@ -30,6 +30,7 @@ import { Surface } from './Surface';
  * Surface the way those components would.
  */
 vi.mock('./Pins', () => ({ Pins: StubPins }));
+vi.mock('../resurface/Resurface', () => ({ default: () => null }));
 vi.mock('./SettingsPanel', () => ({ default: StubSettings }));
 vi.mock('./HelpOverlay', () => ({ default: StubHelp }));
 vi.mock('../drawer/drawer', () => ({ default: StubDrawer }));

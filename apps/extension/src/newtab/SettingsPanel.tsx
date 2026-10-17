@@ -375,6 +375,11 @@ export default function SettingsPanel({
             checked={settings.isBlurred}
             onChange={(isBlurred) => void update({ isBlurred })}
           />
+          <Toggle
+            label={strings.showResurface}
+            checked={settings.showResurface}
+            onChange={(showResurface) => void update({ showResurface })}
+          />
           <label>
             {strings.wallpaperDim}
             <input

@@ -17,6 +17,11 @@ vi.mock('../drawer/drawer', () => {
   throw new Error('chunk missing');
 });
 vi.mock('./Pins', () => ({ Pins: () => null }));
+vi.mock('../resurface/Resurface', () => ({
+  get default() {
+    throw new Error('Resurface chunk missing');
+  },
+}));
 vi.mock('../drawer/WorkspaceDnd', () => ({ WorkspaceDnd: PassThrough }));
 
 function PassThrough({ children }: { children: ComponentChildren }) {
@@ -49,7 +54,7 @@ afterEach(() => {
 });
 
 describe('Surface drawer preload failure', () => {
-  it('tells the owner when the drawer chunk cannot be loaded', async () => {
+  it('keeps the surface usable and reports missing drawer or Resurface chunks', async () => {
     const data: SurfaceData = {
       cards: [],
       decks: [],
@@ -71,9 +76,12 @@ describe('Surface drawer preload failure', () => {
       await view.act(async () => {
         await vi.dynamicImportSettled();
       });
-      expect(
-        view.get('[data-deck="toast"][data-kind="error"]').textContent,
-      ).toContain(strings.updateFailed);
+      const notices = view.getAll('[data-deck="toast"][data-kind="error"]');
+      expect(notices).toHaveLength(2);
+      const errors = notices.map((item) => item.textContent).join(' ');
+      expect(errors).toContain(strings.updateFailed);
+      expect(errors).toContain('Resurface chunk missing');
+      expect(view.query('[data-deck="line"]')).not.toBeNull();
     });
     view.unmount();
   });

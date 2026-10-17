@@ -331,7 +331,7 @@ describe('SettingsPanel - appearance', () => {
     view.unmount();
   });
 
-  it('saves date and 12-hour clock preferences', async () => {
+  it('saves date, 12-hour clock and Resurface preferences', async () => {
     const { view, onChange } = await mount();
     await view.act(() =>
       click(control<HTMLInputElement>(view, strings.showDate)),
@@ -339,11 +339,15 @@ describe('SettingsPanel - appearance', () => {
     await view.act(() =>
       click(control<HTMLInputElement>(view, strings.use12HourClock)),
     );
+    await view.act(() =>
+      click(control<HTMLInputElement>(view, strings.showResurface)),
+    );
     await settle(view);
     expect(onChange).toHaveBeenLastCalledWith({
       ...SETTINGS_DEFAULTS,
       showDate: false,
       use12HourClock: true,
+      showResurface: false,
     });
     view.unmount();
   });

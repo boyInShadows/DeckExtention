@@ -39,6 +39,7 @@ import {
 import type { purgeDeleted as PurgeDeletedFunction } from './trashMaintenance';
 import type { expireSessions as ExpireSessionsFunction } from './sessionExpiry';
 import type { markCardsOpened as MarkCardsOpenedFunction } from './cardOpened';
+import type { ResurfaceAction } from './resurface';
 
 const SETTINGS_KEY = 'settings';
 const CLIENT_ID_KEY = 'clientId';
@@ -238,6 +239,35 @@ export class DeckRepository {
   async listOps(): Promise<Op[]> {
     const { parseOps } = await this.#validation();
     return parseOps(await (await this.#database).getAll('ops'));
+  }
+
+  async getResurface() {
+    const { getResurface } = await import('./resurface');
+    return getResurface(await this.#database, this.#now());
+  }
+
+  async resolveResurface(
+    selected: Pick<Card, 'id' | 'url'>,
+    day: string,
+    action: ResurfaceAction,
+  ): Promise<Card> {
+    const { resolveResurface } = await import('./resurface');
+    const clientId = await this.#clientId();
+    return resolveResurface(
+      await this.#database,
+      selected,
+      day,
+      action,
+      this.#now(),
+      (card) =>
+        this.#makeOp(
+          clientId,
+          'card',
+          card.id,
+          action === 'trash' ? 'delete' : 'upsert',
+          action === 'trash' ? null : card,
+        ),
+    );
   }
 
   async readDocument(exportedAt = this.#now()): Promise<DeckDocument> {

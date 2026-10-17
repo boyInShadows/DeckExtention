@@ -25,6 +25,7 @@ import type { SurfaceData } from './bootstrap';
 import { Line } from './Line';
 import { Pins } from './Pins';
 import { greetingForHour } from './surfaceModel';
+import type ResurfacePanel from '../resurface/Resurface';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
 const HelpOverlay = lazy(() => import('./HelpOverlay'));
@@ -52,6 +53,9 @@ export function Surface({ initialData }: SurfaceProps) {
   const [decks, setDecks] = useState(initialData.decks);
   const [pages, setPages] = useState(initialData.pages);
   const [settings, setSettings] = useState(initialData.settings);
+  const [Resurface, setResurface] = useState<typeof ResurfacePanel | null>(
+    null,
+  );
   const keymap = useMemo(
     () => new Map(settings.keymap.map(({ action, chord }) => [action, chord])),
     [settings.keymap],
@@ -152,6 +156,21 @@ export function Surface({ initialData }: SurfaceProps) {
       })
       .catch(notifyFailure);
   }, [initialData, notifyFailure]);
+
+  useEffect(() => {
+    if (!settings.showResurface) return;
+    let isCurrent = true;
+    void import('../resurface/Resurface')
+      .then((module) => {
+        if (isCurrent) setResurface(() => module.default);
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) notifyFailure(error);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [settings.showResurface, notifyFailure]);
 
   // Quick Save hands over here when its toast could not show (P2.S4).
   useEffect(() => {
@@ -361,6 +380,20 @@ export function Surface({ initialData }: SurfaceProps) {
             notify={notify}
           />
         </div>
+        <Suspense>
+          {settings.showResurface && Resurface ? (
+            <Resurface
+              repository={initialData.repository}
+              cards={cards}
+              decks={decks}
+              pages={pages}
+              now={now}
+              isVisible={!isDrawerMounted && !isSettingsOpen && !isHelpOpen}
+              onDataChange={reloadWorkspace}
+              notify={notify}
+            />
+          ) : null}
+        </Suspense>
         <nav data-deck="surface-controls" className="deck-surface-controls">
           <button
             type="button"
