@@ -10,14 +10,16 @@ import {
 import { strings } from '../i18n/strings';
 import type { filterLineActions } from './lineActionCatalog';
 import type { SurfaceData } from './bootstrap';
-import type { SearchResults } from './lineSearch';
+import type { buildSearchIndex } from './lineSearch';
 import type LineResults from './LineResults';
 import { shouldSpaceOpenDrawer } from './surfaceModel';
 import type { NoticeInput } from './ToastStack';
+import { useOpenTabs } from '../tabs/useOpenTabs';
+import type { OpenTab, TabAction } from '../tabs/openTabs';
 
 const MAX_GROUP_ROWS = 8;
 const PLACEHOLDER_ROTATE_MS = 6_000;
-export type ResultGroup = 'cards' | 'notes' | 'actions' | 'url';
+export type ResultGroup = 'cards' | 'notes' | 'actions' | 'tabs' | 'url';
 
 interface LineProps {
   cards: Card[];
@@ -32,6 +34,7 @@ interface LineProps {
   canSpaceOpenDrawer: boolean;
   openDrawer: () => void;
   openHelp: () => void;
+  onDataChange?: () => void;
 }
 
 export function Line(props: LineProps) {
@@ -40,33 +43,59 @@ export function Line(props: LineProps) {
   const [selected, setSelected] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
   const [showHint, setShowHint] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState(0);
+  const [selectedGroup, setSelectedGroup] = useState<ResultGroup>('cards');
   const [Results, setResults] = useState<typeof LineResults | null>(null);
   const [catalog, setCatalog] = useState<{
     filterLineActions: typeof filterLineActions;
   } | null>(null);
-  const [search, setSearch] = useState<(query: string) => SearchResults<Card>>(
-    () => () => ({ cards: [], notes: [], url: null }),
+  const [makeSearch, setMakeSearch] = useState<typeof buildSearchIndex | null>(
+    null,
+  );
+  const search = useMemo(
+    () => makeSearch?.(sourceCards.filter((card) => card.deletedAt === null)),
+    [makeSearch, sourceCards],
   );
   const inputRef = useRef<HTMLInputElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const isTabActionPending = useRef(false);
   const isWebSearch = query[0] === '?';
   const isCommand = query[0] === '>';
+  const isTabsCommand = /^>tabs(?:\s|$)/i.test(query);
+  const tabState = useOpenTabs(
+    Boolean(query) && !isWebSearch && (!isCommand || isTabsCommand),
+    notify,
+  );
+  const searchTabs = useMemo(
+    () => makeSearch?.(tabState.tabs),
+    [makeSearch, tabState.tabs],
+  );
+  const tabQuery = isTabsCommand ? query.slice('>tabs'.length).trim() : query;
+  const tabs = tabState.hasAccess
+    ? tabQuery.trim()
+      ? (searchTabs?.(tabQuery).cards ?? [])
+      : tabState.tabs
+    : [];
   const results =
     isWebSearch || isCommand
       ? { cards: [], notes: [], url: null }
-      : search(query);
-  const actions = catalog?.filterLineActions(query, isCommand) ?? [];
+      : (search?.(query) ?? { cards: [], notes: [], url: null });
+  const actions =
+    isTabsCommand && tabState.hasAccess
+      ? []
+      : (catalog?.filterLineActions(query, isCommand) ?? []);
   const groups = [
     results.cards.length && 'cards',
     results.notes.length && 'notes',
     actions.length && 'actions',
+    tabs.length && 'tabs',
     !results.cards.length &&
       !results.notes.length &&
       !actions.length &&
+      !tabs.length &&
       results.url &&
       'url',
   ].filter(Boolean) as ResultGroup[];
-  const group = groups[Math.min(selectedGroup, groups.length - 1)];
+  const group = groups.includes(selectedGroup) ? selectedGroup : groups[0];
   const itemCount = isWebSearch
     ? 1
     : Math.min(
@@ -77,9 +106,14 @@ export function Line(props: LineProps) {
             ? results.cards.length
             : group === 'notes'
               ? results.notes.length
-              : actions.length,
+              : group === 'tabs'
+                ? tabs.length
+                : actions.length,
       );
   const activeIndex = itemCount > 0 ? Math.min(selected, itemCount - 1) : 0;
+  useEffect(() => {
+    if (isTabsCommand && tabState.hasAccess) inputRef.current?.focus();
+  }, [isTabsCommand, tabState.hasAccess]);
 
   const keymap = useMemo(
     () =>
@@ -111,18 +145,13 @@ export function Line(props: LineProps) {
     let isCurrent = true;
     void import('./lineSearch')
       .then(({ buildSearchIndex }) => {
-        if (isCurrent)
-          setSearch(() =>
-            buildSearchIndex(
-              sourceCards.filter((card) => card.deletedAt === null),
-            ),
-          );
+        if (isCurrent) setMakeSearch(() => buildSearchIndex);
       })
       .catch((error: unknown) => notify(String(error)));
     return () => {
       isCurrent = false;
     };
-  }, [sourceCards, notify]);
+  }, [notify]);
   useEffect(() => {
     const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
       const isInput =
@@ -144,12 +173,41 @@ export function Line(props: LineProps) {
     return () => window.removeEventListener('keydown', onWindowKeyDown);
   }, [focusKey]);
 
+  const focusTab = (index: number) => {
+    const rows = shellRef.current?.querySelectorAll<HTMLButtonElement>(
+      '[data-deck="tab-activate"]',
+    );
+    rows?.[index]?.focus();
+  };
+  const actOnTab = async (tab: OpenTab, action: TabAction) => {
+    if (isTabActionPending.current) return;
+    isTabActionPending.current = true;
+    if (action === 'close') inputRef.current?.focus();
+    try {
+      const { performTabAction } = await import('../tabs/openTabs');
+      const message = await performTabAction(props.repository, tab, action);
+      if (action !== 'close') props.onDataChange?.();
+      if (message) props.notifySuccess(message);
+    } catch (error) {
+      props.notify(
+        `${strings.updateFailed} ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      await tabState.refresh();
+      isTabActionPending.current = false;
+    }
+  };
   const execute = async (
     isNewTab: boolean,
     targetGroup = group,
     index = activeIndex,
   ) => {
     try {
+      if (targetGroup === 'tabs') {
+        const tab = tabs[index];
+        if (tab) await actOnTab(tab, 'activate');
+        return;
+      }
       if (isWebSearch) {
         const term = query.slice(1).trim();
         // "?" alone is help, not an empty web search (P2.S6).
@@ -175,7 +233,7 @@ export function Line(props: LineProps) {
           notifySuccess: props.notifySuccess,
           notifyNotice: props.notifyNotice,
         });
-        setQuery('');
+        setQuery(action.id === 'tabs' ? (isTabsCommand ? query : '>tabs') : '');
         return;
       }
       const card =
@@ -195,6 +253,14 @@ export function Line(props: LineProps) {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (
+      group === 'tabs' &&
+      (event.key === 'ArrowDown' || event.key === 'ArrowUp')
+    ) {
+      event.preventDefault();
+      focusTab(event.key === 'ArrowUp' ? itemCount - 1 : activeIndex);
+      return;
+    }
     if (shouldSpaceOpenDrawer(event.key, query, props.canSpaceOpenDrawer)) {
       event.preventDefault();
       props.openDrawer();
@@ -210,8 +276,11 @@ export function Line(props: LineProps) {
     }
     if (event.key === 'Tab' && groups.length) {
       event.preventDefault();
-      setSelectedGroup((selectedGroup + 1) % groups.length);
+      const nextGroup =
+        groups[(groups.indexOf(group ?? 'cards') + 1) % groups.length];
+      if (nextGroup) setSelectedGroup(nextGroup);
       setSelected(0);
+      if (nextGroup === 'tabs') focusTab(0);
     }
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -220,7 +289,7 @@ export function Line(props: LineProps) {
   };
 
   return (
-    <div data-deck="line-shell">
+    <div ref={shellRef} data-deck="line-shell">
       <div data-deck="line" className="deck-line">
         <input
           ref={inputRef}
@@ -228,7 +297,7 @@ export function Line(props: LineProps) {
           onChange={(event) => {
             setQuery(event.currentTarget.value);
             setSelected(0);
-            setSelectedGroup(0);
+            setSelectedGroup('cards');
           }}
           onKeyDown={onKeyDown}
           placeholder={
@@ -254,11 +323,14 @@ export function Line(props: LineProps) {
           notes={results.notes}
           fallbackUrl={group === 'url' ? results.url : null}
           actions={actions}
+          tabs={tabs}
+          onTabAction={(tab, action) => void actOnTab(tab, action)}
+          onSearch={() => inputRef.current?.focus()}
           isWebSearch={isWebSearch}
           activeGroup={group}
           activeIndex={activeIndex}
           onHover={(nextGroup, index) => {
-            setSelectedGroup(groups.indexOf(nextGroup));
+            setSelectedGroup(nextGroup);
             setSelected(index);
           }}
           onSelect={(nextGroup, index) => void execute(false, nextGroup, index)}

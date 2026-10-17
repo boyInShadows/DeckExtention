@@ -1,7 +1,7 @@
 import { URL_MAX_LENGTH } from 'deck-schema/constants';
 
 export interface SearchableCard {
-  id: string;
+  id: string | number;
   title: string;
   hostname: string;
   note?: string | undefined;

@@ -128,6 +128,19 @@ export const panelStrings = {
   openShortcutSettings: 'Open shortcut settings',
   drawerRequired: 'Open the drawer first.',
   sessions: 'Sessions',
+  openTabsGroup: 'Open tabs',
+  actionTabs: 'Find open tabs',
+  thisWindow: 'This window',
+  tabWindow: (number: number) => `Window ${number}`,
+  tabSearchPermissionReason:
+    'Deck needs tab access to find open tabs by title and address across your windows.',
+  tabSearchPermissionDeclined:
+    'Tab access is off. Retry from Settings → Advanced to find open tabs.',
+  openTabChanged: 'This tab changed. Search again before acting on it.',
+  tabClosed: 'Tab closed',
+  tabKeys: 'Enter: switch · x: close · s: save · Esc: search',
+  closeOpenTab: (title: string) => `Close tab: ${title}`,
+  saveOpenTab: (title: string) => `Save tab to Inbox: ${title}`,
   sessionsEmpty: 'No sessions yet. Use >stash to save this window.',
   sessionTitle: (time: number, count: number) => {
     const date = new Date(time);
@@ -252,7 +265,7 @@ export const panelStrings = {
   allowAccess: 'Allow',
   revokeAccess: 'Revoke',
   accessTabs: 'Tab access',
-  accessTabsReason: 'reads this window’s links to save them with Stash.',
+  accessTabsReason: 'reads open tab titles and links for search and Stash.',
   accessSearch: 'Web search',
   accessSearchReason: 'runs ? queries through your Chrome search engine.',
   retryAccess: 'Ask again',

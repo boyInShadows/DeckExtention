@@ -339,6 +339,7 @@ export function Surface({ initialData }: SurfaceProps) {
             </p>
           ) : null}
           <Line
+            onDataChange={reloadWorkspace}
             notifyNotice={notify}
             cards={cards}
             settings={settings}

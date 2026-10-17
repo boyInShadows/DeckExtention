@@ -5,6 +5,8 @@ import type { LINE_ACTIONS } from './lineActionCatalog';
 import type { SearchResults } from './lineSearch';
 import type { ResultGroup } from './Line';
 import { MarkdownNote } from '../drawer/MarkdownNote';
+import { TabResults } from '../tabs/TabResults';
+import type { OpenTab, TabAction } from '../tabs/openTabs';
 
 export default function LineResults({
   cards,
@@ -17,6 +19,9 @@ export default function LineResults({
   maxRows,
   onHover,
   onSelect,
+  tabs,
+  onTabAction,
+  onSearch,
 }: {
   cards: Card[];
   notes: SearchResults<Card>['notes'];
@@ -28,6 +33,9 @@ export default function LineResults({
   maxRows: number;
   onHover: (group: ResultGroup, index: number) => void;
   onSelect: (group: ResultGroup, index: number) => void;
+  tabs: OpenTab[];
+  onTabAction: (tab: OpenTab, action: TabAction) => void;
+  onSearch: () => void;
 }) {
   const sections = [
     {
@@ -125,7 +133,19 @@ export default function LineResults({
           ) : null}
         </div>
       ))}
-      {!isWebSearch && !sections.length ? <p>{strings.noResults}</p> : null}
+      <TabResults
+        tabs={tabs}
+        maxRows={maxRows}
+        activeIndex={activeIndex}
+        isActive={activeGroup === 'tabs'}
+        onHover={(index) => onHover('tabs', index)}
+        onSelect={(index) => onSelect('tabs', index)}
+        onAction={onTabAction}
+        onSearch={onSearch}
+      />
+      {!isWebSearch && !sections.length && !tabs.length ? (
+        <p>{strings.noResults}</p>
+      ) : null}
     </section>
   );
 }

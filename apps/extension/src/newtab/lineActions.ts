@@ -45,6 +45,11 @@ export async function executeAction(
     await startStash(context.notifyNotice);
     return;
   }
+  if (id === 'tabs') {
+    const { requestTabSearch } = await import('../tabs/openTabs');
+    await requestTabSearch(context.notifyNotice);
+    return;
+  }
   await downloadExport(context.repository);
   context.notifySuccess?.(strings.exportSaved);
 }

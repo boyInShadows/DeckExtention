@@ -1,29 +1,19 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { launchExtension } from './extension';
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { resolve, join, sep } from 'node:path';
+import { join } from 'node:path';
+import {
+  createPermissionFixture,
+  removePermissionFixture,
+} from './permissionFixture';
 
 const LINK_COUNT = 65;
 const READY = 'html[data-deck-ready="true"]';
 
-async function grantedFixture() {
-  const root = resolve('scratch');
-  await mkdir(root, { recursive: true });
-  const path = await mkdtemp(join(root, 'deck-opening-'));
-  if (!path.startsWith(root + sep))
-    throw new Error('Test fixture escaped scratch');
-  const extensionPath = join(path, 'dist');
-  await cp(resolve('apps/extension/dist'), extensionPath, { recursive: true });
-  // Pregrant only in this disposable test copy. Production keeps tabGroups
-  // optional; native dialog acceptance is an owner check.
-  const file = join(extensionPath, 'manifest.json');
-  const manifest = JSON.parse(await readFile(file, 'utf8'));
-  manifest.permissions = [...manifest.permissions, 'tabGroups'];
-  manifest.optional_permissions = manifest.optional_permissions.filter(
-    (permission: string) => permission !== 'tabGroups',
+async function waitForPages(context: BrowserContext, page: Page) {
+  const count = await page.evaluate(() =>
+    chrome.tabs.query({}).then((tabs) => tabs.length),
   );
-  await writeFile(file, JSON.stringify(manifest));
-  return path;
+  await expect.poll(() => context.pages().length).toBe(count);
 }
 
 async function seed(page: Page) {
@@ -98,7 +88,7 @@ test('pregranted fixture: real tab groups exceed 60 links; Restore keeps or reco
 }, testInfo) => {
   expect(browserName).toBe('chromium');
   test.setTimeout(90_000);
-  const profile = await grantedFixture();
+  const profile = await createPermissionFixture('tabGroups');
   const context = await launchExtension(join(profile, 'dist'));
   try {
     await context.route('http://opening.test/**', (route) =>
@@ -115,12 +105,17 @@ test('pregranted fixture: real tab groups exceed 60 links; Restore keeps or reco
         tab.id === undefined ? [] : [tab.id],
       ),
     );
+    await waitForPages(context, page);
     const initialPages = new Set(context.pages());
     const closeTabs = async () => {
+      await waitForPages(context, page);
       for (const tab of context.pages()) {
         if (!initialPages.has(tab)) await tab.close();
       }
       await page.bringToFront();
+      await expect
+        .poll(async () => (await openedTabs(page, initialIds)).length)
+        .toBe(0);
     };
     await seed(page);
     const normal = page.locator('[data-deck-id="deck_open_normal"]');
@@ -235,6 +230,6 @@ test('pregranted fixture: real tab groups exceed 60 links; Restore keeps or reco
     ).toBe(true);
   } finally {
     await context.close();
-    await rm(profile, { recursive: true, force: true });
+    await removePermissionFixture(profile);
   }
 });

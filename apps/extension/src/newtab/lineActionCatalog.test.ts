@@ -14,6 +14,7 @@ describe('Line action catalogue', () => {
       '>settings',
       '>new page',
       '>stash',
+      '>tabs',
     ]);
   });
 });
