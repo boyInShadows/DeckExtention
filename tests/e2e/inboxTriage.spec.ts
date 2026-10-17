@@ -91,8 +91,10 @@ test('inbox: 20 saved links triaged to Inbox zero by keyboard alone', async ({
     const started = Date.now();
     const keys = page.keyboard;
     // 1. Five at once: select with Shift+Down, move by typing the deck.
-    for (let step = 0; step < 4; step += 1) await keys.press('Shift+ArrowDown');
+    for (let step = 0; step < 5; step += 1) await keys.press('Shift+ArrowDown');
+    await expect(list.getByRole('option', { selected: true })).toHaveCount(5);
     await keys.press('m');
+    await expect(page.getByRole('combobox', { name: 'Move to' })).toBeFocused();
     await keys.type('exa');
     await keys.press('Enter');
     await expect(list.getByRole('option')).toHaveCount(15);
@@ -113,7 +115,11 @@ test('inbox: 20 saved links triaged to Inbox zero by keyboard alone', async ({
     // 4. The rest to the remembered destination: m, Enter.
     for (let step = 0; step < 8; step += 1) {
       await keys.press('ArrowRight');
+      await expect(
+        page.getByRole('combobox', { name: 'Move to' }),
+      ).toBeFocused();
       await keys.press('Enter');
+      await expect(list.getByRole('option')).toHaveCount(7 - step);
     }
     await expect(page.locator('[data-deck="inbox-zero"]')).toHaveText(
       'Inbox zero.',

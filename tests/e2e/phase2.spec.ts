@@ -220,6 +220,10 @@ test('phase 2 journey: quick save, triage, drag, export', async ({
     await savedCard.locator('[data-deck="card-drag"]').focus();
     await page.keyboard.press('Space');
     await expect(savedCard).toHaveAttribute('data-dragging', 'true');
+    // dnd-kit attaches the cancel key listener on the next task after lift.
+    await page.evaluate(
+      () => new Promise<void>((resolve) => setTimeout(resolve, 0)),
+    );
     await page.keyboard.press('Escape');
     await expect(savedCard).not.toHaveAttribute('data-dragging', 'true');
     await expect(drawer).toBeVisible();

@@ -32,7 +32,15 @@ async function collect(
   started.delete(page);
   if (!start || page.isClosed()) return;
   await start;
-  await report.add(await page.coverage.stopJSCoverage());
+  const entries = await page.coverage.stopJSCoverage();
+  if (entries.length === 0) {
+    test.info().annotations.push({
+      type: 'empty V8 capture',
+      description: page.url(),
+    });
+    return;
+  }
+  await report.add(entries);
 }
 
 function bindTo<T extends object>(

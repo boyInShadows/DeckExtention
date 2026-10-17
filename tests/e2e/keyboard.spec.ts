@@ -86,6 +86,7 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
     const moving = await focusedCardId(page);
     expect(moving).not.toBeNull();
     await keys.press('m');
+    await expect(page.getByRole('combobox', { name: 'Move to' })).toBeFocused();
     await keys.type('new');
     await keys.press('Enter');
     await expect(deckCards(page, 'New deck')).toHaveCount(1);

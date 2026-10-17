@@ -155,6 +155,13 @@ test('surface persists a pin, exports data, and stays fast when warm', async ({
         performance.getEntriesByName('deck-ready').at(-1)?.startTime ??
         Infinity,
     );
+    const firstPaintMs = await page.evaluate(
+      () =>
+        performance
+          .getEntriesByType('paint')
+          .find(({ name }) => name === 'first-contentful-paint')?.startTime ??
+        null,
+    );
     await expect(page.locator('[data-deck="clock"]')).toBeVisible();
     await expect(page.locator('[data-deck="line"]')).toBeVisible();
     await expect(page.locator('[data-deck="pins"]')).toBeVisible();
@@ -190,7 +197,7 @@ test('surface persists a pin, exports data, and stays fast when warm', async ({
       );
     }
     await testInfo.attach('surface-timings.json', {
-      body: JSON.stringify({ coldTiming, warmTimings: timings }),
+      body: JSON.stringify({ firstPaintMs, coldTiming, warmTimings: timings }),
       contentType: 'application/json',
     });
     const sortedTimings = timings.toSorted((left, right) => left - right);

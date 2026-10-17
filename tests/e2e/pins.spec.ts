@@ -30,7 +30,7 @@ test('pins have inline editing, an anchored keyboard menu, and a letter fallback
     expect(Math.abs(menuBox.x - pinBox.x)).toBeLessThan(40);
     await page.keyboard.press('ArrowDown');
     await expect(
-      menu.getByRole('menuitem', { name: 'Use an emoji icon' }),
+      menu.getByRole('menuitem', { name: 'Emoji icon' }),
     ).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
@@ -39,6 +39,9 @@ test('pins have inline editing, an anchored keyboard menu, and a letter fallback
     await pin.press('Space');
     await expect(pin).toHaveAttribute('data-dragging', 'true');
     await expect(pin).toBeFocused();
+    await page.evaluate(
+      () => new Promise<void>((resolve) => setTimeout(resolve, 0)),
+    );
     await pin.press('Escape');
     await expect(pin).not.toHaveAttribute('data-dragging', 'true');
 

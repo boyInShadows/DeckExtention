@@ -19,10 +19,6 @@ test('new tab classifies stored notices and Settings retries a failed backup', a
           message: 'command failed',
           occurredAt: Date.now(),
         },
-        backupMaintenanceError: {
-          message: 'disk full',
-          occurredAt: Date.now(),
-        },
       });
     });
     await page.reload();
@@ -31,11 +27,22 @@ test('new tab classifies stored notices and Settings retries a failed backup', a
     ).toContainText('Saved to Inbox');
     await expect(
       page.locator('[data-deck="toast"][data-kind="error"]'),
-    ).toHaveCount(2);
-    await page.getByLabel('Dismiss').first().click();
+    ).toHaveCount(1);
+    await page
+      .locator('[data-deck="toast"][data-kind="error"]')
+      .getByLabel('Dismiss')
+      .click();
     await expect(
       page.locator('[data-deck="toast"][data-kind="error"]'),
-    ).toHaveCount(1);
+    ).toHaveCount(0);
+    await page.evaluate(async () => {
+      await chrome.storage.local.set({
+        backupMaintenanceError: {
+          message: 'disk full',
+          occurredAt: Date.now(),
+        },
+      });
+    });
     await page.getByLabel('Settings').click();
     const retry = page.locator('[data-deck="backup-retry"]');
     await expect(retry).toBeVisible();
