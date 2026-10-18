@@ -16,6 +16,7 @@ import { shouldSpaceOpenDrawer } from './surfaceModel';
 import type { NoticeInput } from './ToastStack';
 import { useOpenTabs } from '../tabs/useOpenTabs';
 import type { OpenTab, TabAction } from '../tabs/openTabs';
+import type { CreatedWorkspace } from './lineWorkspace';
 
 const MAX_GROUP_ROWS = 8;
 const PLACEHOLDER_ROTATE_MS = 6_000;
@@ -26,6 +27,8 @@ interface LineProps {
   settings: Settings;
   repository: SurfaceData['repository'];
   openSettings: () => void;
+  openWorkspace: (workspace: CreatedWorkspace) => void;
+  prepareWorkspace: () => Promise<boolean>;
   saveSettings: (settings: Settings) => Promise<void>;
   notify: (message: string) => void;
   notifyInfo: (message: string) => void;
@@ -60,6 +63,7 @@ export function Line(props: LineProps) {
   const shellRef = useRef<HTMLDivElement>(null);
   const isTabActionPending = useRef(false);
   const isTaskPending = useRef(false);
+  const isActionPending = useRef(false);
   const isWebSearch = query[0] === '?';
   const isCommand = query[0] === '>';
   const isTabsCommand = /^>tabs(?:\s|$)/i.test(query);
@@ -225,17 +229,28 @@ export function Line(props: LineProps) {
       }
       const action = targetGroup === 'actions' ? actions[index] : undefined;
       if (action) {
-        const { executeAction } = await import('./lineActions');
-        await executeAction(action.id, {
-          settings: props.settings,
-          repository: props.repository,
-          saveSettings: props.saveSettings,
-          openSettings: props.openSettings,
-          notify: props.notifyInfo,
-          notifySuccess: props.notifySuccess,
-          notifyNotice: props.notifyNotice,
-        });
-        setQuery(action.id === 'tabs' ? (isTabsCommand ? query : '>tabs') : '');
+        if (isActionPending.current) return;
+        isActionPending.current = true;
+        try {
+          const { executeAction } = await import('./lineActions');
+          await executeAction(action.id, {
+            query,
+            settings: props.settings,
+            repository: props.repository,
+            saveSettings: props.saveSettings,
+            openSettings: props.openSettings,
+            openWorkspace: props.openWorkspace,
+            prepareWorkspace: props.prepareWorkspace,
+            notify: props.notifyInfo,
+            notifySuccess: props.notifySuccess,
+            notifyNotice: props.notifyNotice,
+          });
+          const nextQuery =
+            action.id === 'tabs' ? (isTabsCommand ? query : '>tabs') : '';
+          setQuery((current) => (current === query ? nextQuery : current));
+        } finally {
+          isActionPending.current = false;
+        }
         return;
       }
       const card =

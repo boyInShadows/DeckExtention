@@ -13,6 +13,7 @@ describe('Line action catalogue', () => {
       '>import',
       '>settings',
       '>new page',
+      '>new deck',
       '>stash',
       '>tabs',
     ]);

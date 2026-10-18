@@ -65,6 +65,8 @@ function setup(settings: Settings = SETTINGS_DEFAULTS, cards = CARDS) {
     settings,
     repository: REPOSITORY,
     openSettings: vi.fn<() => void>(),
+    openWorkspace: vi.fn(),
+    prepareWorkspace: vi.fn().mockResolvedValue(true),
     openNote: vi.fn(),
     saveSettings: vi.fn<(next: Settings) => Promise<void>>(() =>
       Promise.resolve(),
@@ -449,10 +451,13 @@ describe('Line Enter', () => {
     await press(view, 'Enter');
     await vi.waitFor(() =>
       expect(lineActions.executeAction).toHaveBeenCalledWith('theme-day', {
+        query: '>theme',
         settings: props.settings,
         repository: REPOSITORY,
         saveSettings: props.saveSettings,
         openSettings: props.openSettings,
+        openWorkspace: props.openWorkspace,
+        prepareWorkspace: props.prepareWorkspace,
         notify: props.notifyInfo,
         notifySuccess: props.notifySuccess,
         notifyNotice: props.notifyNotice,
@@ -476,6 +481,33 @@ describe('Line Enter', () => {
       ),
     );
     view.unmount();
+  });
+
+  it('creates once on repeated Enter and preserves text typed during the write', async () => {
+    let complete: (() => void) | undefined;
+    lineActions.executeAction.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const view = await setup().render();
+    try {
+      await typeQuery(view, '>new page Work');
+      await press(view, 'Enter');
+      await vi.waitFor(() =>
+        expect(lineActions.executeAction).toHaveBeenCalledTimes(1),
+      );
+      await press(view, 'Enter');
+      await view.act(() => vi.dynamicImportSettled());
+      expect(lineActions.executeAction).toHaveBeenCalledTimes(1);
+      await typeQuery(view, 'Next draft');
+      await view.act(() => complete?.());
+      await vi.waitFor(() => expect(input(view).value).toBe('Next draft'));
+    } finally {
+      complete?.();
+      view.unmount();
+    }
   });
 
   it('reports a non-Error failure too', async () => {

@@ -6,12 +6,16 @@ import { downloadExport } from './downloadExport';
 import type { ActionId } from './lineActionCatalog';
 import type { NoticeInput } from './ToastStack';
 import { startStash } from '../sessions/stashActions';
+import { createFromLine, type CreatedWorkspace } from './lineWorkspace';
 
 interface ActionContext {
+  query: string;
   settings: Settings;
   repository: SurfaceData['repository'];
   saveSettings: (settings: Settings) => Promise<void>;
   openSettings: () => void;
+  openWorkspace: (workspace: CreatedWorkspace) => void;
+  prepareWorkspace: () => Promise<boolean>;
   notify: (message: string) => void;
   notifyNotice: (notice: NoticeInput) => void;
   notifySuccess?: (message: string) => void;
@@ -37,8 +41,15 @@ export async function executeAction(
     context.openSettings();
     return;
   }
-  if (id === 'new-page') {
-    context.notify(strings.drawerRequired);
+  if (id === 'new-page' || id === 'new-deck') {
+    if (!(await context.prepareWorkspace()))
+      throw new Error(strings.updateFailed);
+    context.openWorkspace(
+      await createFromLine(context.repository, id, context.query),
+    );
+    context.notifySuccess?.(
+      id === 'new-page' ? strings.pageSaved : strings.deckSaved,
+    );
     return;
   }
   if (id === 'stash') {

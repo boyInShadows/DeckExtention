@@ -21,4 +21,6 @@ export interface DrawerProps {
   beforeCloseRef?: RefObject<(() => Promise<boolean>) | null>;
   requestedNote?: Card | null;
   onNoteOpened?: () => void;
+  initialPageId?: string | undefined;
+  initialEditingDeckId?: string | undefined;
 }

@@ -28,6 +28,7 @@ import { greetingForHour } from './surfaceModel';
 import type ResurfacePanel from '../resurface/Resurface';
 import type ShelfPanel from '../shelf/Shelf';
 import type { Card } from 'deck-schema';
+import type { CreatedWorkspace } from './lineWorkspace';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
 const HelpOverlay = lazy(() => import('./HelpOverlay'));
@@ -56,6 +57,8 @@ export function Surface({ initialData }: SurfaceProps) {
   const [pages, setPages] = useState(initialData.pages);
   const [settings, setSettings] = useState(initialData.settings);
   const [requestedNote, setRequestedNote] = useState<Card | null>(null);
+  const [createdWorkspace, setCreatedWorkspace] =
+    useState<CreatedWorkspace | null>(null);
   const [Shelf, setShelf] = useState<typeof ShelfPanel | null>(null);
   const [Resurface, setResurface] = useState<typeof ResurfacePanel | null>(
     null,
@@ -120,13 +123,14 @@ export function Surface({ initialData }: SurfaceProps) {
   }, []);
 
   const closeDrawer = useCallback(async () => {
-    if ((await beforeDrawerClose.current?.()) === false) return;
+    if ((await beforeDrawerClose.current?.()) === false) return false;
+    clearTimeout(drawerExitTimer.current);
     setIsDrawerOpen(false);
-    drawerExitTimer.current = window.setTimeout(
-      setIsDrawerMounted,
-      DRAWER_EXIT_MS,
-      false,
-    );
+    drawerExitTimer.current = window.setTimeout(() => {
+      setIsDrawerMounted(false);
+      setCreatedWorkspace(null);
+    }, DRAWER_EXIT_MS);
+    return true;
   }, []);
 
   const saveSettings = useCallback(
@@ -377,6 +381,12 @@ export function Surface({ initialData }: SurfaceProps) {
             </p>
           ) : null}
           <Line
+            prepareWorkspace={closeDrawer}
+            openWorkspace={(workspace) => {
+              setCreatedWorkspace(workspace);
+              reloadWorkspace();
+              openDrawer();
+            }}
             openNote={(card) => {
               setRequestedNote(card);
               openDrawer();
@@ -497,6 +507,9 @@ export function Surface({ initialData }: SurfaceProps) {
         <Suspense>
           {isDrawerMounted ? (
             <Drawer
+              key={createdWorkspace?.deckId ?? createdWorkspace?.pageId}
+              initialPageId={createdWorkspace?.pageId}
+              initialEditingDeckId={createdWorkspace?.deckId}
               requestedNote={requestedNote}
               onNoteOpened={() => setRequestedNote(null)}
               keymapOverrides={settings.keymap}

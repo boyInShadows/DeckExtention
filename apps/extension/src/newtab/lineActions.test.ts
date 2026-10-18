@@ -1,13 +1,19 @@
 // @vitest-environment happy-dom
 import 'fake-indexeddb/auto';
 
-import { SETTINGS_DEFAULTS, type Settings } from 'deck-schema';
+import {
+  SETTINGS_DEFAULTS,
+  TITLE_MAX_LENGTH,
+  type Settings,
+} from 'deck-schema';
 import { deleteDB } from 'idb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { panelStrings } from '../i18n/panelStrings';
 import { DeckRepository } from '../storage/repository';
 import { executeAction, searchWeb } from './lineActions';
+import { hydrateSurface } from './bootstrap';
+import { DRAWER_PAGE_KEY } from '../drawer/drawerModel';
 
 const TEST_DATABASE = 'deck-line-actions-test';
 const FIXED_NOW = new Date('2026-03-04T05:06:07Z');
@@ -22,12 +28,16 @@ function openRepository(): DeckRepository {
 
 function contextFor(settings: Settings = SETTINGS_DEFAULTS) {
   return {
+    query: '',
     settings,
     repository: openRepository(),
     saveSettings: vi.fn<(next: Settings) => Promise<void>>(() =>
       Promise.resolve(),
     ),
     openSettings: vi.fn<() => void>(),
+    openWorkspace: vi.fn(),
+    prepareWorkspace: vi.fn().mockResolvedValue(true),
+    notifySuccess: vi.fn(),
     notify: vi.fn<(message: string) => void>(),
     notifyNotice: vi.fn(),
   };
@@ -37,6 +47,7 @@ afterEach(async () => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  localStorage.clear();
   await repository?.close();
   repository = undefined;
   await deleteDB(TEST_DATABASE);
@@ -76,10 +87,120 @@ describe('executeAction', () => {
     },
   );
 
-  it('explains that new pages need the drawer', async () => {
+  it('creates a named page after the existing pages and opens its workspace', async () => {
     const context = contextFor();
-    await executeAction('new-page', context);
-    expect(context.notify).toHaveBeenCalledWith(panelStrings.drawerRequired);
+    const original = await hydrateSurface(context.repository);
+    await executeAction('new-page', {
+      ...context,
+      query: '>new page Work notes',
+    });
+    const pages = await context.repository.listPages();
+    const created = pages.find((page) => page.title === 'Work notes');
+    expect(created).toBeDefined();
+    expect((created?.order ?? '') > (original.pages[0]?.order ?? '')).toBe(
+      true,
+    );
+    expect(context.openWorkspace).toHaveBeenCalledWith({ pageId: created?.id });
+    expect(context.notifySuccess).toHaveBeenCalledWith(panelStrings.pageSaved);
+    expect(await context.repository.listDecks()).toEqual(original.decks);
+  });
+
+  it('creates a deck on the remembered live page and opens its inline editor', async () => {
+    const context = contextFor();
+    await hydrateSurface(context.repository);
+    const page = await context.repository.upsertPage({
+      id: 'page_work',
+      title: 'Work',
+      order: 'b0',
+      createdAt: 1,
+      updatedAt: 1,
+      deletedAt: null,
+    });
+    localStorage.setItem(DRAWER_PAGE_KEY, page.id);
+    await executeAction('new-deck', { ...context, query: '>new deck' });
+    const created = (await context.repository.listDecks()).find(
+      (deck) => deck.pageId === page.id,
+    );
+    expect(created).toMatchObject({
+      title: panelStrings.newDeck,
+      kind: 'normal',
+      isCollapsed: false,
+    });
+    expect(context.openWorkspace).toHaveBeenCalledWith({
+      pageId: page.id,
+      deckId: created?.id,
+    });
+    expect(context.notifySuccess).toHaveBeenCalledWith(panelStrings.deckSaved);
+  });
+
+  it.each(['trash', 'missing', 'page_deleted'])(
+    'falls back from %s and validates names before writes',
+    async (remembered) => {
+      const context = contextFor();
+      const original = await hydrateSurface(context.repository);
+      await context.repository.upsertPage({
+        id: 'page_deleted',
+        title: 'Deleted',
+        order: 'b0',
+        createdAt: 1,
+        updatedAt: 1,
+        deletedAt: 1,
+      });
+      localStorage.setItem(DRAWER_PAGE_KEY, remembered);
+      await executeAction('new-deck', {
+        ...context,
+        query: '>new deck Reading',
+      });
+      expect(context.openWorkspace).toHaveBeenCalledWith({
+        pageId: original.pages[0]?.id,
+        deckId: expect.any(String),
+      });
+      const before = await context.repository.listPages();
+      context.openWorkspace.mockClear();
+      await expect(
+        executeAction('new-page', {
+          ...context,
+          query: `>new page ${'x'.repeat(TITLE_MAX_LENGTH + 1)}`,
+        }),
+      ).rejects.toThrow();
+      expect(await context.repository.listPages()).toEqual(before);
+      expect(context.openWorkspace).not.toHaveBeenCalled();
+    },
+  );
+
+  it('creates a default page without setup and refuses a deck with no live page', async () => {
+    const context = contextFor();
+    await expect(
+      executeAction('new-deck', { ...context, query: '>new deck' }),
+    ).rejects.toThrow(panelStrings.selectPage);
+    expect(await context.repository.listDecks()).toEqual([]);
+    await executeAction('new-page', { ...context, query: '>NEW PAGE' });
+    expect(await context.repository.listPages()).toEqual([
+      expect.objectContaining({ title: panelStrings.untitledPage(1) }),
+    ]);
+  });
+
+  it('does not open a workspace or claim success when creating it fails', async () => {
+    const context = contextFor();
+    vi.spyOn(context.repository, 'upsertPage').mockRejectedValue(
+      new Error('Disk failed'),
+    );
+    await expect(
+      executeAction('new-page', { ...context, query: '>new page Work' }),
+    ).rejects.toThrow('Disk failed');
+    expect(context.openWorkspace).not.toHaveBeenCalled();
+    expect(context.notifySuccess).not.toHaveBeenCalled();
+  });
+
+  it('creates nothing when saving the current note blocks workspace navigation', async () => {
+    const context = contextFor();
+    context.prepareWorkspace.mockResolvedValue(false);
+    await expect(
+      executeAction('new-page', { ...context, query: '>new page Work' }),
+    ).rejects.toThrow();
+    expect(await context.repository.listPages()).toEqual([]);
+    expect(context.openWorkspace).not.toHaveBeenCalled();
+    expect(context.notifySuccess).not.toHaveBeenCalled();
   });
 
   it('starts stash through the worker once tab access is granted', async () => {

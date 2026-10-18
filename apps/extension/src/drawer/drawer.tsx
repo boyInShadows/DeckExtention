@@ -175,6 +175,8 @@ export default function Drawer({
   beforeCloseRef,
   requestedNote,
   onNoteOpened,
+  initialPageId,
+  initialEditingDeckId,
 }: DrawerProps) {
   const keymap = useMemo(
     () => resolveKeymap(keymapOverrides),
@@ -188,7 +190,7 @@ export default function Drawer({
   const noteRef = useRef<NotePanelHandle>(null);
   const orderedPages = useMemo(() => activePages(pages), [pages]);
   const [selectedId, setSelectedId] = useState(() =>
-    selectedPageId(pages, requestedPageId()),
+    selectedPageId(pages, initialPageId ?? requestedPageId()),
   );
   const scrollRef = useRef<HTMLDivElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
@@ -307,11 +309,12 @@ export default function Drawer({
   // A `#page=` link is used once, then becomes the remembered page, so a
   // reload of this tab starts calm instead of reopening the drawer.
   useEffect(() => {
+    if (initialPageId) localStorage.setItem(DRAWER_PAGE_KEY, initialPageId);
     const linked = pageIdFromHash(location.hash);
     if (!linked) return;
     if (linked !== 'last') localStorage.setItem(DRAWER_PAGE_KEY, linked);
     history.replaceState(null, '', location.pathname);
-  }, []);
+  }, [initialPageId]);
 
   useEffect(() => {
     const onDrop = (event: Event) => {
@@ -356,11 +359,20 @@ export default function Drawer({
         onPagesChange(storedPages);
         onDecksChange(storedDecks);
         onCardsChange(storedCards);
-        setSelectedId(selectedPageId(storedPages, requestedPageId()));
+        setSelectedId(
+          selectedPageId(storedPages, initialPageId ?? requestedPageId()),
+        );
         setIsPagesLoaded(true);
       })
       .catch((pageError: unknown) => onError(errorMessage(pageError)));
-  }, [data.repository, onCardsChange, onDecksChange, onError, onPagesChange]);
+  }, [
+    data.repository,
+    initialPageId,
+    onCardsChange,
+    onDecksChange,
+    onError,
+    onPagesChange,
+  ]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -657,6 +669,7 @@ export default function Drawer({
         />
       ) : (
         <DeckWorkspace
+          initialEditingDeckId={initialEditingDeckId}
           isOpen={isOpen}
           keymap={keymap}
           data={data}

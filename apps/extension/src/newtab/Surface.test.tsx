@@ -621,6 +621,25 @@ describe('Surface drawer', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('cancels all repeated close timers when the drawer reopens', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const view = await mount(surfaceData());
+    try {
+      await clickOn(view, view.getByLabel(strings.openDrawer));
+      await flushFrames(view);
+      await clickOn(view, view.getByText('close drawer'));
+      await clickOn(view, view.getByText('close drawer'));
+      await clickOn(view, view.getByLabel(strings.openDrawer));
+      await view.act(() => {
+        vi.advanceTimersByTime(DRAWER_EXIT_MS);
+      });
+      await flushFrames(view);
+      expect(drawer(view)?.dataset.open).toBe('true');
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('toggles with Ctrl+J in either case, and ignores a plain j', async () => {
     const view = await mount(surfaceData());
     expect((await press(view, document.body, 'j')).defaultPrevented).toBe(

@@ -64,6 +64,7 @@ export interface WorkspaceProps {
   isOpen: boolean;
   isNoteOpen?: boolean;
   onEditNote?: (entity: Deck | Card) => void;
+  initialEditingDeckId?: string | undefined;
 }
 
 const now = () => Date.now();
@@ -82,7 +83,9 @@ export function DeckWorkspace(props: WorkspaceProps) {
   );
   const [noteEntity, setNoteEntity] = useState<Deck | Card | null>(null);
   const [movingCard, setMovingCard] = useState<Card | null>(null);
-  const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
+  const [editingDeckId, setEditingDeckId] = useState<string | null>(
+    props.initialEditingDeckId ?? null,
+  );
   const [recentTargets, setRecentTargets] = useState(() =>
     parseRecentTargets(localStorage.getItem(RECENT_TARGETS_KEY)),
   );

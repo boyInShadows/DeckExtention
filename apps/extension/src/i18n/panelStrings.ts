@@ -32,6 +32,7 @@ export const panelStrings = {
   actionImport: 'Open import settings',
   actionSettings: 'Open settings',
   actionNewPage: 'Create a page',
+  actionNewDeck: 'Create a deck',
   actionStash: 'Stash this window',
   recoveryTitle: 'Deck could not read its data',
   recoveryDetail:
