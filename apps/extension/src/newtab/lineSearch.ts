@@ -29,7 +29,6 @@ interface IndexedEntry<T> {
   title: string;
   address: string;
   note: string;
-  grams: Set<string>;
 }
 
 export function parseLineUrl(input: string): string | null {
@@ -73,7 +72,9 @@ function scoreAddress<T>(
     }
     if (isExact || term.length < MIN_FUZZY_TERM) return -Infinity;
     const grams = trigrams(term);
-    const count = [...grams].filter((gram) => entry.grams.has(gram)).length;
+    const count = [...grams].filter((gram) =>
+      entry.address.includes(gram),
+    ).length;
     return count / grams.size >= MIN_FUZZY_MATCH ? total + count : -Infinity;
   }, 0);
 }
@@ -87,7 +88,6 @@ export function buildSearchIndex<T extends SearchableCard>(cards: T[]) {
       title,
       address: `${title} ${hostname}`,
       note: (card.note ?? '').toLowerCase(),
-      grams: trigrams(`${title} ${hostname}`),
     };
   });
   return (query: string): SearchResults<T> => {
