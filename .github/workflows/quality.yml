@@ -19,7 +19,8 @@ jobs:
       - run: pnpm test
       - run: pnpm size
       - run: pnpm build
-      - run: pnpm e2e --reporter=line,json
+      # Measure production budgets without screencast and DOM snapshot overhead.
+      - run: pnpm e2e --reporter=line,json --trace=off
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results.json
       - uses: actions/upload-artifact@v4
