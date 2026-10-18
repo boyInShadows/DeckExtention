@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { SETTINGS_DEFAULTS } from 'deck-schema';
-import type { ComponentChildren } from 'preact';
+import { render as renderImmediately, type ComponentChildren } from 'preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { strings } from '../i18n/strings';
-import { render } from '../testing/render';
+import { keyDown, render } from '../testing/render';
 import type { SurfaceData } from './bootstrap';
 import { Surface } from './Surface';
 
@@ -54,8 +54,40 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   document.body.replaceChildren();
+  delete document.documentElement.dataset.deckReady;
+  performance.clearMarks();
+  performance.clearMeasures();
+});
+
+it('accepts the focus shortcut on its first ready frame before passive effects', () => {
+  vi.useFakeTimers({
+    toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+  });
+  const container = document.createElement('div');
+  document.body.append(container);
+  const data: SurfaceData = {
+    cards: [],
+    decks: [],
+    pages: [],
+    defaultDeckId: 'deck_a',
+    settings: SETTINGS_DEFAULTS,
+    repository: { getRecoveryIssueCount: () => 0 } as SurfaceData['repository'],
+  };
+  try {
+    renderImmediately(<Surface initialData={data} />, container);
+    expect(document.documentElement.dataset.deckReady).toBeUndefined();
+    for (const callback of callbacks.splice(0)) callback();
+    expect(document.documentElement.dataset.deckReady).toBe('true');
+    keyDown(window, '/');
+    expect(document.activeElement).toBe(container.querySelector('input'));
+    expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+  } finally {
+    renderImmediately(null, container);
+    container.remove();
+  }
 });
 
 describe('Surface drawer preload failure', () => {

@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { SETTINGS_DEFAULTS, type Card, type Settings } from 'deck-schema';
+import { render as renderImmediately } from 'preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
@@ -116,6 +117,33 @@ beforeEach(() => {
   markCardsOpened.mockClear();
   lineActions.executeAction.mockReset().mockResolvedValue(undefined);
   lineActions.searchWeb.mockReset().mockResolvedValue(undefined);
+});
+
+it('focuses and searches immediately, before passive startup effects run', async () => {
+  vi.useFakeTimers();
+  const container = document.createElement('div');
+  document.body.append(container);
+  try {
+    renderImmediately(<Line {...setup().props} />, container);
+    const line = container.querySelector('input');
+    if (!line) throw new Error('Line input missing');
+    keyDown(window, '/');
+    expect(document.activeElement).toBe(line);
+    type(line, 'alpha');
+    await Promise.resolve();
+    expect(
+      container.querySelector('[data-deck="line-results"]')?.textContent,
+    ).toContain('Alpha docs');
+    type(line, '>');
+    await Promise.resolve();
+    expect(
+      container.querySelector('[data-deck="line-results"]')?.textContent,
+    ).toContain('>settings');
+  } finally {
+    renderImmediately(null, container);
+    container.remove();
+    vi.useRealTimers();
+  }
 });
 
 it('saves literal text with Ctrl+Shift+Enter and does not open the selected link', async () => {

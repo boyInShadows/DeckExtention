@@ -1,6 +1,7 @@
 import type { Card, Settings } from 'deck-schema';
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -8,10 +9,10 @@ import {
 } from 'react';
 
 import { strings } from '../i18n/strings';
-import type { filterLineActions } from './lineActionCatalog';
+import { filterLineActions } from './lineActionCatalog';
 import type { SurfaceData } from './bootstrap';
-import type { buildSearchIndex } from './lineSearch';
-import type LineResults from './LineResults';
+import { buildSearchIndex } from './lineSearch';
+import LineResults from './LineResults';
 import { shouldSpaceOpenDrawer } from './surfaceModel';
 import type { NoticeInput } from './ToastStack';
 import { useOpenTabs } from '../tabs/useOpenTabs';
@@ -48,16 +49,10 @@ export function Line(props: LineProps) {
   const [isFocused, setIsFocused] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<ResultGroup>('cards');
-  const [Results, setResults] = useState<typeof LineResults | null>(null);
-  const [catalog, setCatalog] = useState<{
-    filterLineActions: typeof filterLineActions;
-  } | null>(null);
-  const [makeSearch, setMakeSearch] = useState<typeof buildSearchIndex | null>(
-    null,
-  );
   const search = useMemo(
-    () => makeSearch?.(sourceCards.filter((card) => card.deletedAt === null)),
-    [makeSearch, sourceCards],
+    () =>
+      buildSearchIndex(sourceCards.filter((card) => card.deletedAt === null)),
+    [sourceCards],
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -72,23 +67,23 @@ export function Line(props: LineProps) {
     notify,
   );
   const searchTabs = useMemo(
-    () => makeSearch?.(tabState.tabs),
-    [makeSearch, tabState.tabs],
+    () => buildSearchIndex(tabState.tabs),
+    [tabState.tabs],
   );
   const tabQuery = isTabsCommand ? query.slice('>tabs'.length).trim() : query;
   const tabs = tabState.hasAccess
     ? tabQuery.trim()
-      ? (searchTabs?.(tabQuery).cards ?? [])
+      ? searchTabs(tabQuery).cards
       : tabState.tabs
     : [];
   const results =
     isWebSearch || isCommand
       ? { cards: [], notes: [], url: null }
-      : (search?.(query) ?? { cards: [], notes: [], url: null });
+      : search(query);
   const actions =
     isTabsCommand && tabState.hasAccess
       ? []
-      : (catalog?.filterLineActions(query, isCommand) ?? []);
+      : filterLineActions(query, isCommand);
   const groups = [
     results.cards.length && 'cards',
     results.notes.length && 'notes',
@@ -137,28 +132,7 @@ export function Line(props: LineProps) {
     );
     return () => window.clearInterval(timer);
   }, [query, isFocused]);
-  useEffect(() => {
-    void import('./lineActionCatalog')
-      .then(setCatalog)
-      .catch((error: unknown) => notify(String(error)));
-  }, [notify]);
-  useEffect(() => {
-    void import('./LineResults')
-      .then((module) => setResults(() => module.default))
-      .catch((error: unknown) => notify(String(error)));
-  }, [notify]);
-  useEffect(() => {
-    let isCurrent = true;
-    void import('./lineSearch')
-      .then(({ buildSearchIndex }) => {
-        if (isCurrent) setMakeSearch(() => buildSearchIndex);
-      })
-      .catch((error: unknown) => notify(String(error)));
-    return () => {
-      isCurrent = false;
-    };
-  }, [notify]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
       const isInput =
         event.target instanceof HTMLInputElement ||
@@ -367,8 +341,8 @@ export function Line(props: LineProps) {
           spellCheck={false}
         />
       </div>
-      {query && Results ? (
-        <Results
+      {query ? (
+        <LineResults
           maxRows={MAX_GROUP_ROWS}
           cards={results.cards}
           notes={results.notes}

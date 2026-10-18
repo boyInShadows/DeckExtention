@@ -205,7 +205,7 @@ export function Surface({ initialData }: SurfaceProps) {
       .catch((noticeError: unknown) => notifyError(String(noticeError)));
   }, [notify, notifyError]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let idle: number | null = null;
     const frame = window.requestAnimationFrame(() => {
       document.documentElement.dataset.deckReady = 'true';
