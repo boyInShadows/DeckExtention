@@ -6,6 +6,7 @@ import { launchExtension } from './extension';
 
 const READY_SELECTOR = 'html[data-deck-ready="true"]';
 const WARM_RUNS = 20;
+const SURFACE_READY_BUDGET_MS = 60;
 const DRAWER_TEST_TIMEOUT_MS = 120_000;
 
 test('Line results overlay without moving the clock', async () => {
@@ -185,6 +186,7 @@ test('surface persists a pin, exports data, and stays fast when warm', async ({
     );
 
     const timings: number[] = [];
+    const startupPhases = [];
     for (let run = 0; run < WARM_RUNS; run += 1) {
       await page.reload();
       await page.waitForSelector(READY_SELECTOR);
@@ -195,14 +197,45 @@ test('surface persists a pin, exports data, and stays fast when warm', async ({
             Infinity,
         ),
       );
+      startupPhases.push(
+        await page.evaluate(() => {
+          const navigation = performance.getEntriesByType('navigation')[0] as
+            PerformanceNavigationTiming | undefined;
+          return {
+            scriptStartMs:
+              performance.getEntriesByName('deck-start')[0]?.startTime,
+            scriptToReadyMs:
+              performance.getEntriesByName('deck-interactive')[0]?.duration,
+            domContentLoadedMs: navigation?.domContentLoadedEventEnd,
+            resources: performance
+              .getEntriesByType('resource')
+              .map((entry) => ({
+                name: entry.name.split('/').at(-1),
+                startMs: entry.startTime,
+                durationMs: entry.duration,
+              })),
+          };
+        }),
+      );
     }
     await testInfo.attach('surface-timings.json', {
-      body: JSON.stringify({ firstPaintMs, coldTiming, warmTimings: timings }),
+      body: JSON.stringify({
+        firstPaintMs,
+        coldTiming,
+        warmTimings: timings,
+        warmMaxMs: Math.max(...timings),
+        overBudgetWarmRuns: timings.flatMap((ms, index) =>
+          ms >= SURFACE_READY_BUDGET_MS ? [{ run: index + 1, ms }] : [],
+        ),
+        startupPhases,
+      }),
       contentType: 'application/json',
     });
     const sortedTimings = timings.toSorted((left, right) => left - right);
     const medianTiming = sortedTimings[Math.floor(sortedTimings.length / 2)];
-    expectWithinBudget('surface median ms', medianTiming, { max: 60 });
+    expectWithinBudget('surface median ms', medianTiming, {
+      max: SURFACE_READY_BUDGET_MS,
+    });
   } finally {
     await context.close();
   }
