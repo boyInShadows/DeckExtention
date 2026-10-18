@@ -2,6 +2,37 @@ import { expect, test } from '@playwright/test';
 
 import { launchExtension } from './extension';
 
+test('middle-click opens exactly one native tab and leaves Deck open', async () => {
+  const context = await launchExtension();
+  try {
+    const url = 'http://pin-middle.test/read';
+    await context.route('http://pin-middle.test/**', (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: '<title>Pinned page</title>',
+      }),
+    );
+    const page = await context.newPage();
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector('html[data-deck-ready="true"]');
+    await page.getByRole('button', { name: 'Add pin' }).click();
+    await page.getByRole('textbox', { name: 'Paste a URL' }).fill(url);
+    await page.getByRole('button', { name: 'Add pin' }).click();
+    const pin = page.locator('[data-deck="pin"]').first();
+    await expect(pin).toHaveAttribute('href', url);
+    const originalUrl = page.url();
+    const originalTabCount = context.pages().length;
+    const opened = context.waitForEvent('page');
+    await pin.click({ button: 'middle' });
+    await expect(await opened).toHaveURL(url);
+    await expect.poll(() => context.pages().length).toBe(originalTabCount + 1);
+    await expect(page).toHaveURL(originalUrl);
+    await expect(pin).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
 test('pins have inline editing, an anchored keyboard menu, and a letter fallback', async ({
   browserName,
 }, testInfo) => {
