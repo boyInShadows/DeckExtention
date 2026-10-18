@@ -19,5 +19,14 @@ jobs:
       - run: pnpm test
       - run: pnpm size
       - run: pnpm build
-      - run: pnpm e2e
+      - run: pnpm e2e --reporter=line,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results.json
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: production-test-results
+          path: test-results/
+          retention-days: 3
       - run: pnpm test:coverage
+        if: ${{ !cancelled() }}
