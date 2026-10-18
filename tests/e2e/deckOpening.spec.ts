@@ -7,6 +7,9 @@ import {
 } from './permissionFixture';
 
 const LINK_COUNT = 65;
+const SLOW_TAB_DELAY_MS = 100;
+// Sequential Chrome calls can exceed Playwright's default wait on instrumented builds.
+const TAB_BATCH_TIMEOUT_MS = 15_000;
 const READY = 'html[data-deck-ready="true"]';
 
 async function waitForPages(context: BrowserContext, page: Page) {
@@ -83,6 +86,72 @@ async function openedTabs(page: Page, initialIds: number[]) {
   }, initialIds);
 }
 
+async function expectFullBatch(page: Page, initialIds: number[]) {
+  await expect
+    .poll(async () => (await openedTabs(page, initialIds)).length, {
+      timeout: TAB_BATCH_TIMEOUT_MS,
+    })
+    .toBe(LINK_COUNT);
+}
+
+async function delayTabCreation(page: Page) {
+  await page.evaluate((delayMs) => {
+    const create = chrome.tabs.create.bind(chrome.tabs);
+    Object.assign(chrome.tabs, {
+      create: async (options: chrome.tabs.CreateProperties) => {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        return create(options);
+      },
+    });
+  }, SLOW_TAB_DELAY_MS);
+}
+
+test('slow native tab creation still completes the exact 65-link batch', async ({
+  browserName,
+}, testInfo) => {
+  expect(browserName).toBe('chromium');
+  const context = await launchExtension();
+  try {
+    await context.route('http://opening.test/**', (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: '<title>Saved research</title>',
+      }),
+    );
+    const page = await context.newPage();
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector(READY);
+    const initialIds = await page.evaluate(async () =>
+      (await chrome.tabs.query({ currentWindow: true })).flatMap((tab) =>
+        tab.id === undefined ? [] : [tab.id],
+      ),
+    );
+    await seed(page);
+    await delayTabCreation(page);
+    await page.locator('[data-deck-id="deck_open_normal"]').focus();
+    const started = Date.now();
+    await page.keyboard.press('n');
+    try {
+      await expectFullBatch(page, initialIds);
+    } finally {
+      await testInfo.attach('slow-tab-opening.json', {
+        body: JSON.stringify({
+          delayPerTabMs: SLOW_TAB_DELAY_MS,
+          elapsedMs: Date.now() - started,
+          count: (await openedTabs(page, initialIds)).length,
+        }),
+        contentType: 'application/json',
+      });
+    }
+    await expect(page.locator('[data-deck="toast"]')).toContainText(
+      '65 tabs opened',
+    );
+    await waitForPages(context, page);
+  } finally {
+    await context.close();
+  }
+});
+
 test('pregranted fixture: real tab groups exceed 60 links; Restore keeps or recoverably removes a session', async ({
   browserName,
 }, testInfo) => {
@@ -121,9 +190,7 @@ test('pregranted fixture: real tab groups exceed 60 links; Restore keeps or reco
     const normal = page.locator('[data-deck-id="deck_open_normal"]');
     await normal.focus();
     await page.keyboard.press('n');
-    await expect
-      .poll(async () => (await openedTabs(page, initialIds)).length)
-      .toBe(LINK_COUNT);
+    await expectFullBatch(page, initialIds);
     await expect(page.locator('[data-deck="toast"]')).toContainText(
       '65 tabs opened',
     );
@@ -147,9 +214,7 @@ test('pregranted fixture: real tab groups exceed 60 links; Restore keeps or reco
         ),
       )
       .toBe(true);
-    await expect
-      .poll(async () => (await openedTabs(page, initialIds)).length)
-      .toBe(LINK_COUNT);
+    await expectFullBatch(page, initialIds);
     await expect
       .poll(() =>
         page.evaluate(() =>
