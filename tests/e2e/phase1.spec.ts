@@ -530,6 +530,7 @@ test('drawer triggers and page state survive repeated open and close cycles', as
     await line.focus();
     await line.press('Space');
     await expect(drawer).toBeVisible();
+    await expect(page.getByLabel('Open Deck drawer')).toBeHidden();
     await page.getByLabel('Close Deck drawer').click();
 
     await line.fill('keeps leading spaces');

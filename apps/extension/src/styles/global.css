@@ -205,6 +205,10 @@
     border-color: color-mix(in srgb, var(--deck-color-focus) 40%, transparent);
   }
 
+  .deck-surface[data-drawer-open] .deck-line {
+    backdrop-filter: none;
+  }
+
   .deck-line input {
     block-size: 100%;
     inline-size: 100%;
@@ -555,6 +559,11 @@
     translate: 0 -2px;
   }
 
+  .deck-surface[data-drawer-open] [data-deck='drawer-handle'] {
+    visibility: hidden;
+  }
+
+  /* The surface behind the drawer is already blurred. */
   .deck-drawer {
     position: fixed;
     inset-inline: 0;
@@ -565,7 +574,6 @@
     overflow: hidden;
     border-block-start: 1px solid var(--deck-color-hairline);
     background: var(--deck-color-panel-glass);
-    backdrop-filter: blur(var(--deck-drawer-blur));
     box-shadow: 0 -1rem 3rem var(--deck-color-shadow);
     transform: translateY(100%);
     animation: deck-drawer-exit var(--deck-drawer-duration)
