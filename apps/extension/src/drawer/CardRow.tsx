@@ -9,7 +9,7 @@ import { Icon } from '../newtab/Icon';
 import FaviconTile from '../newtab/FaviconTile';
 import type { WorkspaceProps } from './DeckWorkspace';
 import { dragId } from './dragIdentity';
-import { openCard } from './inboxActions';
+import { markOpened, openCard } from './inboxActions';
 import { parseCardUrl, replaceEntity } from './workspaceModel';
 
 const DROP_SETTLE_MS = 160;
@@ -136,8 +136,12 @@ export function CardRow({
     try {
       if (!(await chrome.extension.isAllowedIncognitoAccess()))
         return props.onError(strings.incognitoUnavailable);
+      const current = await markOpened(props.data.repository, card);
+      if (!current.url || !/^https?:\/\//i.test(current.url))
+        throw new Error(strings.invalidUrl);
+      props.onCardsChange(replaceEntity(props.cards, current));
       const opened = await chrome.windows.create({
-        url: card.url,
+        url: current.url,
         incognito: true,
       });
       if (!opened?.incognito) props.onError(strings.incognitoUnavailable);

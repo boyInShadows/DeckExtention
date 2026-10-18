@@ -886,10 +886,12 @@ describe('DeckWorkspace - card actions', () => {
     await act(view, () =>
       click(within(view.get('[data-deck="card-menu"]'), strings.openIncognito)),
     );
-    expect(create).toHaveBeenCalledWith({
-      url: 'https://example.com/card_1',
-      incognito: true,
-    });
+    await eventually(view, () =>
+      expect(create).toHaveBeenCalledWith({
+        url: 'https://example.com/card_1',
+        incognito: true,
+      }),
+    );
     await act(view, () => click(within(row, strings.cardMenu)));
     await act(view, () =>
       click(within(view.get('[data-deck="card-menu"]'), strings.pinCard)),
