@@ -94,22 +94,39 @@ function fakeRepository(cards: Card[]) {
     return card;
   });
   const listCards = vi.fn(async () => stored);
+  const markCardsOpened = vi.fn(async (ids: string[]) => {
+    const time = Date.now();
+    stored = stored.map((card) =>
+      ids.includes(card.id) && card.deletedAt === null
+        ? { ...card, lastOpenedAt: time, updatedAt: time }
+        : card,
+    );
+    return stored.filter(
+      (card) => ids.includes(card.id) && card.deletedAt === null,
+    );
+  });
   return {
     upsertCard,
-    repository: { upsertCard, listCards } as unknown as DeckRepository,
+    markCardsOpened,
+    repository: {
+      upsertCard,
+      listCards,
+      markCardsOpened,
+    } as unknown as DeckRepository,
   };
 }
 
 interface Mounted {
   view: RenderResult;
   upsertCard: ReturnType<typeof fakeRepository>['upsertCard'];
+  markCardsOpened: ReturnType<typeof fakeRepository>['markCardsOpened'];
   onCardsChange: ReturnType<typeof vi.fn<(cards: Card[]) => void>>;
   notify: ReturnType<typeof vi.fn>;
   offerUndo: ReturnType<typeof vi.fn>;
 }
 
 async function mountPins(cards: Card[]): Promise<Mounted> {
-  const { upsertCard, repository } = fakeRepository(cards);
+  const { upsertCard, markCardsOpened, repository } = fakeRepository(cards);
   const onCardsChange = vi.fn<(cards: Card[]) => void>();
   const notify = vi.fn();
   const offerUndo = vi.fn();
@@ -122,7 +139,14 @@ async function mountPins(cards: Card[]): Promise<Mounted> {
       notify={notify}
     />,
   );
-  return { view, upsertCard, onCardsChange, notify, offerUndo };
+  return {
+    view,
+    upsertCard,
+    markCardsOpened,
+    onCardsChange,
+    notify,
+    offerUndo,
+  };
 }
 
 function pinLabels(view: RenderResult): string[] {
@@ -135,20 +159,23 @@ it('stamps a pin before opening its link', async () => {
   const assign = vi
     .spyOn(window.location, 'assign')
     .mockImplementation(() => undefined);
-  const { view, upsertCard } = await mountPins([makeCard('pinned')]);
+  const { view, upsertCard, markCardsOpened } = await mountPins([
+    makeCard('pinned'),
+  ]);
   await view.act(() => click(view.get('[data-deck="pin"]')));
   await vi.waitFor(() =>
     expect(assign).toHaveBeenCalledWith('https://pinned.example.com/'),
   );
-  expect(upsertCard).toHaveBeenCalledWith(
-    expect.objectContaining({ id: 'pinned', lastOpenedAt: expect.any(Number) }),
-  );
+  expect(markCardsOpened).toHaveBeenCalledWith(['pinned']);
+  expect(upsertCard).not.toHaveBeenCalled();
   view.unmount();
 });
 
 it('opens a focused pin in a new tab on Shift+Enter', async () => {
   const open = vi.spyOn(window, 'open').mockImplementation(() => null);
-  const { view, upsertCard } = await mountPins([makeCard('pinned')]);
+  const { view, upsertCard, markCardsOpened } = await mountPins([
+    makeCard('pinned'),
+  ]);
   await view.act(() => {
     keyDown(view.get('[data-deck="pin"]'), 'Enter', { shiftKey: true });
   });
@@ -159,9 +186,8 @@ it('opens a focused pin in a new tab on Shift+Enter', async () => {
       'noopener',
     ),
   );
-  expect(upsertCard).toHaveBeenCalledWith(
-    expect.objectContaining({ lastOpenedAt: expect.any(Number) }),
-  );
+  expect(markCardsOpened).toHaveBeenCalledWith(['pinned']);
+  expect(upsertCard).not.toHaveBeenCalled();
   view.unmount();
 });
 

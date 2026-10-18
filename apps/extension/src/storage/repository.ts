@@ -227,11 +227,11 @@ export class DeckRepository {
   async markCardsOpened(
     ids: string[],
     workerMark?: typeof MarkCardsOpenedFunction,
-  ): Promise<void> {
-    if (!ids.length) return;
+  ): Promise<Card[]> {
+    if (!ids.length) return [];
     const mark = workerMark ?? (await import('./cardOpened')).markCardsOpened;
     const clientId = await this.#clientId();
-    await mark(await this.#database, ids, this.#now(), (card) =>
+    return mark(await this.#database, ids, this.#now(), (card) =>
       this.#makeOp(clientId, 'card', card.id, 'upsert', card),
     );
   }

@@ -25,7 +25,16 @@ const taskCreator = vi.hoisted(() => ({ createTask: vi.fn() }));
 vi.mock('../tasks/quickTask', () => taskCreator);
 
 const upsertCard = vi.fn((value: Card) => Promise.resolve(value));
-const REPOSITORY = { upsertCard } as unknown as SurfaceData['repository'];
+const markCardsOpened = vi.fn(async (ids: string[]) =>
+  CARDS.filter((card) => ids.includes(card.id)).map((card) => ({
+    ...card,
+    lastOpenedAt: Date.now(),
+  })),
+);
+const REPOSITORY = {
+  upsertCard,
+  markCardsOpened,
+} as unknown as SurfaceData['repository'];
 
 function card(id: string, title: string, overrides: Partial<Card> = {}): Card {
   return {
@@ -102,6 +111,7 @@ function activeText(view: RenderResult): string | undefined {
 beforeEach(() => {
   taskCreator.createTask.mockReset();
   upsertCard.mockClear();
+  markCardsOpened.mockClear();
   lineActions.executeAction.mockReset().mockResolvedValue(undefined);
   lineActions.searchWeb.mockReset().mockResolvedValue(undefined);
 });
@@ -412,9 +422,8 @@ describe('Line Enter', () => {
         'noopener',
       ),
     );
-    expect(upsertCard).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'beta', lastOpenedAt: expect.any(Number) }),
-    );
+    expect(markCardsOpened).toHaveBeenCalledWith(['beta']);
+    expect(upsertCard).not.toHaveBeenCalled();
     view.unmount();
   });
 

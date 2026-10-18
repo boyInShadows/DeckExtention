@@ -81,12 +81,17 @@ interface Setup {
 function fakeRepository(cards: Card[]) {
   const upsertCard = vi.fn(async (value: Card) => value);
   const listCards = vi.fn(async () => cards);
+  const markCardsOpened = vi.fn(async (ids: string[]) =>
+    cards
+      .filter((card) => ids.includes(card.id) && card.deletedAt === null)
+      .map((card) => ({ ...card, lastOpenedAt: Date.now() })),
+  );
   const trashCards = vi.fn(async (ids: string[]) =>
     cards
       .filter(({ id }) => ids.includes(id))
       .map((card) => ({ ...card, deletedAt: STAMP })),
   );
-  return { upsertCard, listCards, trashCards };
+  return { upsertCard, listCards, trashCards, markCardsOpened };
 }
 
 async function renderTriage(setup: Setup = {}) {
@@ -486,7 +491,9 @@ describe('InboxTriage - note and open', () => {
       '_blank',
       'noopener',
     );
-    expect(triage.upsertCard).toHaveBeenCalledTimes(2);
+    expect(triage.markCardsOpened).toHaveBeenCalledTimes(2);
+    expect(triage.markCardsOpened).toHaveBeenCalledWith(['one']);
+    expect(triage.upsertCard).not.toHaveBeenCalled();
     expect(triage.onCardsChange).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({

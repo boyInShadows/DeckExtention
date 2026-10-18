@@ -6,7 +6,7 @@ export async function markCardsOpened(
   ids: string[],
   time: number,
   makeOp: (card: Card) => Op,
-): Promise<void> {
+): Promise<Card[]> {
   const tx = database.transaction(['cards', 'ops'], 'readwrite');
   const records = await Promise.all(
     [...new Set(ids)].map((id) => tx.objectStore('cards').get(id)),
@@ -26,4 +26,5 @@ export async function markCardsOpened(
     tx.objectStore('ops').put(op),
   ]);
   await Promise.all([...writes, tx.done]);
+  return prepared.map(({ card }) => card);
 }

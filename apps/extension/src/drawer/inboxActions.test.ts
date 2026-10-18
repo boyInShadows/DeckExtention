@@ -149,10 +149,31 @@ describe('pinCards', () => {
 });
 
 describe('markOpened', () => {
+  it('preserves an intervening note edit and move when opening a stale card', async () => {
+    const item = card('card_in1', 'deck_inbox', 'a0');
+    await seed([item]);
+    const edited = await repository.upsertCard({
+      ...item,
+      note: 'Newer note from another tab',
+      deckId: 'deck_docs0',
+      title: 'Edited title',
+      order: 'a5',
+    });
+
+    const opened = await markOpened(repository, item);
+
+    expect(opened).toEqual({ ...edited, lastOpenedAt: NOW, updatedAt: NOW });
+    expect(await repository.listCards()).toEqual([opened]);
+    expect(await repository.listOps()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ payload: opened })]),
+    );
+    expect(item.note).toBeUndefined();
+  });
+
   it('stamps lastOpenedAt, which Resurface reads', async () => {
     const [item] = await seed([card('card_in1', 'deck_inbox', 'a0')]);
     if (!item) throw new Error('seed failed');
-    const opened = await markOpened(repository, item, now);
+    const opened = await markOpened(repository, item);
     expect(opened).toEqual({ ...item, lastOpenedAt: NOW, updatedAt: NOW });
   });
 });
@@ -170,11 +191,77 @@ describe('openCard', () => {
     return { open, assign };
   }
 
+  it('opens the current stored URL without overwriting an intervening edit', async () => {
+    const navigation = stubNavigation();
+    const item = card('card_in1', 'deck_inbox', 'a0');
+    await seed([item]);
+    const edited = await repository.upsertCard({
+      ...item,
+      url: 'https://edited.test/',
+      note: 'Keep this note',
+    });
+
+    expect(await openCard(repository, item, false)).toEqual({
+      ...edited,
+      lastOpenedAt: NOW,
+      updatedAt: NOW,
+    });
+    expect(navigation.assign).toHaveBeenCalledWith(edited.url);
+  });
+
+  it('does not resurrect a card deleted since it was displayed', async () => {
+    const navigation = stubNavigation();
+    const item = card('card_in1', 'deck_inbox', 'a0');
+    await seed([item]);
+    await repository.softDelete('card', item.id);
+    const before = await repository.listCards();
+    const ops = await repository.listOps();
+
+    await expect(openCard(repository, item, false)).rejects.toThrow();
+
+    expect(await repository.listCards()).toEqual(before);
+    expect(await repository.listOps()).toEqual(ops);
+    expect(navigation.assign).not.toHaveBeenCalled();
+    expect(navigation.open).not.toHaveBeenCalled();
+  });
+
+  it('revalidates a URL changed since the card was displayed', async () => {
+    const navigation = stubNavigation();
+    const item = card('card_in1', 'deck_inbox', 'a0');
+    await seed([item]);
+    await repository.upsertCard({ ...item, url: 'ftp://files.test/x' });
+
+    await expect(openCard(repository, item, false)).rejects.toThrow(
+      strings.invalidUrl,
+    );
+    expect(navigation.assign).not.toHaveBeenCalled();
+    expect(navigation.open).not.toHaveBeenCalled();
+    expect((await repository.listCards())[0]?.url).toBe('ftp://files.test/x');
+  });
+
+  it('does not recreate a missing card or navigate after a failed stamp', async () => {
+    const navigation = stubNavigation();
+    const item = card('card_in1', 'deck_inbox', 'a0');
+    await expect(openCard(repository, item, true)).rejects.toThrow();
+    expect(await repository.listCards()).toEqual([]);
+
+    await seed([item]);
+    vi.spyOn(repository, 'markCardsOpened').mockRejectedValueOnce(
+      new Error('Disk failed'),
+    );
+    await expect(openCard(repository, item, true)).rejects.toThrow(
+      'Disk failed',
+    );
+    expect((await repository.listCards())[0]?.lastOpenedAt).toBeNull();
+    expect(navigation.assign).not.toHaveBeenCalled();
+    expect(navigation.open).not.toHaveBeenCalled();
+  });
+
   it('stamps lastOpenedAt, then opens the page in this tab', async () => {
     const navigation = stubNavigation();
     const [item] = await seed([card('card_in1', 'deck_inbox', 'a0')]);
     if (!item) throw new Error('seed failed');
-    const opened = await openCard(repository, item, false, now);
+    const opened = await openCard(repository, item, false);
     expect(opened.lastOpenedAt).toBe(NOW);
     expect(navigation.assign).toHaveBeenCalledWith(item.url);
     expect(navigation.open).not.toHaveBeenCalled();
@@ -188,7 +275,7 @@ describe('openCard', () => {
     const navigation = stubNavigation();
     const [item] = await seed([card('card_in1', 'deck_inbox', 'a0')]);
     if (!item) throw new Error('seed failed');
-    await openCard(repository, item, true, now);
+    await openCard(repository, item, true);
     expect(navigation.open).toHaveBeenCalledWith(
       item.url,
       '_blank',
@@ -203,7 +290,7 @@ describe('openCard', () => {
       card('card_js', 'deck_inbox', 'a0', { url: 'ftp://files.test/x' }),
     ]);
     if (!item) throw new Error('seed failed');
-    await expect(openCard(repository, item, false, now)).rejects.toThrow(
+    await expect(openCard(repository, item, false)).rejects.toThrow(
       strings.invalidUrl,
     );
     expect(navigation.assign).not.toHaveBeenCalled();

@@ -117,14 +117,10 @@ export async function pinCards(
 export async function markOpened(
   repository: DeckRepository,
   card: Card,
-  now: () => number = Date.now,
 ): Promise<Card> {
-  const time = now();
-  return repository.upsertCard({
-    ...card,
-    lastOpenedAt: time,
-    updatedAt: time,
-  });
+  const [opened] = await repository.markCardsOpened([card.id]);
+  if (!opened) throw new Error(strings.updateFailed);
+  return opened;
 }
 
 /**
@@ -135,12 +131,13 @@ export async function openCard(
   repository: DeckRepository,
   card: Card,
   isNewTab: boolean,
-  now: () => number = Date.now,
 ): Promise<Card> {
   if (!card.url || !/^https?:\/\//i.test(card.url))
     throw new Error(strings.invalidUrl);
-  const opened = await markOpened(repository, card, now);
-  if (isNewTab) window.open(card.url, '_blank', 'noopener');
-  else location.assign(card.url);
+  const opened = await markOpened(repository, card);
+  if (!opened.url || !/^https?:\/\//i.test(opened.url))
+    throw new Error(strings.invalidUrl);
+  if (isNewTab) window.open(opened.url, '_blank', 'noopener');
+  else location.assign(opened.url);
   return opened;
 }
