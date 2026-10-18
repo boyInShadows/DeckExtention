@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import 'fake-indexeddb/auto';
+import type * as DndCore from '@dnd-kit/core';
 import { SETTINGS_DEFAULTS, type Card } from 'deck-schema';
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -9,6 +10,11 @@ import { DeckRepository } from '../storage/repository';
 import { openDeckDatabase } from '../storage/database';
 import { click, render, type RenderResult } from '../testing/render';
 import { CardRow } from './CardRow';
+
+vi.mock('@dnd-kit/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof DndCore>()),
+  useDndContext: () => ({ collisions: null }),
+}));
 
 vi.mock('@dnd-kit/sortable', () => ({
   useSortable: () => ({

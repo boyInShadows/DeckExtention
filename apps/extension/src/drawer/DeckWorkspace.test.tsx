@@ -2,6 +2,7 @@
 import 'fake-indexeddb/auto';
 
 import type * as DndSortable from '@dnd-kit/sortable';
+import type * as DndCore from '@dnd-kit/core';
 import {
   SETTINGS_DEFAULTS,
   type Card,
@@ -36,6 +37,13 @@ import { RECENT_TARGETS_KEY } from './inboxModel';
 const dnd = vi.hoisted(() => ({
   draggingId: null as string | null,
   overId: null as string | null,
+}));
+
+vi.mock('@dnd-kit/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof DndCore>()),
+  useDndContext: () => ({
+    collisions: dnd.overId ? [{ id: dnd.overId }] : null,
+  }),
 }));
 
 vi.mock('@dnd-kit/sortable', async (importOriginal) => ({

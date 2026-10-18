@@ -29,6 +29,7 @@ import { Pins } from './Pins';
  */
 const dnd = vi.hoisted(() => ({
   isOver: false,
+  collisionId: null as string | null,
   draggingId: null as string | null,
   transform: null as {
     x: number;
@@ -41,6 +42,9 @@ const dnd = vi.hoisted(() => ({
 vi.mock('@dnd-kit/core', async (importOriginal) => ({
   ...(await importOriginal<typeof DndCore>()),
   useDroppable: () => ({ isOver: dnd.isOver, setNodeRef: () => undefined }),
+  useDndContext: () => ({
+    collisions: dnd.collisionId ? [{ id: dnd.collisionId }] : null,
+  }),
 }));
 
 vi.mock('@dnd-kit/sortable', async (importOriginal) => ({
@@ -248,6 +252,7 @@ async function drop(
 
 beforeEach(() => {
   dnd.isOver = false;
+  dnd.collisionId = null;
   dnd.draggingId = null;
   dnd.transform = null;
   vi.stubGlobal('chrome', {
@@ -308,6 +313,7 @@ describe('Pins - strip', () => {
     view.unmount();
 
     dnd.isOver = true;
+    dnd.collisionId = dragId('pin', 'strip');
     dnd.draggingId = dragId('pin', 'b');
     dnd.transform = { x: 12, y: 0, scaleX: 1, scaleY: 1 };
     const { view: dragging } = await mountPins([
@@ -323,6 +329,24 @@ describe('Pins - strip', () => {
     ]);
     expect(nth(lifted).style.transform).toContain('12px');
     dragging.unmount();
+  });
+
+  it('highlights the current collision before the delayed over state catches up', async () => {
+    dnd.collisionId = dragId('pin', 'strip');
+    const { view } = await mountPins([]);
+    expect(view.get('[data-deck="pins"]').hasAttribute('data-drag-over')).toBe(
+      true,
+    );
+    view.unmount();
+  });
+
+  it('clears the highlight when the delayed over state is stale', async () => {
+    dnd.isOver = true;
+    const { view } = await mountPins([]);
+    expect(view.get('[data-deck="pins"]').hasAttribute('data-drag-over')).toBe(
+      false,
+    );
+    view.unmount();
   });
 
   it('disables the add button with a useful tooltip once the strip is full', async () => {

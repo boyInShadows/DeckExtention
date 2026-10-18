@@ -9,6 +9,7 @@ import { Icon } from '../newtab/Icon';
 import FaviconTile from '../newtab/FaviconTile';
 import type { WorkspaceProps } from './DeckWorkspace';
 import { dragId } from './dragIdentity';
+import { useDropHighlight } from './useDropHighlight';
 import { markOpened, openCard } from './inboxActions';
 import { parseCardUrl, replaceEntity } from './workspaceModel';
 
@@ -36,11 +37,11 @@ export function CardRow({
     transform,
     transition,
     isDragging,
-    isOver,
   } = useSortable({
     id: dragId('card', card.id),
     transition: { duration: DROP_SETTLE_MS, easing: DROP_SETTLE_EASING },
   });
+  const isOver = useDropHighlight(dragId('card', card.id));
   const [isEditing, setIsEditing] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);

@@ -48,6 +48,9 @@ const dnd = vi.hoisted(() => ({
 
 vi.mock('@dnd-kit/core', async (importOriginal) => ({
   ...(await importOriginal<typeof DndCore>()),
+  useDndContext: () => ({
+    collisions: dnd.overId ? [{ id: dnd.overId }] : null,
+  }),
   useDroppable: ({ id }: { id: string }) => ({
     isOver: dnd.overId === id,
     setNodeRef: () => undefined,

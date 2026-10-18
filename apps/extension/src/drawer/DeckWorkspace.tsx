@@ -20,6 +20,7 @@ import {
   replaceEntity,
 } from './workspaceModel';
 import { dragId } from './dragIdentity';
+import { useDropHighlight } from './useDropHighlight';
 import { moveCards } from './inboxActions';
 import {
   moveTargets,
@@ -274,11 +275,11 @@ function DeckColumn({
     transform,
     transition,
     isDragging,
-    isOver,
   } = useSortable({
     id: dragId('deck', deck.id),
     transition: { duration: DROP_SETTLE_MS, easing: DROP_SETTLE_EASING },
   });
+  const isOver = useDropHighlight(dragId('deck', deck.id));
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
   const isOpening = useRef(false);

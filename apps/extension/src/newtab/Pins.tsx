@@ -20,6 +20,7 @@ import {
 import { strings } from '../i18n/strings';
 import type { UndoAction } from '../drawer/UndoToast';
 import { dragId } from '../drawer/dragIdentity';
+import { useDropHighlight } from '../drawer/useDropHighlight';
 import {
   WORKSPACE_DROP_EVENT,
   type WorkspaceDropDetail,
@@ -157,7 +158,8 @@ export function Pins({
     null,
   );
   const [initialUrl, setInitialUrl] = useState('');
-  const { isOver, setNodeRef } = useDroppable({ id: dragId('pin', 'strip') });
+  const { setNodeRef } = useDroppable({ id: dragId('pin', 'strip') });
+  const isOver = useDropHighlight(dragId('pin', 'strip'));
   const pins = useMemo(
     () =>
       cards
