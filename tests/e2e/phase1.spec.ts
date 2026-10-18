@@ -202,6 +202,8 @@ test('surface persists a pin, exports data, and stays fast when warm', async ({
           const navigation = performance.getEntriesByType('navigation')[0] as
             PerformanceNavigationTiming | undefined;
           return {
+            responseEndMs: navigation?.responseEnd,
+            domInteractiveMs: navigation?.domInteractive,
             scriptStartMs:
               performance.getEntriesByName('deck-start')[0]?.startTime,
             scriptToReadyMs:

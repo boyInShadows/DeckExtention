@@ -33,10 +33,13 @@ export interface SurfaceData {
 export async function hydrateSurface(
   repository = new DeckRepository(),
 ): Promise<SurfaceData> {
-  const existingCards = await repository.listCards();
-  const existingDecks = await repository.listDecks();
-  const existingPages = await repository.listPages();
-  const settings = await repository.getSettings();
+  const [existingCards, existingDecks, existingPages, settings] =
+    await Promise.all([
+      repository.listCards(),
+      repository.listDecks(),
+      repository.listPages(),
+      repository.getSettings(),
+    ]);
   const defaultDeck = existingDecks.find(
     (item) => item.deletedAt === null && item.kind === 'normal',
   );

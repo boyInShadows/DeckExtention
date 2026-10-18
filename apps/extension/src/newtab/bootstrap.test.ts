@@ -74,6 +74,28 @@ const inboxCard: Card = {
 };
 
 describe('hydrateSurface', () => {
+  it('starts independent reads before a slow card read completes', async () => {
+    const store = openRepository();
+    let finishCards: (cards: Card[]) => void = () => undefined;
+    const pendingCards = new Promise<Card[]>((resolve) => {
+      finishCards = resolve;
+    });
+    vi.spyOn(store, 'listCards').mockReturnValueOnce(pendingCards);
+    const listDecks = vi.spyOn(store, 'listDecks');
+    const listPages = vi.spyOn(store, 'listPages');
+    const getSettings = vi.spyOn(store, 'getSettings');
+    const hydration = hydrateSurface(store);
+
+    try {
+      expect(listDecks).toHaveBeenCalledOnce();
+      expect(listPages).toHaveBeenCalledOnce();
+      expect(getSettings).toHaveBeenCalledOnce();
+    } finally {
+      finishCards([]);
+      await hydration;
+    }
+  });
+
   it('seeds the examples on a fresh store', async () => {
     const data = await hydrateSurface(openRepository());
     expect(data.pages.map(({ id }) => id)).toEqual(['page_examples']);
@@ -82,6 +104,25 @@ describe('hydrateSurface', () => {
       'inbox',
       'normal',
     ]);
+  });
+
+  it('rejects a failed startup read without reseeding stored records', async () => {
+    const store = openRepository();
+    await store.upsertPage(page);
+    await store.upsertDeck({ ...trashedDeck, deletedAt: null });
+    await store.upsertCard(inboxCard);
+    const upsertPage = vi.spyOn(store, 'upsertPage');
+    const upsertDeck = vi.spyOn(store, 'upsertDeck');
+    vi.spyOn(store, 'getSettings').mockRejectedValueOnce(
+      new Error('read failed'),
+    );
+
+    await expect(hydrateSurface(store)).rejects.toThrow('read failed');
+
+    expect(upsertPage).not.toHaveBeenCalled();
+    expect(upsertDeck).not.toHaveBeenCalled();
+    expect(await store.listCards()).toEqual([inboxCard]);
+    expect(await store.listPages()).toEqual([page]);
   });
 
   it('keeps Inbox cards Quick Save wrote before the first new tab', async () => {
