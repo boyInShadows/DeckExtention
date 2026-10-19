@@ -75,6 +75,7 @@ function nth<T>(items: readonly T[], index = 0): T {
 }
 
 function createFakes(cards: Card[] = []) {
+  const stored: Record<string, unknown> = {};
   const repository = {
     listPages: vi.fn(() => Promise.resolve([])),
     listDecks: vi.fn(() => Promise.resolve([])),
@@ -86,10 +87,25 @@ function createFakes(cards: Card[] = []) {
     contains: vi.fn(() => Promise.resolve(false)),
     request: vi.fn(() => Promise.resolve(true)),
     remove: vi.fn(() => Promise.resolve(true)),
+    onRemoved: { addListener: vi.fn(), removeListener: vi.fn() },
   };
   const bookmarks = { getTree: vi.fn(() => Promise.resolve(CHROME_TREE)) };
-  vi.stubGlobal('chrome', { permissions, bookmarks });
-  return { repository, backups, permissions, bookmarks };
+  const storage = {
+    onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
+    local: {
+      get: vi.fn((key: string) => Promise.resolve({ [key]: stored[key] })),
+      set: vi.fn((items: Record<string, unknown>) => {
+        Object.assign(stored, items);
+        return Promise.resolve();
+      }),
+      remove: vi.fn((key: string) => {
+        Reflect.deleteProperty(stored, key);
+        return Promise.resolve();
+      }),
+    },
+  };
+  vi.stubGlobal('chrome', { permissions, bookmarks, storage });
+  return { repository, backups, permissions, bookmarks, storage, stored };
 }
 
 type Fakes = ReturnType<typeof createFakes>;
@@ -193,16 +209,19 @@ describe('BookmarkImport - access', () => {
     expect(onError).toHaveBeenCalledWith(checkError);
     view.unmount();
 
-    fakes.permissions.contains.mockResolvedValue(true);
     fakes.permissions.request.mockRejectedValueOnce(requestError);
-    fakes.permissions.remove.mockRejectedValueOnce(removeError);
     const second = await mount(fakes);
     await clickAndSettle(second.view, strings.importChromeBookmarks);
     expect(second.onError).toHaveBeenCalledWith(requestError);
-    await clickAndSettle(second.view, strings.revokeAccess);
-    expect(second.onError).toHaveBeenLastCalledWith(removeError);
-    expect(second.view.getByText(strings.revokeAccess)).toBeTruthy();
     second.view.unmount();
+
+    fakes.permissions.contains.mockResolvedValue(true);
+    fakes.permissions.remove.mockRejectedValueOnce(removeError);
+    const third = await mount(fakes);
+    await clickAndSettle(third.view, strings.revokeAccess);
+    expect(third.onError).toHaveBeenCalledWith(removeError);
+    expect(third.view.getByText(strings.revokeAccess)).toBeTruthy();
+    third.view.unmount();
   });
 });
 
@@ -218,6 +237,8 @@ describe('BookmarkImport - from Chrome', () => {
     );
     expect(fakes.bookmarks.getTree).not.toHaveBeenCalled();
     expect(statusText(view)).toEqual([strings.bookmarksDeclined]);
+    await clickAndSettle(view, strings.importChromeBookmarks);
+    expect(fakes.permissions.request).toHaveBeenCalledOnce();
     view.unmount();
   });
 

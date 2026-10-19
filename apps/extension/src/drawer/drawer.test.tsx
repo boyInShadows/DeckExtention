@@ -22,12 +22,15 @@ import {
   keyDown,
   render,
   trusted,
+  type,
   type RenderResult,
 } from '../testing/render';
 import Drawer from './drawer';
+import type { UndoAction } from './UndoToast';
 import {
   DRAWER_PAGE_KEY,
   DRAWER_SCROLL_KEY,
+  DRAWER_CONTENT_SCROLL_KEY,
   INBOX_PAGE_ID,
 } from './drawerModel';
 import { WORKSPACE_DROP_EVENT } from './WorkspaceDnd';
@@ -45,6 +48,9 @@ const dnd = vi.hoisted(() => ({
 
 vi.mock('@dnd-kit/core', async (importOriginal) => ({
   ...(await importOriginal<typeof DndCore>()),
+  useDndContext: () => ({
+    collisions: dnd.overId ? [{ id: dnd.overId }] : null,
+  }),
   useDroppable: ({ id }: { id: string }) => ({
     isOver: dnd.overId === id,
     setNodeRef: () => undefined,
@@ -136,6 +142,8 @@ interface Mounted {
   onClose: ReturnType<typeof vi.fn<() => void>>;
   onError: ReturnType<typeof vi.fn<(message: string) => void>>;
   onPagesChange: ReturnType<typeof vi.fn<(pages: Page[]) => void>>;
+  offerUndo: ReturnType<typeof vi.fn<(action: UndoAction) => void>>;
+  requestClose: () => Promise<void>;
 }
 
 let repository: DeckRepository;
@@ -144,6 +152,8 @@ async function mount(isInitiallyOpen = true): Promise<Mounted> {
   const onClose = vi.fn<() => void>();
   const onError = vi.fn<(message: string) => void>();
   const onPagesChange = vi.fn<(pages: Page[]) => void>();
+  const offerUndo = vi.fn<(action: UndoAction) => void>();
+  const beforeClose = { current: null as (() => Promise<boolean>) | null };
   const data = {
     cards: [],
     decks: [],
@@ -174,7 +184,9 @@ async function mount(isInitiallyOpen = true): Promise<Mounted> {
         cards={cards}
         isOpen={isOpen}
         onClose={onClose}
+        beforeCloseRef={beforeClose}
         onError={onError}
+        offerUndo={offerUndo}
         {...callbacks}
       />
     );
@@ -192,6 +204,10 @@ async function mount(isInitiallyOpen = true): Promise<Mounted> {
     onClose,
     onError,
     onPagesChange,
+    offerUndo,
+    requestClose: async () => {
+      if (!beforeClose.current || (await beforeClose.current())) onClose();
+    },
   };
 }
 
@@ -280,7 +296,7 @@ describe('Drawer - loading', () => {
   });
 
   it('reopens the page remembered for this tab', async () => {
-    sessionStorage.setItem(DRAWER_PAGE_KEY, 'page_2');
+    localStorage.setItem(DRAWER_PAGE_KEY, 'page_2');
     const { view } = await mount();
     await eventually(view, () => expect(selectedTitle(view)).toBe('Home'));
     view.unmount();
@@ -294,20 +310,35 @@ describe('Drawer - loading', () => {
     );
     const { view } = await mount();
     await eventually(view, () => expect(selectedTitle(view)).toBe('Home'));
-    expect(sessionStorage.getItem(DRAWER_PAGE_KEY)).toBe('page_2');
+    expect(localStorage.getItem(DRAWER_PAGE_KEY)).toBe('page_2');
     expect(location.hash).toBe('');
     view.unmount();
   });
 
   it('restores the rail scroll and remembers new scrolling', async () => {
-    sessionStorage.setItem(DRAWER_SCROLL_KEY, String(SAVED_SCROLL));
+    localStorage.setItem(DRAWER_SCROLL_KEY, String(SAVED_SCROLL));
     const { view } = await mount();
     const rail = view.get('.deck-pages__scroll');
     await eventually(view, () => expect(rail.scrollTop).toBe(SAVED_SCROLL));
 
     rail.scrollTop = SAVED_SCROLL * 2;
     rail.dispatchEvent(new Event('scroll'));
-    expect(sessionStorage.getItem(DRAWER_SCROLL_KEY)).toBe(
+    expect(localStorage.getItem(DRAWER_SCROLL_KEY)).toBe(
+      String(SAVED_SCROLL * 2),
+    );
+    view.unmount();
+  });
+
+  it('restores the main workspace scroll across drawer mounts', async () => {
+    localStorage.setItem(DRAWER_CONTENT_SCROLL_KEY, String(SAVED_SCROLL));
+    const { view } = await mount();
+    const workspace = view.get('[data-deck="decks"]');
+    await eventually(view, () =>
+      expect(workspace.scrollTop).toBe(SAVED_SCROLL),
+    );
+    workspace.scrollTop = SAVED_SCROLL * 2;
+    workspace.dispatchEvent(new Event('scroll', { bubbles: true }));
+    expect(localStorage.getItem(DRAWER_CONTENT_SCROLL_KEY)).toBe(
       String(SAVED_SCROLL * 2),
     );
     view.unmount();
@@ -334,17 +365,131 @@ describe('Drawer - loading', () => {
   });
 });
 
+describe('Drawer - notes', () => {
+  it('saves on Close and reopens with the typed text', async () => {
+    const { view } = await mount();
+    await view.act(() =>
+      click(view.get('[data-card-id="card_4"] [aria-label="Edit note"]')),
+    );
+    await view.act(() =>
+      type(
+        view.get<HTMLTextAreaElement>('[data-deck="note"] textarea'),
+        'Keep this',
+      ),
+    );
+    await view.act(() => click(view.getByText(strings.close)));
+    await eventually(view, () =>
+      expect(view.query('[data-deck="note"]')).toBeNull(),
+    );
+    await eventually(view, () =>
+      expect(document.activeElement).toBe(view.get('[data-card-id="card_4"]')),
+    );
+    await view.act(() =>
+      click(view.get('[data-card-id="card_4"] [aria-label="Edit note"]')),
+    );
+    expect(
+      view.get<HTMLTextAreaElement>('[data-deck="note"] textarea').value,
+    ).toBe('Keep this');
+    expect(
+      (await repository.listCards()).find(({ id }) => id === 'card_4')?.note,
+    ).toBe('Keep this');
+    await view.act(() =>
+      type(
+        view.get<HTMLTextAreaElement>('[data-deck="note"] textarea'),
+        'Outside click',
+      ),
+    );
+    await view.act(() => click(view.get('.deck-grid')));
+    await eventually(view, () =>
+      expect(view.query('[data-deck="note"]')).toBeNull(),
+    );
+    await view.act(() =>
+      click(view.get('[data-card-id="card_4"] [aria-label="Edit note"]')),
+    );
+    expect(
+      view.get<HTMLTextAreaElement>('[data-deck="note"] textarea').value,
+    ).toBe('Outside click');
+    view.unmount();
+  });
+
+  it('saves before switching pages and blocks drawer close on a failed write', async () => {
+    const { view, requestClose, onClose, onError } = await mount();
+    await view.act(() =>
+      click(view.get('[data-card-id="card_4"] [aria-label="Edit note"]')),
+    );
+    await view.act(() =>
+      type(
+        view.get<HTMLTextAreaElement>('[data-deck="note"] textarea'),
+        'Page draft',
+      ),
+    );
+    await view.act(() => click(view.getByText('Home')));
+    await eventually(view, () => expect(selectedTitle(view)).toBe('Home'));
+    await view.act(() => click(view.getByText('Work')));
+    await eventually(view, () => expect(selectedTitle(view)).toBe('Work'));
+    await view.act(() =>
+      click(view.get('[data-card-id="card_4"] [aria-label="Edit note"]')),
+    );
+    expect(
+      view.get<HTMLTextAreaElement>('[data-deck="note"] textarea').value,
+    ).toBe('Page draft');
+    const upsert = vi
+      .spyOn(repository, 'upsertCard')
+      .mockRejectedValueOnce(new Error('disk full'));
+    await view.act(() =>
+      type(
+        view.get<HTMLTextAreaElement>('[data-deck="note"] textarea'),
+        'Unsaved page draft',
+      ),
+    );
+    await requestClose();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith(FAILED_MESSAGE);
+    expect(
+      view.get<HTMLTextAreaElement>('[data-deck="note"] textarea').value,
+    ).toBe('Unsaved page draft');
+    upsert.mockRestore();
+    await requestClose();
+    expect(onClose).toHaveBeenCalledOnce();
+    view.unmount();
+  });
+
+  it('returns focus to Inbox after saving a note with Escape', async () => {
+    const { view } = await mount();
+    await view.act(() => click(inboxButton(view)));
+    const list = view.get('[data-deck="inbox"] [role="listbox"]');
+    await view.act(() => {
+      keyDown(list, 'n');
+    });
+    const textarea = view.get<HTMLTextAreaElement>(
+      '[data-deck="note"] textarea',
+    );
+    await view.act(() => type(textarea, 'Inbox thought'));
+    await view.act(() => {
+      keyDown(textarea, 'Escape');
+    });
+    await eventually(view, () =>
+      expect(view.query('[data-deck="note"]')).toBeNull(),
+    );
+    await eventually(view, () => expect(document.activeElement).toBe(list));
+    expect(
+      (await repository.listCards()).find(({ id }) => id === 'card_1')?.note,
+    ).toBe('Inbox thought');
+    view.unmount();
+  });
+});
+
 describe('Drawer - rail', () => {
   it('switches pages and the Inbox on click, remembering the choice', async () => {
     const { view } = await mount();
     await view.act(() => click(view.getByText('Home')));
     expect(selectedTitle(view)).toBe('Home');
-    expect(sessionStorage.getItem(DRAWER_PAGE_KEY)).toBe('page_2');
+    expect(localStorage.getItem(DRAWER_PAGE_KEY)).toBe('page_2');
     expect(view.get('[data-deck="deck"]').textContent).toContain('Chores');
 
     await view.act(() => click(inboxButton(view)));
     expect(inboxButton(view).dataset.selected).toBe('true');
-    expect(sessionStorage.getItem(DRAWER_PAGE_KEY)).toBe(INBOX_PAGE_ID);
+    expect(localStorage.getItem(DRAWER_PAGE_KEY)).toBe(INBOX_PAGE_ID);
     expect(view.query('[data-deck="inbox"]')).not.toBeNull();
     expect(view.query('[data-deck="decks"]')).toBeNull();
     view.unmount();
@@ -357,29 +502,63 @@ describe('Drawer - rail', () => {
     view.unmount();
   });
 
+  it('closes on Escape except while typing or canceling a keyboard drag', async () => {
+    const { view, onClose } = await mount();
+    await view.act(() => click(view.get('[data-deck="add-card"]')));
+    await view.act(() => {
+      keyDown(view.getByLabel(strings.pasteUrl), 'Escape');
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    await view.act(() => {
+      keyDown(view.get('[data-deck="card-drag"]'), 'Escape');
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    await view.act(() => {
+      keyDown(document.body, 'Escape');
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    view.unmount();
+  });
+
   it('marks the page being dragged and the pin zone it is over', async () => {
     dnd.draggingId = 'page:page_2';
     dnd.overId = 'pin:drawer';
     const { view } = await mount();
-    expect(view.getByText('Home').dataset.dragging).toBe('true');
-    expect(view.getByText('Work').dataset.dragging).toBeUndefined();
+    expect(view.getByText('Home').closest('button')?.dataset.dragging).toBe(
+      'true',
+    );
+    expect(
+      view.getByText('Work').closest('button')?.dataset.dragging,
+    ).toBeUndefined();
     const pins = view.get('[data-deck="pins-drop"]');
     expect(pins.dataset.dragOver).toBe('true');
     expect(pins.textContent).toBe(strings.dropToPins);
     view.unmount();
   });
 
-  it('adds a page at the end of the rail and opens it', async () => {
+  it('adds a page at the end of the rail in edit mode', async () => {
     const { view } = await mount();
     await view.act(() => click(view.getByLabel(strings.addPage)));
     await eventually(view, () =>
-      expect(railTitles(view)).toEqual(['Work', 'Home', strings.newPage]),
+      expect(view.get('[data-deck="page-name"]')).toBe(document.activeElement),
     );
-    expect(selectedTitle(view)).toBe(strings.newPage);
-    const stored = await repository.listPages();
     expect(
-      stored.filter(({ title }) => title === strings.newPage),
-    ).toHaveLength(1);
+      (view.get('[data-deck="page-name"]') as HTMLInputElement).value,
+    ).toBe('Page 3');
+    await view.act(() => {
+      const input = view.get('[data-deck="page-name"]') as HTMLInputElement;
+      input.value = 'Projects';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await view.act(() => {
+      keyDown(view.get('[data-deck="page-name"]'), 'Enter');
+    });
+    await eventually(view, () =>
+      expect(railTitles(view)).toEqual(['Work', 'Home', 'Projects']),
+    );
+    expect(selectedTitle(view)).toBe('Projects');
+    const stored = await repository.listPages();
+    expect(stored.some(({ title }) => title === 'Projects')).toBe(true);
     view.unmount();
   });
 
@@ -392,7 +571,9 @@ describe('Drawer - rail', () => {
     );
     await view.act(() => click(view.getByLabel(strings.addPage)));
     await eventually(view, () =>
-      expect(railTitles(view)).toEqual([strings.newPage]),
+      expect(
+        (view.get('[data-deck="page-name"]') as HTMLInputElement).value,
+      ).toBe('Page 1'),
     );
     view.unmount();
   });
@@ -419,25 +600,193 @@ describe('Drawer - rail', () => {
   });
 });
 
+describe('Drawer - Trash', () => {
+  it('shows nested deleted records and restores their parent path', async () => {
+    await repository.upsertCard(card('card_nested', 'deck_2'));
+    await repository.trashPage('page_2');
+    const { view } = await mount();
+    await view.act(() => click(view.getByText(strings.trash)));
+    const trash = view.get('[data-deck="trash"]');
+    expect(trash.textContent).toContain('Home');
+    expect(trash.textContent).toContain('Chores');
+    const row = view
+      .getAll('[data-deck="trash-item"]')
+      .find((item) => item.textContent?.includes('Title card_nested'));
+    if (!row) throw new Error('Missing nested card in Trash');
+    const restore = row.querySelector('button');
+    if (!restore) throw new Error('Missing restore button');
+    await view.act(() => click(restore));
+    await eventually(view, async () =>
+      expect(
+        (await repository.listCards()).find(({ id }) => id === 'card_nested')
+          ?.deletedAt,
+      ).toBeNull(),
+    );
+    expect(
+      (await repository.listDecks()).find(({ id }) => id === 'deck_2')
+        ?.deletedAt,
+    ).toBeNull();
+    expect(
+      (await repository.listPages()).find(({ id }) => id === 'page_2')
+        ?.deletedAt,
+    ).toBeNull();
+    view.unmount();
+  });
+
+  it('lists deleted records and restores a card with r', async () => {
+    const { view } = await mount();
+    await view.act(() => click(view.getByText(strings.trash)));
+    expect(view.get('[data-deck="trash"]').textContent).toContain('Gone');
+    const item = view
+      .getAll('[data-deck="trash-item"]')
+      .find((row) => row.textContent?.includes('Title card_3'));
+    expect(item).toBeDefined();
+    await view.act(() => item?.focus());
+    await press(view, 'r');
+    await eventually(view, async () =>
+      expect(
+        (await repository.listCards()).find(({ id }) => id === 'card_3')
+          ?.deletedAt,
+      ).toBeNull(),
+    );
+    view.unmount();
+  });
+
+  it('uses a confirm sheet before permanently emptying Trash', async () => {
+    const { view } = await mount();
+    await view.act(() => click(view.getByText(strings.trash)));
+    await view.act(() => click(view.getByText(strings.emptyTrash)));
+    expect(view.get('[data-deck="trash-confirm"]').textContent).toContain(
+      strings.emptyTrashConfirm,
+    );
+    await view.act(() => click(view.getByText(strings.cancel)));
+    expect(await repository.listCards()).toHaveLength(CARDS.length);
+
+    await view.act(() => click(view.getByText(strings.emptyTrash)));
+    const confirm = view.get('[data-deck="trash-confirm"]');
+    const empty = confirm.querySelectorAll('button')[1];
+    if (!empty) throw new Error('Missing Empty trash confirmation button');
+    await view.act(() => click(empty));
+    await eventually(view, () =>
+      expect(view.get('[data-deck="trash"]').textContent).toContain(
+        strings.trashEmpty,
+      ),
+    );
+    expect(
+      (await repository.listCards()).some(({ id }) => id === 'card_3'),
+    ).toBe(false);
+    view.unmount();
+  });
+});
+
+describe('Drawer - page deletion', () => {
+  it('opens the page delete sheet from the keyboard', async () => {
+    const { view } = await mount();
+    const page = view.getByText('Home');
+    await view.act(() => page.focus());
+    await press(view, 'Delete');
+    expect(view.get('[data-deck="page-delete-sheet"]')).not.toBeNull();
+    view.unmount();
+  });
+
+  it('moves a page’s decks to another page before deleting it', async () => {
+    const { view, offerUndo } = await mount();
+    await view.act(() => {
+      view
+        .getByText('Work')
+        .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    });
+    const sheet = view.get('[data-deck="page-delete-sheet"]');
+    expect(sheet.textContent).toContain(strings.pageDeleteTitle(1));
+    expect(document.activeElement).toBe(view.getByText(strings.cancel));
+    await view.act(() => click(view.getByText(strings.movePageDecks)));
+    await eventually(view, async () =>
+      expect(
+        (await repository.listPages()).find(({ id }) => id === 'page_1')
+          ?.deletedAt,
+      ).not.toBeNull(),
+    );
+    expect(
+      (await repository.listDecks()).find(({ id }) => id === 'deck_1')?.pageId,
+    ).toBe('page_2');
+    expect(
+      (await repository.listCards()).find(({ id }) => id === 'card_4')
+        ?.deletedAt,
+    ).toBeNull();
+    expect(
+      (await repository.listDecks()).find(({ id }) => id === 'inbox_1')
+        ?.deletedAt,
+    ).toBeNull();
+    const action = offerUndo.mock.calls[0]?.[0];
+    if (!action) throw new Error('Missing page Undo action');
+    await view.act(async () => action.undo());
+    expect(
+      (await repository.listPages()).find(({ id }) => id === 'page_1')
+        ?.deletedAt,
+    ).toBeNull();
+    expect(
+      (await repository.listDecks()).find(({ id }) => id === 'deck_1')?.pageId,
+    ).toBe('page_1');
+    view.unmount();
+  });
+
+  it('trashes a page with its decks and cards only after choosing that option', async () => {
+    const { view } = await mount();
+    await view.act(() => {
+      view
+        .getByText('Home')
+        .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    });
+    expect(
+      (await repository.listDecks()).find(({ id }) => id === 'deck_2')
+        ?.deletedAt,
+    ).toBeNull();
+    await view.act(() => click(view.getByText(strings.trashPageAndDecks)));
+    await eventually(view, async () =>
+      expect(
+        (await repository.listDecks()).find(({ id }) => id === 'deck_2')
+          ?.deletedAt,
+      ).not.toBeNull(),
+    );
+    expect(
+      (await repository.listPages()).find(({ id }) => id === 'page_2')
+        ?.deletedAt,
+    ).not.toBeNull();
+    view.unmount();
+  });
+});
+
 describe('Drawer - renaming pages', () => {
   function doubleClick(element: HTMLElement) {
     element.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
   }
 
-  it('renames on double-click and ignores a cancelled or unchanged name', async () => {
-    const prompt = vi.fn<(message: string, value: string) => string | null>();
-    vi.stubGlobal('prompt', prompt);
+  it('renames inline on double-click or F2 and ignores a cancelled or unchanged name', async () => {
     const { view, onPagesChange } = await mount();
     const calls = onPagesChange.mock.calls.length;
 
-    prompt.mockReturnValueOnce(null).mockReturnValueOnce('Work ');
     await view.act(() => doubleClick(view.getByText('Work')));
-    await view.act(() => doubleClick(view.getByText('Work')));
-    expect(prompt).toHaveBeenCalledWith(strings.renamePagePrompt, 'Work');
+    expect(document.activeElement).toBe(view.get('[data-deck="page-name"]'));
+    await view.act(() => {
+      keyDown(view.get('[data-deck="page-name"]'), 'Escape');
+    });
+    await view.act(() => {
+      keyDown(view.getByText('Work'), 'F2');
+    });
+    await view.act(() => {
+      keyDown(view.get('[data-deck="page-name"]'), 'Enter');
+    });
     expect(onPagesChange).toHaveBeenCalledTimes(calls);
 
-    prompt.mockReturnValueOnce(' Office ');
     await view.act(() => doubleClick(view.getByText('Work')));
+    await view.act(() => {
+      const input = view.get('[data-deck="page-name"]') as HTMLInputElement;
+      input.value = ' Office ';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await view.act(() => {
+      keyDown(view.get('[data-deck="page-name"]'), 'Enter');
+    });
     await eventually(view, () =>
       expect(railTitles(view)).toEqual(['Office', 'Home']),
     );
@@ -447,13 +796,17 @@ describe('Drawer - renaming pages', () => {
   });
 
   it('reports a rename the repository refuses', async () => {
-    vi.stubGlobal(
-      'prompt',
-      vi.fn(() => 'Office'),
-    );
     const { view, onError } = await mount();
     vi.spyOn(repository, 'upsertPage').mockRejectedValue(FAILURE);
     await view.act(() => doubleClick(view.getByText('Work')));
+    await view.act(() => {
+      const input = view.get('[data-deck="page-name"]') as HTMLInputElement;
+      input.value = 'Office';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await view.act(() => {
+      keyDown(view.get('[data-deck="page-name"]'), 'Enter');
+    });
     await eventually(view, () =>
       expect(onError).toHaveBeenCalledWith(FAILED_MESSAGE),
     );
@@ -482,9 +835,25 @@ describe('Drawer - keys', () => {
 
     await press(view, '[');
     await press(view, '[');
+    expect(
+      view.getByText(strings.trash).closest('button')?.dataset.selected,
+    ).toBe('true');
+    await press(view, '[');
+    expect(
+      view.getByText(strings.sessions).closest('button')?.dataset.selected,
+    ).toBe('true');
+    await press(view, '[');
     expect(inboxButton(view).dataset.selected).toBe('true');
     await press(view, '[');
     expect(inboxButton(view).dataset.selected).toBe('true');
+    await press(view, ']');
+    expect(
+      view.getByText(strings.sessions).closest('button')?.dataset.selected,
+    ).toBe('true');
+    await press(view, ']');
+    expect(
+      view.getByText(strings.trash).closest('button')?.dataset.selected,
+    ).toBe('true');
     await press(view, ']');
     expect(selectedTitle(view)).toBe('Work');
     view.unmount();

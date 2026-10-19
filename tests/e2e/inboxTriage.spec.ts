@@ -83,7 +83,7 @@ test('inbox: 20 saved links triaged to Inbox zero by keyboard alone', async ({
     await page.waitForSelector(READY_SELECTOR);
 
     await page.keyboard.press('Control+J');
-    await page.locator('[data-deck="page"][data-system]').click();
+    await page.locator('[data-deck="page"][data-system]').first().click();
     const list = page.getByRole('listbox', { name: 'Inbox' });
     await expect(list).toBeFocused();
     await expect(list.getByRole('option')).toHaveCount(INBOX_SIZE);
@@ -91,8 +91,10 @@ test('inbox: 20 saved links triaged to Inbox zero by keyboard alone', async ({
     const started = Date.now();
     const keys = page.keyboard;
     // 1. Five at once: select with Shift+Down, move by typing the deck.
-    for (let step = 0; step < 4; step += 1) await keys.press('Shift+ArrowDown');
+    for (let step = 0; step < 5; step += 1) await keys.press('Shift+ArrowDown');
+    await expect(list.getByRole('option', { selected: true })).toHaveCount(5);
     await keys.press('m');
+    await expect(page.getByRole('combobox', { name: 'Move to' })).toBeFocused();
     await keys.type('exa');
     await keys.press('Enter');
     await expect(list.getByRole('option')).toHaveCount(15);
@@ -113,7 +115,11 @@ test('inbox: 20 saved links triaged to Inbox zero by keyboard alone', async ({
     // 4. The rest to the remembered destination: m, Enter.
     for (let step = 0; step < 8; step += 1) {
       await keys.press('ArrowRight');
+      await expect(
+        page.getByRole('combobox', { name: 'Move to' }),
+      ).toBeFocused();
       await keys.press('Enter');
+      await expect(list.getByRole('option')).toHaveCount(7 - step);
     }
     await expect(page.locator('[data-deck="inbox-zero"]')).toHaveText(
       'Inbox zero.',
@@ -124,12 +130,14 @@ test('inbox: 20 saved links triaged to Inbox zero by keyboard alone', async ({
       id.startsWith('triage_'),
     );
     const live = cards.filter(({ deletedAt }) => deletedAt === null);
-    expect(live.filter(({ deckId }) => deckId === 'deck_inbox')).toEqual([]);
+    expect(
+      live.filter(({ deckId, pinned }) => deckId === 'deck_inbox' && !pinned),
+    ).toEqual([]);
     expect(cards.filter(({ deletedAt }) => deletedAt !== null)).toHaveLength(5);
     expect(live.filter(({ pinned }) => pinned)).toHaveLength(2);
     expect(
       live.filter(({ deckId }) => deckId === 'deck_examples'),
-    ).toHaveLength(15);
+    ).toHaveLength(13);
     expect(
       cards.find(({ note }) => note === 'skim later')?.deletedAt,
     ).not.toBeNull();

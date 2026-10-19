@@ -2,6 +2,7 @@
 import 'fake-indexeddb/auto';
 
 import type * as DndSortable from '@dnd-kit/sortable';
+import type * as DndCore from '@dnd-kit/core';
 import {
   SETTINGS_DEFAULTS,
   type Card,
@@ -16,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { resolveKeymap } from '../keys/keymap';
 import { DeckRepository } from '../storage/repository';
+import type { UndoAction } from './UndoToast';
 import {
   click,
   keyDown,
@@ -35,6 +37,13 @@ import { RECENT_TARGETS_KEY } from './inboxModel';
 const dnd = vi.hoisted(() => ({
   draggingId: null as string | null,
   overId: null as string | null,
+}));
+
+vi.mock('@dnd-kit/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof DndCore>()),
+  useDndContext: () => ({
+    collisions: dnd.overId ? [{ id: dnd.overId }] : null,
+  }),
 }));
 
 vi.mock('@dnd-kit/sortable', async (importOriginal) => ({
@@ -140,6 +149,7 @@ interface Mounted {
   onError: ReturnType<typeof vi.fn<(message: string) => void>>;
   onCardsChange: ReturnType<typeof vi.fn<(cards: Card[]) => void>>;
   onDecksChange: ReturnType<typeof vi.fn<(decks: Deck[]) => void>>;
+  offerUndo: ReturnType<typeof vi.fn<(action: UndoAction) => void>>;
 }
 
 let repository: DeckRepository;
@@ -150,6 +160,7 @@ async function mount(options: MountOptions = {}): Promise<Mounted> {
   const onError = vi.fn<(message: string) => void>();
   const onCardsChange = vi.fn<(cards: Card[]) => void>();
   const onDecksChange = vi.fn<(decks: Deck[]) => void>();
+  const offerUndo = vi.fn<(action: UndoAction) => void>();
   const data = {
     cards,
     decks,
@@ -186,11 +197,12 @@ async function mount(options: MountOptions = {}): Promise<Mounted> {
           onDecksChange(next);
         }}
         onError={onError}
+        offerUndo={offerUndo}
       />
     );
   }
   const view = await render(<Host />);
-  return { view, onError, onCardsChange, onDecksChange };
+  return { view, onError, onCardsChange, onDecksChange, offerUndo };
 }
 
 async function seed() {
@@ -233,15 +245,19 @@ async function storedCard(id: string): Promise<Card | undefined> {
   return (await repository.listCards()).find((item) => item.id === id);
 }
 
-function changeSelect(select: HTMLSelectElement, value: string) {
-  select.value = value;
-  select.dispatchEvent(new Event('change', { bubbles: true }));
-}
-
 beforeEach(async () => {
+  vi.stubGlobal('chrome', {
+    storage: {
+      local: {
+        get: vi.fn(() => Promise.resolve({})),
+        set: vi.fn(() => Promise.resolve()),
+      },
+    },
+  });
   repository = new DeckRepository({ databaseName: DATABASE_NAME });
   await seed();
   localStorage.clear();
+  sessionStorage.clear();
   dnd.draggingId = null;
   dnd.overId = null;
 });
@@ -255,6 +271,41 @@ afterEach(async () => {
 });
 
 describe('DeckWorkspace - layout', () => {
+  it('persists task mode, counts completions and edits a URL-free task without navigation', async () => {
+    const task = card('task_local', 'deck_1', 'a0', {
+      kind: 'task',
+      url: undefined,
+      hostname: '',
+      title: 'Buy milk',
+      done: false,
+    });
+    await repository.upsertCard(task);
+    const { view } = await mount({ cards: [task] });
+    try {
+      const section = deckSection(view, 'deck_1');
+      await act(view, () => click(within(section, strings.deckMenu)));
+      await act(view, () => click(view.get('[data-deck="deck-task-mode"]')));
+      await eventually(view, async () =>
+        expect(
+          (await repository.listDecks()).find((deck) => deck.id === 'deck_1')
+            ?.isTaskMode,
+        ).toBe(true),
+      );
+      expect(
+        section.querySelector('[data-deck="deck-count"]')?.textContent,
+      ).toBe('0 / 1');
+      await act(view, () => click(view.get('[data-deck="card-done"]')));
+      await eventually(view, () =>
+        expect(
+          section.querySelector('[data-deck="deck-count"]')?.textContent,
+        ).toBe('1 / 1'),
+      );
+      await act(view, () => click(view.get('[data-deck="task-title"]')));
+      expect(view.query('[data-deck="note"]')).not.toBeNull();
+    } finally {
+      view.unmount();
+    }
+  });
   it('asks for a page when none is selected', async () => {
     const { view } = await mount({ selectedPageId: null });
     expect(view.container.textContent).toBe(strings.selectPage);
@@ -281,17 +332,22 @@ describe('DeckWorkspace - layout', () => {
       view.get('[data-card-id="card_1"] img').getAttribute('src'),
     ).toContain(encodeURIComponent('https://example.com/card_1'));
     expect(
-      within(view.get('[data-card-id="card_1"]'), strings.editNote).textContent,
-    ).toBe('●');
+      within(view.get('[data-card-id="card_1"]'), strings.editNote)
+        .querySelector('svg')
+        ?.getAttribute('aria-hidden'),
+    ).toBe('true');
     expect(
-      within(view.get('[data-card-id="card_2"]'), strings.editNote).textContent,
-    ).toBe('✎');
+      within(view.get('[data-card-id="card_2"]'), strings.editNote)
+        .querySelector('svg')
+        ?.getAttribute('aria-hidden'),
+    ).toBe('true');
 
     const later = deckSection(view, 'deck_2');
     expect(later.dataset.color).toBe('blue');
-    expect(later.querySelector('[data-deck="deck-note"]')?.textContent).toBe(
-      'Weekend',
-    );
+    expect(
+      later.querySelector('[data-deck="deck-note"] .deck-markdown')
+        ?.textContent,
+    ).toBe('Weekend');
     expect(later.textContent).toContain(strings.emptyDeck);
     view.unmount();
   });
@@ -315,7 +371,7 @@ describe('DeckWorkspace - layout', () => {
     );
     const { view } = await mount({ decks });
     const reading = deckSection(view, 'deck_1');
-    expect(within(reading, strings.collapseDeck).textContent).toBe('›');
+    expect(within(reading, strings.expandDeck).textContent).toBe('›');
     expect(reading.querySelector('[data-deck="card"]')).toBeNull();
     expect(reading.querySelector('[data-deck="add-card"]')).toBeNull();
     view.unmount();
@@ -336,6 +392,9 @@ describe('DeckWorkspace - decks', () => {
     expect(added && (await storedDeck(added.id))).toEqual(added);
     await eventually(view, () =>
       expect(view.getAll('[data-deck="deck"]')).toHaveLength(3),
+    );
+    expect(document.activeElement).toBe(
+      view.getByLabel(strings.renameDeckPrompt),
     );
     view.unmount();
   });
@@ -403,27 +462,55 @@ describe('DeckWorkspace - decks', () => {
     view.unmount();
   });
 
-  it('renames a deck on double-click, ignoring a cancelled or unchanged name', async () => {
-    const prompt = vi.fn<(message: string, value: string) => string | null>();
+  it('renames inline, cancels with Escape and keeps the old title for empty input', async () => {
+    const prompt = vi.fn();
     vi.stubGlobal('prompt', prompt);
     const { view, onDecksChange } = await mount();
     const title = () =>
-      deckSection(view, 'deck_1').querySelector<HTMLElement>(
-        '.deck-column__title',
-      );
-    const doubleClick = () =>
-      title()?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-
-    prompt.mockReturnValueOnce(null).mockReturnValueOnce(' Reading ');
-    await act(view, doubleClick);
-    await act(view, doubleClick);
-    expect(prompt).toHaveBeenCalledWith(strings.renameDeckPrompt, 'Reading');
+      view.get<HTMLElement>('[data-deck-id="deck_1"] .deck-column__title');
+    await act(view, () => click(title()));
+    let input = view.getByLabel<HTMLInputElement>(strings.renameDeckPrompt);
+    await act(view, () => type(input, 'Discard'));
+    await act(view, () => keyDown(input, 'Escape'));
+    expect(title().textContent).toBe('Reading');
     expect(onDecksChange).not.toHaveBeenCalled();
-
-    prompt.mockReturnValueOnce('  Papers ');
-    await act(view, doubleClick);
-    await eventually(view, () => expect(title()?.textContent).toBe('Papers'));
+    await act(view, () => click(title()));
+    input = view.getByLabel<HTMLInputElement>(strings.renameDeckPrompt);
+    await act(view, () => type(input, '   '));
+    await act(view, () => keyDown(input, 'Enter'));
+    expect(title().textContent).toBe('Reading');
+    await act(view, () => click(title()));
+    input = view.getByLabel<HTMLInputElement>(strings.renameDeckPrompt);
+    await act(view, () => type(input, 'Papers'));
+    await act(view, () => keyDown(input, 'Enter'));
+    await eventually(view, () => expect(title().textContent).toBe('Papers'));
     expect((await storedDeck('deck_1'))?.title).toBe('Papers');
+    expect(prompt).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('opens deck rename with F2 and opens the deck directly with n', async () => {
+    const create = vi.fn().mockResolvedValue({ id: 1 });
+    vi.stubGlobal('chrome', {
+      tabs: {
+        create,
+        getCurrent: vi.fn().mockResolvedValue({ windowId: 7 }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+    });
+    const { view } = await mount();
+    const reading = deckSection(view, 'deck_1');
+    reading.focus();
+    await act(view, () => keyDown(reading, 'F2'));
+    expect(
+      view.getByLabel<HTMLInputElement>(strings.renameDeckPrompt).value,
+    ).toBe('Reading');
+    await act(view, () =>
+      keyDown(view.getByLabel(strings.renameDeckPrompt), 'Escape'),
+    );
+    reading.focus();
+    await act(view, () => keyDown(reading, 'n'));
+    await eventually(view, () => expect(create).toHaveBeenCalledTimes(2));
     view.unmount();
   });
 });
@@ -445,14 +532,28 @@ describe('DeckWorkspace - deck menu', () => {
     view.unmount();
   });
 
-  it('renames from the menu', async () => {
-    vi.stubGlobal(
-      'prompt',
-      vi.fn(() => 'Papers'),
+  it('closes on Escape and outside pointer press', async () => {
+    const { view } = await mount();
+    const menu = await openMenu(view, 'deck_1');
+    await act(view, () => keyDown(menu, 'Escape'));
+    expect(view.query('[data-deck="deck-menu"]')).toBeNull();
+    await openMenu(view, 'deck_1');
+    await act(view, () =>
+      document.body.dispatchEvent(
+        new PointerEvent('pointerdown', { bubbles: true }),
+      ),
     );
+    expect(view.query('[data-deck="deck-menu"]')).toBeNull();
+    view.unmount();
+  });
+
+  it('renames from the menu', async () => {
     const { view } = await mount();
     const menu = await openMenu(view, 'deck_1');
     await act(view, () => click(within(menu, strings.renameDeck)));
+    const input = view.getByLabel<HTMLInputElement>(strings.renameDeckPrompt);
+    await act(view, () => type(input, 'Papers'));
+    await act(view, () => keyDown(input, 'Enter'));
     await eventually(view, async () =>
       expect((await storedDeck('deck_1'))?.title).toBe('Papers'),
     );
@@ -461,14 +562,15 @@ describe('DeckWorkspace - deck menu', () => {
 
   it('sets and clears the deck colour', async () => {
     const { view } = await mount();
-    const menu = await openMenu(view, 'deck_1');
-    const [colour] = [...menu.querySelectorAll('select')];
-    if (!colour) throw new Error('colour select missing');
-    await act(view, () => changeSelect(colour, 'rose'));
+    let menu = await openMenu(view, 'deck_1');
+    await act(view, () => click(within(menu, strings.deckColor)));
+    await act(view, () => click(within(menu, 'rose')));
     await eventually(view, async () =>
       expect((await storedDeck('deck_1'))?.color).toBe('rose'),
     );
-    await act(view, () => changeSelect(colour, ''));
+    menu = await openMenu(view, 'deck_1');
+    await act(view, () => click(within(menu, strings.deckColor)));
+    await act(view, () => click(within(menu, strings.defaultColor)));
     await eventually(view, async () =>
       expect((await storedDeck('deck_1'))?.color).toBeNull(),
     );
@@ -476,21 +578,21 @@ describe('DeckWorkspace - deck menu', () => {
   });
 
   it('moves the deck to another live page', async () => {
-    const { view } = await mount();
+    const { view, offerUndo } = await mount();
     const menu = await openMenu(view, 'deck_1');
-    const page = menu.querySelectorAll('select')[1];
-    if (!page) throw new Error('page select missing');
-    expect([...page.options].map((option) => option.value)).toEqual([
-      'page_1',
-      'page_2',
-    ]);
-    await act(view, () => changeSelect(page, 'page_2'));
+    await act(view, () => click(within(menu, strings.moveToPage)));
+    expect(menu.textContent).toContain('Home');
+    await act(view, () => click(within(menu, 'Home')));
     await eventually(view, async () =>
       expect((await storedDeck('deck_1'))?.pageId).toBe('page_2'),
     );
     await eventually(view, () =>
       expect(view.query('[data-deck-id="deck_1"]')).toBeNull(),
     );
+    const action = offerUndo.mock.calls[0]?.[0];
+    if (!action) throw new Error('Missing deck move Undo action');
+    await view.act(async () => action.undo());
+    expect((await storedDeck('deck_1'))?.pageId).toBe('page_1');
     view.unmount();
   });
 
@@ -505,14 +607,37 @@ describe('DeckWorkspace - deck menu', () => {
     );
     await eventually(view, () =>
       expect(onDecksChange).toHaveBeenCalledWith(
-        DECKS.filter(({ id }) => id !== 'deck_2'),
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'deck_2',
+            deletedAt: expect.any(Number),
+          }),
+        ]),
       ),
     );
     view.unmount();
   });
 
+  it('trashes a deck and its cards without orphaning them', async () => {
+    const { view } = await mount();
+    const menu = await openMenu(view, 'deck_1');
+    await act(view, () => click(within(menu, strings.trashDeck)));
+    await eventually(view, async () => {
+      expect((await storedDeck('deck_1'))?.deletedAt).toEqual(
+        expect.any(Number),
+      );
+      expect((await storedCard('card_1'))?.deletedAt).toEqual(
+        expect.any(Number),
+      );
+      expect((await storedCard('card_2'))?.deletedAt).toEqual(
+        expect.any(Number),
+      );
+    });
+    view.unmount();
+  });
+
   it('reports a deck trash the repository refuses', async () => {
-    vi.spyOn(repository, 'softDelete').mockRejectedValue(FAILURE);
+    vi.spyOn(repository, 'trashDeck').mockRejectedValue(FAILURE);
     const { view, onError } = await mount();
     const menu = await openMenu(view, 'deck_2');
     await act(view, () => click(within(menu, strings.trashDeck)));
@@ -532,48 +657,107 @@ describe('DeckWorkspace - deck menu', () => {
 });
 
 describe('DeckWorkspace - open all', () => {
-  function stubChrome(request: () => Promise<boolean>) {
-    const create = vi.fn(() => Promise.resolve({}));
+  function stubChrome(request: () => Promise<boolean>, isGranted = false) {
+    const create = vi.fn(() => Promise.resolve({ id: 1 }));
     vi.stubGlobal('chrome', {
-      permissions: { request: vi.fn(request) },
-      tabs: { create },
+      permissions: {
+        contains: vi.fn(() => Promise.resolve(isGranted)),
+        request: vi.fn(request),
+      },
+      tabs: {
+        create,
+        getCurrent: vi.fn().mockResolvedValue({ windowId: 7 }),
+        update: vi.fn().mockResolvedValue({}),
+        group: vi.fn().mockResolvedValue(2),
+      },
+      tabGroups: { update: vi.fn().mockResolvedValue({}) },
+      storage: {
+        local: {
+          get: vi.fn(() => Promise.resolve({})),
+          set: vi.fn(() => Promise.resolve()),
+        },
+      },
     });
     return create;
   }
 
-  async function openAll(view: RenderResult) {
+  async function openGroup(view: RenderResult) {
+    const section = deckSection(view, 'deck_1');
+    await act(view, () => click(within(section, strings.deckMenu)));
+    await act(view, () => click(within(section, strings.openAsTabGroup)));
+    expect(within(section, strings.accessTabGroupsReason)).toBeTruthy();
+    await act(view, () => click(within(section, strings.allowAccess)));
+  }
+
+  it('opens cards in order without requesting tab-reading permission', async () => {
+    const create = stubChrome(() => Promise.resolve(true));
+    const { view } = await mount();
     const section = deckSection(view, 'deck_1');
     await act(view, () => click(within(section, strings.deckMenu)));
     await act(view, () => click(within(section, strings.openAll)));
-  }
-
-  it('opens every card in a background tab once tabs access is granted', async () => {
-    const create = stubChrome(() => Promise.resolve(true));
-    const { view } = await mount();
-    await openAll(view);
-    await eventually(view, () => expect(create).toHaveBeenCalledTimes(2));
+    await eventually(view, () =>
+      expect(chrome.tabs.update).toHaveBeenCalledWith(1, { active: true }),
+    );
+    expect(create).toHaveBeenCalledTimes(2);
     expect(create).toHaveBeenCalledWith({
       url: 'https://example.com/card_1',
       active: false,
+      windowId: 7,
     });
+    expect((await storedCard('card_1'))?.lastOpenedAt).toEqual(
+      expect.any(Number),
+    );
+    expect(chrome.permissions.request).not.toHaveBeenCalled();
     view.unmount();
   });
 
   it('explains a declined permission and opens nothing', async () => {
     const create = stubChrome(() => Promise.resolve(false));
     const { view, onError } = await mount();
-    await openAll(view);
+    await openGroup(view);
     await eventually(view, () =>
-      expect(onError).toHaveBeenCalledWith(strings.tabsPermissionDeclined),
+      expect(onError).toHaveBeenCalledWith(strings.tabGroupsPermissionDeclined),
     );
     expect(create).not.toHaveBeenCalled();
+    const section = deckSection(view, 'deck_1');
+    await act(view, () => click(within(section, strings.allowAccess)));
+    expect(chrome.permissions.request).toHaveBeenCalledOnce();
+    view.unmount();
+  });
+
+  it('requests only tabGroups on Allow, then groups and names the opened deck', async () => {
+    stubChrome(() => Promise.resolve(true));
+    const { view } = await mount();
+    await openGroup(view);
+    await eventually(view, () =>
+      expect(chrome.tabGroups.update).toHaveBeenCalledWith(2, {
+        title: 'Reading',
+        color: 'grey',
+      }),
+    );
+    expect(chrome.permissions.request).toHaveBeenCalledExactlyOnceWith({
+      permissions: ['tabGroups'],
+    });
+    view.unmount();
+  });
+
+  it('uses an existing tabGroups grant without another prompt', async () => {
+    stubChrome(() => Promise.resolve(false), true);
+    const { view } = await mount();
+    const section = deckSection(view, 'deck_1');
+    await act(view, () => click(within(section, strings.deckMenu)));
+    await act(view, () => click(within(section, strings.openAsTabGroup)));
+    await eventually(view, () =>
+      expect(chrome.tabGroups.update).toHaveBeenCalled(),
+    );
+    expect(chrome.permissions.request).not.toHaveBeenCalled();
     view.unmount();
   });
 
   it('reports a permission request that fails', async () => {
     stubChrome(() => Promise.reject(FAILURE));
     const { view, onError } = await mount();
-    await openAll(view);
+    await openGroup(view);
     await eventually(view, () =>
       expect(onError).toHaveBeenCalledWith(FAILED_MESSAGE),
     );
@@ -637,6 +821,151 @@ describe('DeckWorkspace - adding links', () => {
 });
 
 describe('DeckWorkspace - card actions', () => {
+  it('edits title and URL from the row and rejects a non-web URL', async () => {
+    const { view, onError } = await mount();
+    const row = view.get('[data-card-id="card_1"]');
+    row.focus();
+    await act(view, () => keyDown(row, 'e'));
+    const title = view.getByLabel<HTMLInputElement>(strings.cardTitle);
+    const url = view.getByLabel<HTMLInputElement>(strings.cardUrl);
+    await act(view, () => type(title, 'Updated title'));
+    await act(view, () => type(url, 'javascript:alert(1)'));
+    await act(view, () =>
+      url.form?.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      ),
+    );
+    expect(onError).toHaveBeenCalledWith(strings.invalidUrl);
+    expect((await storedCard('card_1'))?.url).toBe(
+      'https://example.com/card_1',
+    );
+    await act(view, () => type(url, 'new.example/path'));
+    await act(view, () =>
+      url.form?.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      ),
+    );
+    await eventually(view, async () =>
+      expect(await storedCard('card_1')).toMatchObject({
+        title: 'Updated title',
+        url: 'https://new.example/path',
+        hostname: 'new.example',
+      }),
+    );
+    view.unmount();
+  });
+
+  it('moves completed cards to the bottom and shows the all-done footer', async () => {
+    const { view } = await mount({
+      cards: [
+        card('card_1', 'deck_1', 'a0', { done: true }),
+        card('card_2', 'deck_1', 'a1'),
+      ],
+    });
+    const ids = () =>
+      [
+        ...deckSection(view, 'deck_1').querySelectorAll<HTMLElement>(
+          '[data-deck="card"]',
+        ),
+      ].map((row) => row.dataset.cardId);
+    expect(ids()).toEqual(['card_2', 'card_1']);
+    const row = view.get('[data-card-id="card_2"]');
+    row.focus();
+    await act(view, () => keyDown(row, 'd'));
+    await eventually(view, () =>
+      expect(deckSection(view, 'deck_1').textContent).toContain(
+        strings.allDone,
+      ),
+    );
+    view.unmount();
+  });
+
+  it('offers edit, pin, and incognito from the card menu', async () => {
+    const create = vi.fn(() => Promise.resolve({ id: 7, incognito: true }));
+    vi.stubGlobal('chrome', {
+      extension: {
+        isAllowedIncognitoAccess: vi.fn(() => Promise.resolve(true)),
+      },
+      windows: { create },
+    });
+    const { view } = await mount();
+    const row = view.get('[data-card-id="card_1"]');
+    await act(view, () => click(within(row, strings.cardMenu)));
+    await act(view, () =>
+      click(within(view.get('[data-deck="card-menu"]'), strings.openIncognito)),
+    );
+    await eventually(view, () =>
+      expect(create).toHaveBeenCalledWith({
+        url: 'https://example.com/card_1',
+        incognito: true,
+      }),
+    );
+    await act(view, () => click(within(row, strings.cardMenu)));
+    await act(view, () =>
+      click(within(view.get('[data-deck="card-menu"]'), strings.pinCard)),
+    );
+    await eventually(view, async () =>
+      expect((await storedCard('card_1'))?.pinned).toBe(true),
+    );
+    view.unmount();
+  });
+
+  it('explains when Chrome has not allowed Incognito access', async () => {
+    const create = vi.fn();
+    vi.stubGlobal('chrome', {
+      extension: {
+        isAllowedIncognitoAccess: vi.fn(() => Promise.resolve(false)),
+      },
+      windows: { create },
+    });
+    const { view, onError } = await mount();
+    await act(view, () =>
+      click(within(view.get('[data-card-id="card_1"]'), strings.cardMenu)),
+    );
+    await act(view, () =>
+      click(within(view.get('[data-deck="card-menu"]'), strings.openIncognito)),
+    );
+    await eventually(view, () =>
+      expect(onError).toHaveBeenCalledWith(strings.incognitoUnavailable),
+    );
+    expect(create).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('reports Chrome returning no private window', async () => {
+    vi.stubGlobal('chrome', {
+      extension: {
+        isAllowedIncognitoAccess: vi.fn(() => Promise.resolve(true)),
+      },
+      windows: { create: vi.fn(() => Promise.resolve(undefined)) },
+    });
+    const { view, onError } = await mount();
+    await act(view, () =>
+      click(within(view.get('[data-card-id="card_1"]'), strings.cardMenu)),
+    );
+    await act(view, () =>
+      click(within(view.get('[data-deck="card-menu"]'), strings.openIncognito)),
+    );
+    await eventually(view, () =>
+      expect(onError).toHaveBeenCalledWith(strings.incognitoUnavailable),
+    );
+    view.unmount();
+  });
+  it('stamps a card opened from its title', async () => {
+    const assign = vi
+      .spyOn(window.location, 'assign')
+      .mockImplementation(() => undefined);
+    const { view, onCardsChange } = await mount();
+    await act(view, () => click(view.get('[data-card-id="card_1"] a')));
+    await eventually(view, () =>
+      expect(assign).toHaveBeenCalledWith('https://example.com/card_1'),
+    );
+    expect((await storedCard('card_1'))?.lastOpenedAt).toEqual(
+      expect.any(Number),
+    );
+    expect(onCardsChange).toHaveBeenCalled();
+    view.unmount();
+  });
   it('toggles a card done and stores it', async () => {
     const { view } = await mount();
     const row = view.get('[data-card-id="card_1"]');
@@ -705,11 +1034,15 @@ describe('DeckWorkspace - notes', () => {
     );
     expect((await storedCard('card_2'))?.note).toBe('Read twice');
     expect(
-      within(view.get('[data-card-id="card_2"]'), strings.editNote).textContent,
-    ).toBe('●');
+      within(view.get('[data-card-id="card_2"]'), strings.editNote)
+        .querySelector('svg')
+        ?.getAttribute('aria-hidden'),
+    ).toBe('true');
 
     await act(view, () => click(view.getByText(strings.close)));
-    expect(view.query('[data-deck="note"]')).toBeNull();
+    await eventually(view, () =>
+      expect(view.query('[data-deck="note"]')).toBeNull(),
+    );
     await eventually(view, () =>
       expect(document.activeElement).toBe(view.get('[data-card-id="card_2"]')),
     );
@@ -718,7 +1051,7 @@ describe('DeckWorkspace - notes', () => {
 
   it('saves a deck note opened from the note itself and from the menu', async () => {
     const { view, onDecksChange } = await mount();
-    await act(view, () => click(view.get('[data-deck="deck-note"]')));
+    await act(view, () => click(view.get('[data-deck="deck-note"] button')));
     const textarea = view.get<HTMLTextAreaElement>(
       '[data-deck="note"] textarea',
     );
@@ -726,12 +1059,16 @@ describe('DeckWorkspace - notes', () => {
     await act(view, () => type(textarea, 'Sunday'));
     await act(view, () => click(view.getByText(strings.saveNote)));
     await eventually(view, () =>
-      expect(view.get('[data-deck="deck-note"]').textContent).toBe('Sunday'),
+      expect(
+        view.get('[data-deck="deck-note"] .deck-markdown').textContent,
+      ).toBe('Sunday'),
     );
     expect(onDecksChange).toHaveBeenCalled();
     expect((await storedDeck('deck_2'))?.note).toBe('Sunday');
     await act(view, () => click(view.getByText(strings.close)));
-    expect(view.query('[data-deck="note"]')).toBeNull();
+    await eventually(view, () =>
+      expect(view.query('[data-deck="note"]')).toBeNull(),
+    );
 
     const section = deckSection(view, 'deck_1');
     await act(view, () => click(within(section, strings.deckMenu)));
@@ -744,7 +1081,7 @@ describe('DeckWorkspace - notes', () => {
 
   it('keeps grid keys quiet while a note is open', async () => {
     const { view } = await mount();
-    await act(view, () => click(view.get('[data-deck="deck-note"]')));
+    await act(view, () => click(view.get('[data-deck="deck-note"] button')));
     const event = keyDown(document.body, 'j');
     expect(event.defaultPrevented).toBe(false);
     view.unmount();

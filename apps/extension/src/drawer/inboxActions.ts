@@ -1,4 +1,4 @@
-import type { Card } from 'deck-schema';
+import { INBOX_DECK_ID, type Card } from 'deck-schema';
 import { generateNKeysBetween } from 'fractional-indexing';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
@@ -54,6 +54,7 @@ export async function moveCards(
       await repository.upsertCard({
         ...card,
         deckId: targetDeckId,
+        pinned: false,
         order: keys[index] ?? card.order,
         updatedAt: now(),
       }),
@@ -67,28 +68,25 @@ export async function trashCards(
   repository: DeckRepository,
   cards: Card[],
   ids: string[],
-  now: () => number = Date.now,
 ): Promise<Card[]> {
-  const trashed: Card[] = [];
-  for (const card of pick(cards, ids)) {
-    await repository.softDelete('card', card.id);
-    trashed.push({ ...card, deletedAt: now() });
-  }
-  return merge(cards, trashed);
+  const selected = pick(cards, ids);
+  return merge(
+    cards,
+    await repository.trashCards(selected.map(({ id }) => id)),
+  );
 }
 
 /**
- * Pinning is a triage decision too: the card leaves the Inbox for the deck
- * the surface files its pins in, so Inbox zero stays reachable.
+ * Pins live in the Inbox record but are omitted from Inbox triage.
  */
 export async function pinCards(
   repository: DeckRepository,
   cards: Card[],
   ids: string[],
-  homeDeckId: string,
   now: () => number = Date.now,
 ): Promise<Card[]> {
   const pinning = pick(cards, ids).filter(({ pinned }) => !pinned);
+  if (pinning.some((card) => !card.url)) throw new Error(strings.taskNeedsUrl);
   const pinCount = cards.filter(
     (card) => card.pinned && card.deletedAt === null,
   ).length;
@@ -105,7 +103,7 @@ export async function pinCards(
     saved.push(
       await repository.upsertCard({
         ...card,
-        deckId: homeDeckId,
+        deckId: INBOX_DECK_ID,
         pinned: true,
         order: keys[index] ?? card.order,
         updatedAt: now(),
@@ -119,14 +117,10 @@ export async function pinCards(
 export async function markOpened(
   repository: DeckRepository,
   card: Card,
-  now: () => number = Date.now,
 ): Promise<Card> {
-  const time = now();
-  return repository.upsertCard({
-    ...card,
-    lastOpenedAt: time,
-    updatedAt: time,
-  });
+  const [opened] = await repository.markCardsOpened([card.id]);
+  if (!opened) throw new Error(strings.updateFailed);
+  return opened;
 }
 
 /**
@@ -137,11 +131,13 @@ export async function openCard(
   repository: DeckRepository,
   card: Card,
   isNewTab: boolean,
-  now: () => number = Date.now,
 ): Promise<Card> {
-  if (!/^https?:\/\//i.test(card.url)) throw new Error(strings.invalidUrl);
-  const opened = await markOpened(repository, card, now);
-  if (isNewTab) window.open(card.url, '_blank', 'noopener');
-  else location.assign(card.url);
+  if (!card.url || !/^https?:\/\//i.test(card.url))
+    throw new Error(strings.invalidUrl);
+  const opened = await markOpened(repository, card);
+  if (!opened.url || !/^https?:\/\//i.test(opened.url))
+    throw new Error(strings.invalidUrl);
+  if (isNewTab) window.open(opened.url, '_blank', 'noopener');
+  else location.assign(opened.url);
   return opened;
 }

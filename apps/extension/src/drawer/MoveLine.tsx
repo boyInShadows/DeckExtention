@@ -1,7 +1,13 @@
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
-import { focusOnMount } from '../newtab/focusOnMount';
+import { useDismissable } from '../hooks/useDismissable';
 import { clampIndex, rankMoveTargets, type MoveTarget } from './inboxModel';
 
 interface MoveLineProps {
@@ -25,6 +31,10 @@ export function MoveLine({
 }: MoveLineProps) {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => inputRef.current?.focus(), []);
+  useDismissable(ref, onCancel);
   const ranked = useMemo(
     () => rankMoveTargets(targets, query, recentDeckIds),
     [query, recentDeckIds, targets],
@@ -42,16 +52,13 @@ export function MoveLine({
       event.preventDefault();
       const target = ranked[position];
       if (target) onMove(target.deckId);
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      onCancel();
     }
   };
 
   return (
-    <div data-deck="move-line" className="deck-move-line">
+    <div ref={ref} data-deck="move-line" className="deck-move-line">
       <input
-        ref={focusOnMount}
+        ref={inputRef}
         className="deck-move-line__input"
         value={query}
         onChange={(event) => {
@@ -59,7 +66,6 @@ export function MoveLine({
           setActive(0);
         }}
         onKeyDown={onKeyDown}
-        onBlur={onCancel}
         placeholder={strings.moveTo}
         aria-label={strings.moveTo}
         role="combobox"
@@ -83,7 +89,7 @@ export function MoveLine({
                 onMove(target.deckId);
               }}
             >
-              {target.label}
+              <span className="deck-blurrable">{target.label}</span>
             </li>
           ))}
         </ul>

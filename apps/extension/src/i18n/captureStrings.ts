@@ -23,7 +23,10 @@ export const captureStrings = {
   unsupportedPage: 'Deck can’t save this page. Only web pages can be saved.',
   savedWithoutToast: 'Saved to Inbox:',
   needsPermission:
-    'Quick Save needs one-time access. Allow it under Settings › Keys, then press the shortcut again.',
+    'Quick Save needs access to this tab. Allow it in Settings › Advanced.',
+  permissionReason: 'Quick Save reads this tab to save links.',
+  permissionPromptFailed:
+    'Chrome could not show the permission prompt. Allow Quick Save in Settings › Advanced.',
   saveFailed: 'Quick Save failed:',
   toastFailed: 'That didn’t go through. Open Deck to check.',
 } as const;

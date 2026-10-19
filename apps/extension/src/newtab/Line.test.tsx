@@ -1,19 +1,41 @@
 // @vitest-environment happy-dom
 import { SETTINGS_DEFAULTS, type Card, type Settings } from 'deck-schema';
+import { render as renderImmediately } from 'preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { strings } from '../i18n/strings';
-import { keyDown, render, type, type RenderResult } from '../testing/render';
+import { panelStrings as strings } from '../i18n/panelStrings';
+import {
+  click,
+  keyDown,
+  render,
+  type,
+  type RenderResult,
+} from '../testing/render';
 import type { SurfaceData } from './bootstrap';
 import { Line } from './Line';
 
 const lineActions = vi.hoisted(() => ({
   executeAction: vi.fn<(id: string, context: unknown) => Promise<void>>(),
-  searchWeb: vi.fn<(query: string, settings: unknown) => Promise<void>>(),
+  searchWeb:
+    vi.fn<
+      (query: string, settings: unknown, saveSettings: unknown) => Promise<void>
+    >(),
 }));
 vi.mock('./lineActions', () => lineActions);
+const taskCreator = vi.hoisted(() => ({ createTask: vi.fn() }));
+vi.mock('../tasks/quickTask', () => taskCreator);
 
-const REPOSITORY = {} as SurfaceData['repository'];
+const upsertCard = vi.fn((value: Card) => Promise.resolve(value));
+const markCardsOpened = vi.fn(async (ids: string[]) =>
+  CARDS.filter((card) => ids.includes(card.id)).map((card) => ({
+    ...card,
+    lastOpenedAt: Date.now(),
+  })),
+);
+const REPOSITORY = {
+  upsertCard,
+  markCardsOpened,
+} as unknown as SurfaceData['repository'];
 
 function card(id: string, title: string, overrides: Partial<Card> = {}): Card {
   return {
@@ -44,10 +66,16 @@ function setup(settings: Settings = SETTINGS_DEFAULTS, cards = CARDS) {
     settings,
     repository: REPOSITORY,
     openSettings: vi.fn<() => void>(),
+    openWorkspace: vi.fn(),
+    prepareWorkspace: vi.fn().mockResolvedValue(true),
+    openNote: vi.fn(),
     saveSettings: vi.fn<(next: Settings) => Promise<void>>(() =>
       Promise.resolve(),
     ),
     notify: vi.fn<(message: string) => void>(),
+    notifyInfo: vi.fn<(message: string) => void>(),
+    notifySuccess: vi.fn<(message: string) => void>(),
+    notifyNotice: vi.fn(),
     canSpaceOpenDrawer: settings.canSpaceOpenDrawer,
     openDrawer: vi.fn<() => void>(),
     openHelp: vi.fn<() => void>(),
@@ -61,6 +89,9 @@ function input(view: RenderResult): HTMLInputElement {
 
 async function typeQuery(view: RenderResult, value: string): Promise<void> {
   await view.act(() => type(input(view), value));
+  await vi.waitFor(() =>
+    expect(view.query('[data-deck="line-results"]')).not.toBeNull(),
+  );
 }
 
 async function press(
@@ -81,8 +112,114 @@ function activeText(view: RenderResult): string | undefined {
 }
 
 beforeEach(() => {
+  taskCreator.createTask.mockReset();
+  upsertCard.mockClear();
+  markCardsOpened.mockClear();
   lineActions.executeAction.mockReset().mockResolvedValue(undefined);
   lineActions.searchWeb.mockReset().mockResolvedValue(undefined);
+});
+
+it('focuses and searches immediately, before passive startup effects run', async () => {
+  vi.useFakeTimers();
+  const container = document.createElement('div');
+  document.body.append(container);
+  try {
+    renderImmediately(<Line {...setup().props} />, container);
+    const line = container.querySelector('input');
+    if (!line) throw new Error('Line input missing');
+    keyDown(window, '/');
+    expect(document.activeElement).toBe(line);
+    type(line, 'alpha');
+    await Promise.resolve();
+    expect(
+      container.querySelector('[data-deck="line-results"]')?.textContent,
+    ).toContain('Alpha docs');
+    type(line, '>');
+    await Promise.resolve();
+    expect(
+      container.querySelector('[data-deck="line-results"]')?.textContent,
+    ).toContain('>settings');
+  } finally {
+    renderImmediately(null, container);
+    container.remove();
+    vi.useRealTimers();
+  }
+});
+
+it('saves literal text with Ctrl+Shift+Enter and does not open the selected link', async () => {
+  const test = setup();
+  taskCreator.createTask.mockResolvedValue({});
+  const view = await test.render();
+  try {
+    await typeQuery(view, 'alpha');
+    await press(view, 'Enter', { ctrlKey: true, shiftKey: true });
+    await vi.waitFor(() =>
+      expect(test.props.notifySuccess).toHaveBeenCalledWith(strings.taskSaved),
+    );
+    expect(taskCreator.createTask).toHaveBeenCalledWith(REPOSITORY, 'alpha');
+    expect(upsertCard).not.toHaveBeenCalled();
+    expect(input(view).value).toBe('');
+  } finally {
+    view.unmount();
+  }
+});
+
+it('keeps failed task text and serializes saves while preserving newly typed text', async () => {
+  const test = setup();
+  const view = await test.render();
+  try {
+    taskCreator.createTask.mockRejectedValueOnce(new Error('disk full'));
+    await typeQuery(view, 'task text');
+    await press(view, 'Enter', { ctrlKey: true, shiftKey: true });
+    await vi.waitFor(() =>
+      expect(test.props.notify).toHaveBeenCalledWith(
+        expect.stringContaining('disk full'),
+      ),
+    );
+    expect(input(view).value).toBe('task text');
+    let finish: (value: unknown) => void = () => undefined;
+    taskCreator.createTask.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    await press(view, 'Enter', { ctrlKey: true, shiftKey: true });
+    await press(view, 'Enter', { ctrlKey: true, shiftKey: true });
+    await vi.waitFor(() =>
+      expect(taskCreator.createTask).toHaveBeenCalledTimes(2),
+    );
+    await typeQuery(view, 'another draft');
+    await view.act(async () => {
+      finish({});
+    });
+    expect(input(view).value).toBe('another draft');
+  } finally {
+    view.unmount();
+  }
+});
+
+it('finds a URL-free task in Notes and opens its editor on Enter', async () => {
+  const task = card('task_local', 'Buy milk', {
+    kind: 'task',
+    url: undefined,
+    hostname: '',
+  });
+  const test = setup(SETTINGS_DEFAULTS, [task]);
+  const view = await test.render();
+  try {
+    await typeQuery(view, 'milk');
+    await vi.waitFor(() =>
+      expect(view.query('[data-deck="note-result"]')).not.toBeNull(),
+    );
+    expect(
+      view.query('[data-deck="line-results"] [data-deck="card"]'),
+    ).toBeNull();
+    await press(view, 'Enter');
+    expect(test.props.openNote).toHaveBeenCalledWith(task);
+    expect(upsertCard).not.toHaveBeenCalled();
+  } finally {
+    view.unmount();
+  }
 });
 
 afterEach(() => {
@@ -91,11 +228,31 @@ afterEach(() => {
 });
 
 describe('Line results', () => {
-  it('shows the example hint until something is typed', async () => {
+  it('rotates the empty placeholder only while unfocused', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      const view = await setup().render();
+      expect(input(view).placeholder).toBe(strings.linePlaceholder);
+      await view.act(() => {
+        vi.advanceTimersByTime(6_000);
+      });
+      expect(input(view).placeholder).toBe(strings.lineKeyboardHint);
+      await view.act(() => {
+        input(view).focus();
+      });
+      expect(input(view).placeholder).toBe(strings.linePlaceholder);
+      await view.act(() => {
+        vi.advanceTimersByTime(6_000);
+      });
+      expect(input(view).placeholder).toBe(strings.linePlaceholder);
+      view.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('starts with no misleading example hint or results', async () => {
     const view = await setup().render();
-    expect(view.get('[data-deck="example-hint"]').textContent).toBe(
-      strings.exampleHint,
-    );
+    expect(view.query('[data-deck="example-hint"]')).toBeNull();
     expect(view.query('[data-deck="line-results"]')).toBeNull();
     view.unmount();
   });
@@ -107,18 +264,18 @@ describe('Line results', () => {
       .getAll('[data-deck="card"] span')
       .map((item) => item.textContent);
     expect(titles).toEqual(['Alpha docs', 'Alpha beta']);
-    expect(view.get('[data-deck="card"]').getAttribute('href')).toBe(
-      'https://alpha.example/',
-    );
+    expect(view.get('[data-deck="card"]').tagName).toBe('BUTTON');
     expect(activeText(view)).toBe('Alpha docs');
     view.unmount();
   });
 
-  it('says so when no card matches', async () => {
+  it('explains how to search the web without searching a plain query', async () => {
     const view = await setup().render();
-    await typeQuery(view, 'zzz');
+    await typeQuery(view, 'weather tomorrow');
     expect(view.container.textContent).toContain(strings.noResults);
     expect(view.query('[data-deck="card"]')).toBeNull();
+    await press(view, 'Enter');
+    expect(lineActions.searchWeb).not.toHaveBeenCalled();
     view.unmount();
   });
 
@@ -139,11 +296,75 @@ describe('Line results', () => {
     await typeQuery(view, '?weather');
     expect(view.container.textContent).toContain(strings.searchWeb);
     expect(view.container.textContent).not.toContain(strings.cardsGroup);
+    await view.act(() => click(view.get('[data-deck="web-search-result"]')));
+    await vi.waitFor(() =>
+      expect(lineActions.searchWeb).toHaveBeenCalledWith(
+        'weather',
+        SETTINGS_DEFAULTS,
+        expect.any(Function),
+      ),
+    );
+    view.unmount();
+  });
+
+  it('caps each group and shows how many results remain', async () => {
+    const fixture = Array.from({ length: 20 }, (_, index) =>
+      card(`match_${index}`, `Match ${index}`),
+    );
+    const view = await setup(SETTINGS_DEFAULTS, fixture).render();
+    await typeQuery(view, 'match');
+    expect(view.getAll('[data-deck="card"]')).toHaveLength(8);
+    expect(view.get('[data-deck="result-more"]').textContent).toBe(
+      'and 12 more…',
+    );
+    view.unmount();
+  });
+
+  it('opens a typed hostname and executes an action row by mouse', async () => {
+    const assign = vi
+      .spyOn(window.location, 'assign')
+      .mockImplementation(() => undefined);
+    const { props, render: mount } = setup();
+    const view = await mount();
+    await typeQuery(view, 'foo.com');
+    expect(view.get('[data-deck="url-result"]').textContent).toContain(
+      'https://foo.com/',
+    );
+    await press(view, 'Enter');
+    await vi.waitFor(() =>
+      expect(assign).toHaveBeenCalledWith('https://foo.com/'),
+    );
+    await typeQuery(view, '>settings');
+    await view.act(() => click(view.get('[data-deck="action-result"]')));
+    await vi.waitFor(() =>
+      expect(lineActions.executeAction).toHaveBeenCalledWith(
+        'settings',
+        expect.objectContaining({ openSettings: props.openSettings }),
+      ),
+    );
+    expect(input(view).value).toBe('');
     view.unmount();
   });
 });
 
 describe('Line keyboard selection', () => {
+  it('cycles Cards and Notes by Tab, with arrows inside the chosen group', async () => {
+    const fixture = [
+      card('note', 'Alpha docs', { note: 'Alpha note details' }),
+      card('other', 'Alpha beta'),
+    ];
+    const view = await setup(SETTINGS_DEFAULTS, fixture).render();
+    await typeQuery(view, 'alpha');
+    expect(view.getAll('[data-deck="line-group"]')).toHaveLength(2);
+    await press(view, 'Tab');
+    expect(activeText(view)).toBe('Alpha docs');
+    expect(view.get('[data-deck="note-result"] small').textContent).toContain(
+      'Alpha note',
+    );
+    await press(view, 'Tab');
+    expect(activeText(view)).toBe('Alpha docs');
+    view.unmount();
+  });
   it('moves the selection with arrows and Tab, wrapping both ways', async () => {
     const view = await setup().render();
     await typeQuery(view, 'alpha');
@@ -220,13 +441,19 @@ describe('Line Enter', () => {
     await press(view, 'ArrowDown');
 
     expect((await press(view, 'Enter')).defaultPrevented).toBe(true);
-    expect(assign).toHaveBeenCalledWith('https://beta.example/');
-    await press(view, 'Enter', { shiftKey: true });
-    expect(open).toHaveBeenCalledWith(
-      'https://beta.example/',
-      '_blank',
-      'noopener',
+    await vi.waitFor(() =>
+      expect(assign).toHaveBeenCalledWith('https://beta.example/'),
     );
+    await press(view, 'Enter', { shiftKey: true });
+    await vi.waitFor(() =>
+      expect(open).toHaveBeenCalledWith(
+        'https://beta.example/',
+        '_blank',
+        'noopener',
+      ),
+    );
+    expect(markCardsOpened).toHaveBeenCalledWith(['beta']);
+    expect(upsertCard).not.toHaveBeenCalled();
     view.unmount();
   });
 
@@ -252,12 +479,20 @@ describe('Line Enter', () => {
     await press(view, 'Enter');
     await vi.waitFor(() =>
       expect(lineActions.executeAction).toHaveBeenCalledWith('theme-day', {
+        query: '>theme',
         settings: props.settings,
         repository: REPOSITORY,
         saveSettings: props.saveSettings,
         openSettings: props.openSettings,
-        notify: props.notify,
+        openWorkspace: props.openWorkspace,
+        prepareWorkspace: props.prepareWorkspace,
+        notify: props.notifyInfo,
+        notifySuccess: props.notifySuccess,
+        notifyNotice: props.notifyNotice,
       }),
+    );
+    expect(view.get<HTMLInputElement>('[data-deck="line"] input').value).toBe(
+      '',
     );
     view.unmount();
   });
@@ -274,6 +509,33 @@ describe('Line Enter', () => {
       ),
     );
     view.unmount();
+  });
+
+  it('creates once on repeated Enter and preserves text typed during the write', async () => {
+    let complete: (() => void) | undefined;
+    lineActions.executeAction.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const view = await setup().render();
+    try {
+      await typeQuery(view, '>new page Work');
+      await press(view, 'Enter');
+      await vi.waitFor(() =>
+        expect(lineActions.executeAction).toHaveBeenCalledTimes(1),
+      );
+      await press(view, 'Enter');
+      await view.act(() => vi.dynamicImportSettled());
+      expect(lineActions.executeAction).toHaveBeenCalledTimes(1);
+      await typeQuery(view, 'Next draft');
+      await view.act(() => complete?.());
+      await vi.waitFor(() => expect(input(view).value).toBe('Next draft'));
+    } finally {
+      complete?.();
+      view.unmount();
+    }
   });
 
   it('reports a non-Error failure too', async () => {
@@ -299,6 +561,7 @@ describe('Line Enter', () => {
       expect(lineActions.searchWeb).toHaveBeenCalledWith(
         'cats',
         props.settings,
+        props.saveSettings,
       ),
     );
     expect(props.openHelp).not.toHaveBeenCalled();
@@ -355,7 +618,7 @@ describe('Line focus keys', () => {
     await press(view, 'Escape');
     expect(input(view).value).toBe('');
     expect(document.activeElement).not.toBe(input(view));
-    expect(view.query('[data-deck="example-hint"]')).not.toBeNull();
+    expect(view.query('[data-deck="line-results"]')).toBeNull();
     view.unmount();
   });
 });

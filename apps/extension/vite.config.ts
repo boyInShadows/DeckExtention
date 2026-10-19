@@ -17,9 +17,8 @@ const BUILD_TARGET = 'chrome116';
  */
 const IS_COVERAGE_BUILD = process.env.DECK_COVERAGE === '1';
 
-/** Schema, storage and the libraries under them: see `manualChunks`. */
-const CORE_CHUNK_PATTERN =
-  /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:zod|idb|fractional-indexing)\/|\/packages\/schema\/|\/src\/storage\/(?:database|document|repository)\.ts$/;
+const UI_RUNTIME_PATTERN =
+  /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?preact\//;
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), crx({ manifest })],
@@ -40,16 +39,10 @@ export default defineConfig({
     assetsInlineLimit: 4096,
     rollupOptions: {
       output: {
-        /*
-         * The new tab and the service worker share the data layer. Left to
-         * itself Rollup splits that shared graph into a new chunk per
-         * importer combination, and every split adds import/export glue the
-         * 60 kB surface pays for. One named `core` chunk keeps it whole.
-         */
         manualChunks(id) {
-          return CORE_CHUNK_PATTERN.test(id.replaceAll('\\', '/'))
-            ? 'core'
-            : undefined;
+          const path = id.replaceAll('\\', '/');
+          if (UI_RUNTIME_PATTERN.test(path)) return 'ui-runtime';
+          return undefined;
         },
       },
     },

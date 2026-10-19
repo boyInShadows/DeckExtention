@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import {
   CAPTURE_NOTICE_KEY,
+  BACKUP_ERROR_KEY,
+  DRAWER_COMMAND_ERROR_KEY,
   SETTINGS_DEFAULTS,
   type Card,
   type Deck,
@@ -28,6 +30,7 @@ import { Surface } from './Surface';
  * Surface the way those components would.
  */
 vi.mock('./Pins', () => ({ Pins: StubPins }));
+vi.mock('../resurface/Resurface', () => ({ default: () => null }));
 vi.mock('./SettingsPanel', () => ({ default: StubSettings }));
 vi.mock('./HelpOverlay', () => ({ default: StubHelp }));
 vi.mock('../drawer/drawer', () => ({ default: StubDrawer }));
@@ -38,7 +41,7 @@ vi.mock('../drawer/drawer', () => ({ default: StubDrawer }));
  */
 vi.mock('../drawer/WorkspaceDnd', () => ({ WorkspaceDnd: StubDnd }));
 
-const DRAWER_EXIT_MS = 320;
+const DRAWER_EXIT_MS = 480;
 const CLOCK_TICK_MS = 1_000;
 const MORNING = new Date(2026, 0, 2, 9, 0, 0);
 const EVENING = new Date(2026, 0, 2, 20, 0, 0);
@@ -179,6 +182,8 @@ const DECK: Deck = {
 
 function fakeRepository() {
   return {
+    getRecoveryIssueCount: () => 0,
+    getSettings: vi.fn(() => Promise.resolve(SETTINGS_DEFAULTS)),
     setSettings: vi.fn((next: Settings) => Promise.resolve(next)),
     listPages: vi.fn(() => Promise.resolve([PAGE])),
     listDecks: vi.fn(() => Promise.resolve([DECK])),
@@ -212,7 +217,12 @@ function surfaceData(
 const frames = new Map<number, FrameRequestCallback>();
 const idles = new Map<number, IdleRequestCallback>();
 let nextHandle = 1;
-let messageListeners: ((message: unknown) => void)[] = [];
+type MessageListener = (
+  message: unknown,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response: boolean) => void,
+) => boolean | undefined;
+let messageListeners: MessageListener[] = [];
 let storageGet = vi.fn(() => Promise.resolve<Record<string, unknown>>({}));
 const storageRemove = vi.fn(() => Promise.resolve());
 const cancelIdle = vi.fn((handle: number) => idles.delete(handle));
@@ -230,13 +240,15 @@ function stubBrowser(): void {
   });
   vi.stubGlobal('cancelIdleCallback', cancelIdle);
   vi.stubGlobal('chrome', {
+    tabs: { getCurrent: () => Promise.resolve({ id: 7 }) },
     storage: { local: { get: storageGet, remove: storageRemove } },
     runtime: {
+      sendMessage: vi.fn(() => Promise.resolve({ error: null })),
       onMessage: {
-        addListener: (listener: (message: unknown) => void) => {
+        addListener: (listener: MessageListener) => {
           messageListeners = [...messageListeners, listener];
         },
-        removeListener: (listener: (message: unknown) => void) => {
+        removeListener: (listener: MessageListener) => {
           messageListeners = messageListeners.filter(
             (item) => item !== listener,
           );
@@ -285,7 +297,12 @@ function surface(view: RenderResult): HTMLElement {
 }
 
 function alertText(view: RenderResult): string | null {
-  return view.query('[data-deck="error"]')?.textContent ?? null;
+  return (
+    view
+      .getAll('[data-deck="toast"][data-kind="error"]')
+      .at(-1)
+      ?.querySelector('span')?.textContent ?? null
+  );
 }
 
 async function press(
@@ -386,7 +403,7 @@ describe('Surface first paint', () => {
 
   it('ticks the clock every second, with seconds when asked', async () => {
     vi.useFakeTimers({
-      toFake: ['Date', 'setInterval', 'clearInterval'],
+      toFake: ['Date', 'setTimeout', 'clearTimeout'],
     });
     vi.setSystemTime(EVENING);
     const view = await mount(surfaceData({ showSeconds: true }));
@@ -400,6 +417,40 @@ describe('Surface first paint', () => {
       new Date(EVENING.getTime() + CLOCK_TICK_MS).toISOString(),
     );
     view.unmount();
+  });
+
+  it('waits for the next minute boundary when seconds are hidden', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    const start = new Date(2026, 0, 2, 20, 0, 20);
+    vi.setSystemTime(start);
+    const view = await mount(surfaceData({ showSeconds: false }));
+    const clock = view.get('[data-deck="clock"]');
+    await view.act(() => {
+      vi.advanceTimersByTime(39_999);
+    });
+    expect(clock.getAttribute('datetime')).toBe(start.toISOString());
+    await view.act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(clock.getAttribute('datetime')).toBe(
+      new Date(start.getTime() + 40_000).toISOString(),
+    );
+    view.unmount();
+  });
+
+  it('shows a locale-aware date and switches to a 12-hour clock', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(EVENING);
+    const view = await mount(surfaceData({ use12HourClock: true }));
+    expect(view.get('[data-deck="date"]').textContent).toBe(
+      EVENING.toLocaleDateString(undefined, { dateStyle: 'full' }),
+    );
+    expect(view.get('[data-deck="clock"]').textContent).toContain('8:00');
+    view.unmount();
+
+    const withoutDate = await mount(surfaceData({ showDate: false }));
+    expect(withoutDate.query('[data-deck="date"]')).toBeNull();
+    withoutDate.unmount();
   });
 
   it('marks deck-ready once, on the first frame of the first surface', async () => {
@@ -429,9 +480,48 @@ describe('Surface hand-over from Quick Save', () => {
     );
     stubBrowser();
     const view = await mount(surfaceData());
-    expect(storageGet).toHaveBeenCalledWith(CAPTURE_NOTICE_KEY);
+    expect(storageGet).toHaveBeenCalledWith(
+      expect.arrayContaining([CAPTURE_NOTICE_KEY]),
+    );
     expect(alertText(view)).toBe('Could not show the toast');
-    expect(storageRemove).toHaveBeenCalledWith(CAPTURE_NOTICE_KEY);
+    expect(storageRemove).toHaveBeenCalledWith([CAPTURE_NOTICE_KEY]);
+    view.unmount();
+  });
+
+  it('shows Quick Save success as success and consumes drawer errors', async () => {
+    storageGet = vi.fn(() =>
+      Promise.resolve<Record<string, unknown>>({
+        [CAPTURE_NOTICE_KEY]: {
+          message: 'Saved to Inbox',
+          createdAt: 1,
+          kind: 'success',
+        },
+        [DRAWER_COMMAND_ERROR_KEY]: { message: 'offline', occurredAt: 1 },
+      }),
+    );
+    stubBrowser();
+    const view = await mount(surfaceData());
+    expect(
+      view.get('[data-deck="toast"][data-kind="success"]').textContent,
+    ).toContain('Saved to Inbox');
+    expect(alertText(view)).toContain('offline');
+    expect(storageRemove).toHaveBeenCalledWith([
+      CAPTURE_NOTICE_KEY,
+      DRAWER_COMMAND_ERROR_KEY,
+    ]);
+    view.unmount();
+  });
+
+  it('shows a backup maintenance error without consuming its retry key', async () => {
+    storageGet = vi.fn(() =>
+      Promise.resolve<Record<string, unknown>>({
+        [BACKUP_ERROR_KEY]: { message: 'quota', occurredAt: 1 },
+      }),
+    );
+    stubBrowser();
+    const view = await mount(surfaceData());
+    expect(alertText(view)).toContain('quota');
+    expect(storageRemove).not.toHaveBeenCalled();
     view.unmount();
   });
 
@@ -531,6 +621,25 @@ describe('Surface drawer', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('cancels all repeated close timers when the drawer reopens', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const view = await mount(surfaceData());
+    try {
+      await clickOn(view, view.getByLabel(strings.openDrawer));
+      await flushFrames(view);
+      await clickOn(view, view.getByText('close drawer'));
+      await clickOn(view, view.getByText('close drawer'));
+      await clickOn(view, view.getByLabel(strings.openDrawer));
+      await view.act(() => {
+        vi.advanceTimersByTime(DRAWER_EXIT_MS);
+      });
+      await flushFrames(view);
+      expect(drawer(view)?.dataset.open).toBe('true');
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('toggles with Ctrl+J in either case, and ignores a plain j', async () => {
     const view = await mount(surfaceData());
     expect((await press(view, document.body, 'j')).defaultPrevented).toBe(
@@ -550,35 +659,25 @@ describe('Surface drawer', () => {
 
   it('toggles on the background toggle message and ignores others', async () => {
     const view = await mount(surfaceData());
+    const replies: boolean[] = [];
     const send = async (message: unknown) => {
       await view.act(() => {
-        for (const listener of messageListeners) listener(message);
+        for (const listener of messageListeners)
+          listener(message, {}, (reply: boolean) => replies.push(reply));
       });
       await settle(view);
     };
-    for (const ignored of [null, 'deck:toggle-drawer', {}, { type: 'other' }])
+    for (const ignored of [null, 'deck:d', {}, { type: 'other' }])
       await send(ignored);
+    await send({ drawer: 8 });
     expect(drawer(view)).toBeNull();
 
-    await send({ type: 'deck:toggle-drawer' });
+    await send({ drawer: 7 });
     await flushFrames(view);
     expect(drawer(view)?.dataset.open).toBe('true');
+    expect(replies).toEqual([true]);
     view.unmount();
     expect(messageListeners).toHaveLength(0);
-  });
-
-  it('closes on Escape, but not while typing in a field', async () => {
-    const view = await mount(surfaceData());
-    await clickOn(view, view.getByLabel(strings.openDrawer));
-    await flushFrames(view);
-
-    await press(view, view.get('[data-deck="drawer-input"]'), 'Escape');
-    await press(view, document.body, 'Enter');
-    expect(drawer(view)?.dataset.open).toBe('true');
-
-    await press(view, document.body, 'Escape');
-    expect(drawer(view)?.dataset.open).toBe('false');
-    view.unmount();
   });
 
   it('opens from Space in an empty Line and closes Settings first', async () => {
@@ -697,7 +796,7 @@ describe('Surface settings and keys', () => {
     view.unmount();
   });
 
-  it('reports a failed save and clears the alert after the next success', async () => {
+  it('reports failed saves and confirms the next success', async () => {
     const repository = fakeRepository();
     repository.setSettings
       .mockRejectedValueOnce(new Error('quota exceeded'))
@@ -710,17 +809,27 @@ describe('Surface settings and keys', () => {
     await clickOn(view, toggle);
     expect(alertText(view)).toBe(`${strings.updateFailed} locked`);
     await clickOn(view, toggle);
-    expect(alertText(view)).toBeNull();
+    expect(
+      view
+        .getAll('[data-deck="toast"][data-kind="success"]')
+        .at(-1)
+        ?.querySelector('span')?.textContent,
+    ).toBe(strings.saved);
     expect(surface(view).dataset.blurred).toBe('true');
     view.unmount();
   });
 
   it('re-reads the workspace after a bulk import', async () => {
     const repository = fakeRepository();
+    repository.getSettings.mockResolvedValue({
+      ...SETTINGS_DEFAULTS,
+      theme: 'day',
+    });
     const view = await mount(surfaceData({}, repository));
     await clickOn(view, view.getByLabel(strings.settings));
     await clickOn(view, view.getByText('reload'));
     expect(view.get('[data-deck="pins-stub"]').dataset.count).toBe('3');
+    expect(document.documentElement.dataset.theme).toBe('day');
     await clickOn(view, view.getByLabel(strings.openDrawer));
     expect(view.get('[data-deck="drawer-stub"]').dataset.shape).toBe('1/1/3');
     view.unmount();

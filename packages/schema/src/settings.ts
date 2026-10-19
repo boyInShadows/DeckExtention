@@ -1,12 +1,17 @@
 import { z } from 'zod';
-import { CUSTOM_CSS_MAX_LENGTH, TokenNameSchema, UrlSchema } from './common';
+import {
+  CUSTOM_CSS_MAX_LENGTH,
+  IdSchema,
+  TokenNameSchema,
+  UrlSchema,
+} from './common';
+import { WALLPAPER_DIM_MAX } from './constants';
+export { SETTINGS_DEFAULTS, WALLPAPER_DIM_MAX } from './constants';
 
 /** Night is the default; System follows `prefers-color-scheme`. */
 export const ThemeSchema = z.enum(['night', 'day', 'system']);
 
 /** Percent of dimming laid over a wallpaper (FableTasks P1.S5). */
-export const WALLPAPER_DIM_MAX = 60;
-
 const KEYMAP_ENTRY_MAX = 32;
 const KEYMAP_MAX_BINDINGS = 64;
 
@@ -32,6 +37,11 @@ export const SettingsSchema = z.strictObject({
   /** Empty means no greeting line at all - never a placeholder (P1.S3). */
   ownerName: z.string().max(80),
   showSeconds: z.boolean(),
+  showDate: z.boolean().default(true),
+  use12HourClock: z.boolean().default(false),
+  showResurface: z.boolean().default(true),
+  showShelf: z.boolean().default(false),
+  shelfDeckIds: z.array(IdSchema).default([]),
   /** The `B` blur toggle; persisted across tabs (P1.S5). */
   isBlurred: z.boolean(),
   /** Space on an empty Line opens the drawer. On by default, per AGENTS.md 2. */
@@ -53,27 +63,13 @@ export const SettingsSchema = z.strictObject({
     .max(1024)
     .includes('{query}')
     .default('https://www.google.com/search?q={query}'),
+  searchPermission: z.literal('declined').optional(),
 });
 
 /**
  * The zero-setup-tax defaults (rubric P2). A fresh install is valid Settings
  * without the user touching anything.
  */
-export const SETTINGS_DEFAULTS: Settings = Object.freeze({
-  theme: 'night',
-  ownerName: '',
-  showSeconds: false,
-  isBlurred: false,
-  canSpaceOpenDrawer: true,
-  wallpaper: { kind: 'none' },
-  wallpaperDim: 0,
-  wallpaperGradient: null,
-  wallpaperLuminance: null,
-  customCss: '',
-  keymap: [],
-  searchUrlTemplate: 'https://www.google.com/search?q={query}',
-} satisfies Settings);
-
 export type Theme = z.infer<typeof ThemeSchema>;
 export type Wallpaper = z.infer<typeof WallpaperSchema>;
 export type Settings = z.infer<typeof SettingsSchema>;

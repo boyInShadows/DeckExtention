@@ -16,6 +16,7 @@ export function buildToastModel(
   result: SaveResult,
   theme: Theme,
   css: string,
+  isFirstGrant = false,
 ): ToastModel {
   const isSaved = result.kind === 'saved';
   const location =
@@ -29,7 +30,11 @@ export function buildToastModel(
     message: isSaved
       ? captureStrings.saved
       : `${captureStrings.duplicate} ${location}`,
-    hint: isSaved ? captureStrings.savedHint : captureStrings.duplicateHint,
+    hint: isFirstGrant
+      ? captureStrings.permissionReason
+      : isSaved
+        ? captureStrings.savedHint
+        : captureStrings.duplicateHint,
     labels: {
       addNote: captureStrings.addNote,
       undo: captureStrings.undo,

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
+import { BOOKMARKS_PERMISSION_DECLINED_KEY } from '../permissions/keys';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import {
@@ -30,7 +31,7 @@ type ImportState =
 interface BookmarkImportProps {
   repository: DeckRepository;
   backups: BackupService;
-  onImported: () => void;
+  onImported: (isSuccess: boolean) => void;
   onError: (error: unknown) => void;
 }
 
@@ -48,6 +49,7 @@ export function BookmarkImport({
 }: BookmarkImportProps) {
   const [state, setState] = useState<ImportState>({ step: 'idle' });
   const [isGranted, setIsGranted] = useState(false);
+  const [isDeclined, setIsDeclined] = useState<boolean | null>(null);
   const [notice, setNotice] = useState('');
   const isBusy = state.step === 'importing';
 
@@ -56,6 +58,37 @@ export function BookmarkImport({
       .contains(BOOKMARKS_PERMISSION)
       .then(setIsGranted, onError);
   }, [onError]);
+  useEffect(() => {
+    chrome.storage.local
+      .get(BOOKMARKS_PERMISSION_DECLINED_KEY)
+      .then(
+        (items) =>
+          setIsDeclined(items[BOOKMARKS_PERMISSION_DECLINED_KEY] === true),
+        onError,
+      );
+  }, [onError]);
+  useEffect(() => {
+    const onChanged = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      area: string,
+    ) => {
+      if (area === 'local' && changes[BOOKMARKS_PERMISSION_DECLINED_KEY])
+        setIsDeclined(
+          changes[BOOKMARKS_PERMISSION_DECLINED_KEY].newValue === true,
+        );
+    };
+    const onRemoved = ({
+      permissions = [],
+    }: chrome.permissions.Permissions) => {
+      if (permissions.includes('bookmarks')) setIsGranted(false);
+    };
+    chrome.storage.onChanged.addListener(onChanged);
+    chrome.permissions.onRemoved.addListener(onRemoved);
+    return () => {
+      chrome.storage.onChanged.removeListener(onChanged);
+      chrome.permissions.onRemoved.removeListener(onRemoved);
+    };
+  }, []);
 
   const plan = async (tree: BookmarkFolder) => {
     const [pages, decks, cards] = await Promise.all([
@@ -78,13 +111,23 @@ export function BookmarkImport({
 
   const importFromChrome = async () => {
     try {
-      // First await in the click: Chrome only prompts inside a user gesture.
-      const isAllowed = await chrome.permissions.request(BOOKMARKS_PERMISSION);
-      setIsGranted(isAllowed);
-      if (!isAllowed) {
+      if (!isGranted && isDeclined) {
         setNotice(strings.bookmarksDeclined);
         return;
       }
+      // First await in the click: Chrome only prompts inside a user gesture.
+      const isAllowed =
+        isGranted || (await chrome.permissions.request(BOOKMARKS_PERMISSION));
+      setIsGranted(isAllowed);
+      if (!isAllowed) {
+        await chrome.storage.local.set({
+          [BOOKMARKS_PERMISSION_DECLINED_KEY]: true,
+        });
+        setIsDeclined(true);
+        setNotice(strings.bookmarksDeclined);
+        return;
+      }
+      await chrome.storage.local.remove(BOOKMARKS_PERMISSION_DECLINED_KEY);
       await preview(fromChromeTree(await chrome.bookmarks.getTree()));
     } catch (importError) {
       onError(importError);
@@ -116,11 +159,11 @@ export function BookmarkImport({
         setState({ step: 'importing', progress }),
       );
       setState({ step: 'done', links: planned.cards.length });
-      onImported();
+      onImported(true);
     } catch (importError) {
       setState({ step: 'idle' });
       onError(importError);
-      onImported();
+      onImported(false);
     }
   };
 
@@ -139,7 +182,7 @@ export function BookmarkImport({
       </p>
       <button
         type="button"
-        disabled={isBusy}
+        disabled={isBusy || isDeclined === null}
         onClick={() => void importFromChrome()}
       >
         {strings.importChromeBookmarks}

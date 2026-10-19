@@ -1,4 +1,9 @@
 // @vitest-environment happy-dom
+import {
+  BOOKMARKS_PERMISSION_DECLINED_KEY,
+  TABS_PERMISSION_DECLINED_KEY,
+  TAB_GROUPS_PERMISSION_DECLINED_KEY,
+} from '../permissions/keys';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
@@ -12,8 +17,14 @@ function stubPermissions(granted: chrome.permissions.Permissions) {
       Promise.resolve(true),
     ),
   };
-  vi.stubGlobal('chrome', { permissions });
-  return permissions;
+  const storage = {
+    local: {
+      get: vi.fn(() => Promise.resolve({})),
+      remove: vi.fn(() => Promise.resolve()),
+    },
+  };
+  vi.stubGlobal('chrome', { permissions, storage });
+  return { ...permissions, storage };
 }
 
 async function settle(view: RenderResult): Promise<void> {
@@ -39,6 +50,25 @@ afterEach(() => {
 });
 
 describe('GrantedAccess', () => {
+  it('lists, revokes and enables retry for optional tab group access', async () => {
+    const permissions = stubPermissions({ permissions: ['tabGroups'] });
+    permissions.storage.local.get.mockResolvedValue({
+      [TAB_GROUPS_PERMISSION_DECLINED_KEY]: true,
+    });
+    const view = await render(<GrantedAccess onError={vi.fn()} />);
+    await settle(view);
+    expect(rows(view)).toEqual([strings.accessTabGroups]);
+    await view.act(() => click(view.getByText(strings.revokeAccess)));
+    expect(permissions.remove).toHaveBeenCalledWith({
+      permissions: ['tabGroups'],
+    });
+    expect(rows(view)).toEqual([]);
+    await view.act(() => click(view.get('[data-deck="permission-retry"]')));
+    expect(permissions.storage.local.remove).toHaveBeenCalledWith(
+      TAB_GROUPS_PERMISSION_DECLINED_KEY,
+    );
+    view.unmount();
+  });
   it('lists only the in-context permissions that are granted', async () => {
     stubPermissions({ permissions: ['storage', 'search'] });
     const view = await render(<GrantedAccess onError={vi.fn()} />);
@@ -97,6 +127,26 @@ describe('GrantedAccess', () => {
     await view.act(() => click(view.getByText(strings.revokeAccess)));
     expect(onError).toHaveBeenLastCalledWith(removeError);
     expect(rows(view)).toEqual([strings.accessTabs]);
+    view.unmount();
+  });
+
+  it('lets declined tabs and bookmarks grants be retried in Advanced', async () => {
+    const permissions = stubPermissions({ permissions: ['bookmarks'] });
+    permissions.storage.local.get.mockResolvedValue({
+      [TABS_PERMISSION_DECLINED_KEY]: true,
+      [BOOKMARKS_PERMISSION_DECLINED_KEY]: true,
+    });
+    const view = await render(<GrantedAccess onError={vi.fn()} />);
+    await settle(view);
+    expect(rows(view)).toEqual([strings.bookmarks]);
+    expect(view.getAll('[data-deck="permission-retry"]')).toHaveLength(2);
+    await view.act(() =>
+      click(nth(view.getAll('[data-deck="permission-retry"]'))),
+    );
+    expect(permissions.storage.local.remove).toHaveBeenCalledWith(
+      TABS_PERMISSION_DECLINED_KEY,
+    );
+    expect(view.getAll('[data-deck="permission-retry"]')).toHaveLength(1);
     view.unmount();
   });
 });

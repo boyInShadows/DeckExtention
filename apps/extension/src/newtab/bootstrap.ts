@@ -1,11 +1,5 @@
-import {
-  INBOX_DECK_ID,
-  SETTINGS_DEFAULTS,
-  type Card,
-  type Deck,
-  type Page,
-  type Settings,
-} from 'deck-schema';
+import { INBOX_DECK_ID, SETTINGS_DEFAULTS } from 'deck-schema/constants';
+import { type Card, type Deck, type Page, type Settings } from 'deck-schema';
 
 import { strings } from '../i18n/strings';
 import { DeckRepository } from '../storage/repository';
@@ -39,10 +33,13 @@ export interface SurfaceData {
 export async function hydrateSurface(
   repository = new DeckRepository(),
 ): Promise<SurfaceData> {
-  const existingCards = await repository.listCards();
-  const existingDecks = await repository.listDecks();
-  const existingPages = await repository.listPages();
-  const settings = await repository.getSettings();
+  const [existingCards, existingDecks, existingPages, settings] =
+    await Promise.all([
+      repository.listCards(),
+      repository.listDecks(),
+      repository.listPages(),
+      repository.getSettings(),
+    ]);
   const defaultDeck = existingDecks.find(
     (item) => item.deletedAt === null && item.kind === 'normal',
   );
@@ -52,8 +49,9 @@ export async function hydrateSurface(
       existingDecks,
       defaultDeck.pageId,
     );
+    const cards = await loadLegacyPins(repository, existingCards);
     return {
-      cards: existingCards,
+      cards,
       decks,
       pages: existingPages,
       defaultDeckId: defaultDeck.id,
@@ -63,13 +61,17 @@ export async function hydrateSurface(
   }
 
   if (!isFreshStore(existingPages, existingDecks, existingCards)) {
-    return recoverDefaultDeck(
+    const recovered = await recoverDefaultDeck(
       repository,
       existingPages,
       existingDecks,
       existingCards,
       settings,
     );
+    return {
+      ...recovered,
+      cards: await loadLegacyPins(repository, existingCards),
+    };
   }
 
   /*
@@ -79,7 +81,7 @@ export async function hydrateSurface(
    */
   const page = await repository.upsertPage({
     id: EXAMPLE_PAGE_ID,
-    title: strings.examplesPage,
+    title: strings.examplesTitle,
     order: 'a0',
     createdAt: EXAMPLE_CREATED_AT,
     updatedAt: EXAMPLE_CREATED_AT,
@@ -88,7 +90,7 @@ export async function hydrateSurface(
   const deck = await repository.upsertDeck({
     id: EXAMPLE_DECK_ID,
     pageId: EXAMPLE_PAGE_ID,
-    title: strings.examplesDeck,
+    title: strings.examplesTitle,
     kind: 'normal',
     order: 'a0',
     color: null,
@@ -128,6 +130,16 @@ export async function hydrateSurface(
     settings: { ...SETTINGS_DEFAULTS, ...settings },
     repository,
   };
+}
+
+async function loadLegacyPins(
+  repository: DeckRepository,
+  cards: Card[],
+): Promise<Card[]> {
+  if (!cards.some((card) => card.pinned && card.deckId !== INBOX_DECK_ID))
+    return cards;
+  const { migratePinsToInbox } = await import('./migratePinsToInbox');
+  return migratePinsToInbox(repository, cards);
 }
 
 /** True when nothing exists except, possibly, the Inbox and its cards. */

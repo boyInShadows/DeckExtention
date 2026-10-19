@@ -3,6 +3,7 @@ import type { Card, Deck } from 'deck-schema';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { strings as surfaceStrings } from '../i18n/strings';
 import type { SurfaceData } from '../newtab/bootstrap';
 import { click, keyDown, render, type } from '../testing/render';
 import { NotePanel } from './NotePanel';
@@ -39,12 +40,18 @@ const DECK: Deck = {
 function fakeRepository() {
   const upsertCard = vi.fn(async (value: Card) => value);
   const upsertDeck = vi.fn(async (value: Deck) => value);
+  const listCards = vi.fn(async () => [CARD]);
+  const listDecks = vi.fn(async () => [DECK]);
   return {
     upsertCard,
     upsertDeck,
+    listCards,
+    listDecks,
     repository: {
       upsertCard,
       upsertDeck,
+      listCards,
+      listDecks,
     } as unknown as SurfaceData['repository'],
   };
 }
@@ -140,7 +147,7 @@ describe('NotePanel', () => {
     });
     expect(escape?.defaultPrevented).toBe(true);
     expect(panel.upsertCard).not.toHaveBeenCalled();
-    expect(panel.onClose).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(panel.onClose).toHaveBeenCalledOnce());
     panel.view.unmount();
   });
 
@@ -152,7 +159,7 @@ describe('NotePanel', () => {
         keyDown(panel.textarea(), 'Enter', modifier);
       });
       expect(panel.upsertCard).toHaveBeenCalledOnce();
-      expect(panel.onClose).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(panel.onClose).toHaveBeenCalledOnce());
       panel.view.unmount();
     }
   });
@@ -177,6 +184,7 @@ describe('NotePanel', () => {
   it('reports a non-Error rejection as text', async () => {
     const panel = await renderPanel(DECK);
     panel.upsertDeck.mockRejectedValueOnce('disk gone');
+    await panel.view.act(() => type(panel.textarea(), 'Changed'));
     await panel.view.act(() => click(panel.view.getByText(strings.saveNote)));
     expect(panel.onError).toHaveBeenCalledWith(
       `${strings.updateFailed} disk gone`,
@@ -201,7 +209,76 @@ describe('NotePanel', () => {
   it('closes from the Close button', async () => {
     const panel = await renderPanel(CARD);
     click(panel.view.getByText(strings.close));
-    expect(panel.onClose).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(panel.onClose).toHaveBeenCalledOnce());
+    panel.view.unmount();
+  });
+
+  it('saves a typed note before Close and retains it on failure', async () => {
+    const panel = await renderPanel(CARD);
+    panel.upsertCard.mockRejectedValueOnce(new Error('disk full'));
+    await panel.view.act(() => type(panel.textarea(), 'Do not lose this'));
+    await panel.view.act(() => click(panel.view.getByText(strings.close)));
+    await vi.waitFor(() => expect(panel.onError).toHaveBeenCalledOnce());
+    expect(panel.onClose).not.toHaveBeenCalled();
+    expect(panel.textarea().value).toBe('Do not lose this');
+    expect(panel.view.get('[data-deck="note-status"]').textContent).toBe(
+      strings.saveFailed,
+    );
+    await panel.view.act(() => click(panel.view.getByText(strings.close)));
+    await vi.waitFor(() => expect(panel.onClose).toHaveBeenCalledOnce());
+    expect(panel.upsertCard).toHaveBeenCalledTimes(2);
+    panel.view.unmount();
+  });
+
+  it('writes the note onto the latest card without reverting other changes', async () => {
+    const panel = await renderPanel(CARD);
+    panel.listCards.mockResolvedValueOnce([
+      { ...CARD, title: 'Changed elsewhere', deckId: 'deck_other' },
+    ]);
+    await panel.view.act(() => type(panel.textarea(), 'Fresh note'));
+    await panel.view.act(() => click(panel.view.getByText(strings.saveNote)));
+    await vi.waitFor(() =>
+      expect(panel.upsertCard).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Changed elsewhere',
+          deckId: 'deck_other',
+          note: 'Fresh note',
+        }),
+      ),
+    );
+    panel.view.unmount();
+  });
+
+  it('keeps the draft if its card was deleted elsewhere', async () => {
+    const panel = await renderPanel(CARD);
+    panel.listCards.mockResolvedValueOnce([]);
+    await panel.view.act(() => type(panel.textarea(), 'Keep this'));
+    await panel.view.act(() => click(panel.view.getByText(strings.close)));
+    await vi.waitFor(() =>
+      expect(panel.onError).toHaveBeenCalledWith(
+        `${strings.updateFailed} ${strings.noteTargetMissing}`,
+      ),
+    );
+    expect(panel.upsertCard).not.toHaveBeenCalled();
+    expect(panel.onClose).not.toHaveBeenCalled();
+    expect(panel.textarea().value).toBe('Keep this');
+    panel.view.unmount();
+  });
+
+  it('autosaves 600 ms after typing and shows Saved', async () => {
+    const panel = await renderPanel(CARD);
+    await panel.view.act(() => type(panel.textarea(), 'Autosaved'));
+    expect(panel.view.get('[data-deck="note-status"]').textContent).toBe(
+      strings.saving,
+    );
+    await vi.waitFor(() => expect(panel.upsertCard).toHaveBeenCalledOnce(), {
+      timeout: 1500,
+    });
+    await vi.waitFor(() =>
+      expect(panel.view.get('[data-deck="note-status"]').textContent).toBe(
+        surfaceStrings.saved,
+      ),
+    );
     panel.view.unmount();
   });
 });

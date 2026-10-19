@@ -59,6 +59,9 @@ describe('resolveKeymap and actionForChord', () => {
     expect(actionForChord(keymap, 'inbox', 'ArrowRight')).toBe('move');
     expect(actionForChord(keymap, 'drawer', 'ArrowRight')).toBe('nextDeck');
     expect(actionForChord(keymap, 'surface', 'b')).toBe('blur');
+    expect(
+      actionForChord(keymap, 'inbox', press('e', { ctrlKey: true }) ?? ''),
+    ).toBe('export');
   });
 
   it('gives every action a distinct default within each scope', () => {

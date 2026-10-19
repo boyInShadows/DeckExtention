@@ -229,7 +229,11 @@ test('quick save: one-time grant is revocable, and notices reach the next new ta
     );
     await deck.goto('chrome://newtab/');
     await deck.waitForSelector(READY_SELECTOR);
-    await expect(deck.getByRole('alert')).toHaveText(NOTICE);
+    await expect(
+      deck.locator('[data-deck="toast"][data-kind="error"]', {
+        hasText: NOTICE,
+      }),
+    ).toContainText(NOTICE);
     await expect
       .poll(() =>
         deck.evaluate(async () =>

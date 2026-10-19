@@ -6,29 +6,53 @@
  *   P2.S4  Quick Save: the `quick-save` command, the toolbar icon and the
  *          "Save to Deck" context menus, with the toast injected at that
  *          moment only (see ./quickSave.ts)
- *   P3     `stash` - declared in the manifest, deliberately unhandled until
- *          the feature exists rather than wired to an empty lie
+ *   P3.S1  `stash` saves the window atomically before closing its tabs
  */
 
+import { BACKUP_ERROR_KEY } from 'deck-schema';
+import { MAINTENANCE_MESSAGE } from 'deck-schema/constants';
 import { captureStrings } from '../i18n/captureStrings';
 import { BackupService } from '../storage/backup';
-import { openDeckDatabase } from '../storage/database';
+import { ACTIVE_DATABASE_KEY, openDeckDatabase } from '../storage/database';
 import { DeckRepository } from '../storage/repository';
+import { purgeDeleted } from '../storage/trashMaintenance';
+import * as writeValidation from '../storage/writeValidation';
 import { handleToastDecision, quickSave } from './quickSave';
+import { toggleDrawer } from './toggleDrawer';
+import { handleStashMessage, runStashCommand } from './stash';
+import { STASH_MESSAGE, UNDO_STASH_MESSAGE } from '../sessions/constants';
+import { expireSessions } from '../storage/sessionExpiry';
 
-const BACKUP_ERROR_KEY = 'backupMaintenanceError';
-const repository = new DeckRepository();
-const backups = new BackupService(repository, openDeckDatabase());
+let repository = new DeckRepository({ validation: writeValidation });
+let backups = new BackupService(
+  repository,
+  openDeckDatabase(undefined, writeValidation),
+);
 
-async function runBackupMaintenance(): Promise<void> {
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes[ACTIVE_DATABASE_KEY]) return;
+  repository = new DeckRepository({ validation: writeValidation });
+  backups = new BackupService(
+    repository,
+    openDeckDatabase(undefined, writeValidation),
+  );
+  void runBackupMaintenance();
+});
+
+async function runBackupMaintenance(): Promise<string | null> {
   try {
-    await backups.ensureDailySnapshot();
+    // Chrome extension workers cannot import() the repository's lazy purge chunk.
+    const didSnapshot = await backups.ensureDailySnapshot();
+    await repository.expireSessions(expireSessions);
+    if (didSnapshot) await repository.purge(undefined, purgeDeleted);
     await chrome.storage.local.remove(BACKUP_ERROR_KEY);
+    return null;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await chrome.storage.local.set({
       [BACKUP_ERROR_KEY]: { message, occurredAt: Date.now() },
     });
+    return message;
   }
 }
 
@@ -65,6 +89,14 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!sender.tab || sender.id !== chrome.runtime.id) return false;
+  if (message?.type === STASH_MESSAGE || message?.type === UNDO_STASH_MESSAGE) {
+    void handleStashMessage(repository, message, sender).then(sendResponse);
+    return true;
+  }
+  if (message?.type === MAINTENANCE_MESSAGE) {
+    void runBackupMaintenance().then((error) => sendResponse({ error }));
+    return true;
+  }
   void handleToastDecision(repository, message, sender).then((reply) => {
     if (reply) sendResponse(reply);
   });
@@ -74,20 +106,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.action.onClicked.addListener((tab) => void quickSave(repository, tab));
 
 chrome.commands.onCommand.addListener((command, tab) => {
+  if (command === 'stash') {
+    void runStashCommand(repository, tab);
+    return;
+  }
   if (command === 'quick-save') {
     void quickSave(repository, tab);
     return;
   }
   if (command !== 'toggle-drawer') return;
-  void chrome.runtime
-    .sendMessage({ type: 'deck:toggle-drawer' })
-    .catch(async (messageError: unknown) => {
-      const message =
-        messageError instanceof Error
-          ? messageError.message
-          : String(messageError);
-      await chrome.storage.local.set({
-        drawerCommandError: { message, occurredAt: Date.now() },
-      });
-    });
+  void toggleDrawer(tab);
 });

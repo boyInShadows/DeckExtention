@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import { TimestampSchema } from './common';
+export {
+  INBOX_DECK_ID,
+  OPEN_PAGE_HASH_PREFIX,
+  OPEN_SETTINGS_HASH,
+} from './constants';
 
 /**
  * The contract between the service worker (Quick Save, FableTasks P2.S4) and
@@ -7,7 +12,6 @@ import { TimestampSchema } from './common';
  */
 
 /** The Inbox is a singleton system deck with a stable id (MasterPlan I3). */
-export const INBOX_DECK_ID = 'deck_inbox';
 
 /**
  * Quick Save reads the page it saves and shows a toast on it. Both are
@@ -22,14 +26,23 @@ export const CAPTURE_PERMISSIONS = ['activeTab', 'scripting'] as const;
  * the service worker leaves a notice for the next new tab to display.
  */
 export const CAPTURE_NOTICE_KEY = 'deck:capture-notice';
+export const CAPTURE_PERMISSION_DECLINED_KEY =
+  'deck:capture-permission-declined';
+export const SETTINGS_NOTICE_KEY = 'deck:settings-notice';
+export const BACKUP_ERROR_KEY = 'backupMaintenanceError';
+export const DRAWER_COMMAND_ERROR_KEY = 'drawerCommandError';
+
+export const BackgroundErrorSchema = z.strictObject({
+  message: z.string().min(1).max(400),
+  occurredAt: TimestampSchema,
+});
 
 export const CaptureNoticeSchema = z.strictObject({
   message: z.string().min(1).max(400),
   createdAt: TimestampSchema,
+  kind: z.enum(['success', 'error']).optional(),
 });
 
 /** `#page=<id>` opens the drawer on that page; `#settings` opens Settings. */
-export const OPEN_PAGE_HASH_PREFIX = '#page=';
-export const OPEN_SETTINGS_HASH = '#settings';
 
 export type CaptureNotice = z.infer<typeof CaptureNoticeSchema>;

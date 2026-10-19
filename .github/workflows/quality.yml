@@ -1,0 +1,33 @@
+name: Deck quality
+
+on:
+  push:
+    branches: [development, ramtin]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm size
+      - run: pnpm build
+      # Measure production budgets without screencast and DOM snapshot overhead.
+      - run: pnpm e2e --reporter=line,json --trace=off
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results.json
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: production-test-results
+          path: test-results/
+          retention-days: 3
+      - run: pnpm test:coverage
+        if: ${{ !cancelled() }}

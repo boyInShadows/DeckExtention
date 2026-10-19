@@ -9,6 +9,7 @@ import {
   type Keymap,
 } from '../keys/keymap';
 import type { DeckRepository } from '../storage/repository';
+import { panelStrings as strings } from '../i18n/panelStrings';
 import {
   nextGridPosition,
   type GridMove,
@@ -16,6 +17,7 @@ import {
 } from './drawerKeys';
 import { openCard, pinCards, trashCards } from './inboxActions';
 import { replaceEntity } from './workspaceModel';
+import type { UndoAction } from './UndoToast';
 
 /**
  * Keyboard for the deck grid (FableTasks P2.S6). Movement is plain DOM focus
@@ -38,8 +40,12 @@ interface WorkspaceKeysOptions {
   isPaused: boolean;
   onCardsChange: (cards: Card[]) => void;
   onError: (error: unknown) => void;
+  onSuccess?: ((message: string) => void) | undefined;
   onNote: (card: Card) => void;
   onMove: (card: Card) => void;
+  onEdit: (card: Card) => void;
+  onDone: (card: Card) => void;
+  offerUndo: ((action: UndoAction) => void) | undefined;
 }
 
 interface Grid {
@@ -106,6 +112,10 @@ export function useWorkspaceKeys(options: WorkspaceKeysOptions): void {
       const { repository, onNote, onMove } = latest.current;
       const position = positionOf(grid, document.activeElement);
       if (action === 'open' || action === 'openInNewTab') {
+        if (!card.url) {
+          onNote(card);
+          return true;
+        }
         enqueue(async (cards) =>
           replaceEntity(
             cards,
@@ -113,7 +123,17 @@ export function useWorkspaceKeys(options: WorkspaceKeysOptions): void {
           ),
         );
       } else if (action === 'trash') {
-        enqueue((cards) => trashCards(repository, cards, [card.id]));
+        enqueue(async (cards) => {
+          const next = await trashCards(repository, cards, [card.id]);
+          latest.current.offerUndo?.({
+            label: strings.trashedCards(1),
+            undo: async () => {
+              await repository.restore('card', card.id);
+              latest.current.onCardsChange(await repository.listCards());
+            },
+          });
+          return next;
+        });
         // Once the row is gone, focus the card that took its place.
         void queue.current.then(() =>
           requestAnimationFrame(() => {
@@ -133,7 +153,11 @@ export function useWorkspaceKeys(options: WorkspaceKeysOptions): void {
           }),
         );
       } else if (action === 'pin') {
-        enqueue((cards) => pinCards(repository, cards, [card.id], card.deckId));
+        enqueue(async (cards) => {
+          const next = await pinCards(repository, cards, [card.id]);
+          latest.current.onSuccess?.(strings.pinSaved);
+          return next;
+        });
       } else if (action === 'note') onNote(card);
       else if (action === 'move') onMove(card);
       else return false;
@@ -171,18 +195,52 @@ export function useWorkspaceKeys(options: WorkspaceKeysOptions): void {
       const { mainRef, keymap, cards, isPaused } = latest.current;
       const main = mainRef.current;
       if (!main || isPaused || isTypingTarget(event.target)) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest('button, a, select, [role="menuitem"]')
+      )
+        return;
       const isInGrid =
         event.target === document.body || main.contains(event.target as Node);
       // A card mid keyboard-drag owns the keys until it is dropped.
       if (!isInGrid || main.querySelector('[data-dragging]')) return;
       const chord = chordFromEvent(event);
       const action = chord ? actionForChord(keymap, 'drawer', chord) : null;
-      if (!action) return;
       const grid = readGrid(main);
       const cardId =
         document.activeElement?.closest<HTMLElement>('[data-deck="card"]')
           ?.dataset.cardId;
       const card = cards.find(({ id }) => id === cardId);
+      if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+        if (card && (event.key === 'e' || event.key === 'F2')) {
+          latest.current.onEdit(card);
+          event.preventDefault();
+          return;
+        }
+        if (card && event.key === 'd') {
+          latest.current.onDone(card);
+          event.preventDefault();
+          return;
+        }
+        const deck =
+          document.activeElement?.closest<HTMLElement>('[data-deck="deck"]');
+        if (!card && deck && (event.key === 'e' || event.key === 'F2')) {
+          deck.querySelector<HTMLElement>('[data-deck="deck-title"]')?.click();
+          event.preventDefault();
+          return;
+        }
+        if (!card && deck && event.key === 'n') {
+          const openAll = deck.querySelector<HTMLElement>(
+            '[data-deck="deck-open-all"]',
+          );
+          if (openAll) {
+            openAll.click();
+            event.preventDefault();
+            return;
+          }
+        }
+      }
+      if (!action) return;
       const isHandled =
         runDeckAction(action, grid, main) ||
         (card !== undefined && runCardAction(action, card, grid));

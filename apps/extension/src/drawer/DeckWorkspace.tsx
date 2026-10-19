@@ -10,7 +10,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { Icon } from '../newtab/Icon';
 import type { SurfaceData } from '../newtab/bootstrap';
+import type { UndoAction } from './UndoToast';
 import {
   activeCards,
   activeDecks,
@@ -18,6 +20,7 @@ import {
   replaceEntity,
 } from './workspaceModel';
 import { dragId } from './dragIdentity';
+import { useDropHighlight } from './useDropHighlight';
 import { moveCards } from './inboxActions';
 import {
   moveTargets,
@@ -27,15 +30,25 @@ import {
 } from './inboxModel';
 import { MoveLine } from './MoveLine';
 import { useWorkspaceKeys } from './useWorkspaceKeys';
-import type { Keymap } from '../keys/keymap';
+import {
+  actionForChord,
+  chordFromEvent,
+  isTypingTarget,
+  type Keymap,
+} from '../keys/keymap';
 import { NotePanel } from './NotePanel';
+import { MarkdownNote } from './MarkdownNote';
 import { focusOnMount } from '../newtab/focusOnMount';
+import { CardRow } from './CardRow';
+import { DeckMenu } from './DeckMenu';
+import { SESSION_LIFETIME_MS } from '../sessions/constants';
+import { openDeck, type DeckOpenMode } from '../sessions/openDeck';
+import '../tasks/tasks.css';
 
-const DECK_COLORS = ['slate', 'blue', 'green', 'amber', 'rose'] as const;
 const DROP_SETTLE_MS = 160;
 const DROP_SETTLE_EASING = 'var(--deck-ease-hover)';
 
-interface Props {
+export interface WorkspaceProps {
   cards: Card[];
   data: SurfaceData;
   decks: Deck[];
@@ -45,16 +58,25 @@ interface Props {
   onCardsChange: (cards: Card[]) => void;
   onDecksChange: (decks: Deck[]) => void;
   onError: (message: string) => void;
+  onSuccess?: ((message: string) => void) | undefined;
+  offerUndo?: (action: UndoAction) => void;
   keymap: Keymap;
   /** False while the drawer animates closed: keys must not act then. */
   isOpen: boolean;
+  isNoteOpen?: boolean;
+  onEditNote?: (entity: Deck | Card) => void;
+  initialEditingDeckId?: string | undefined;
 }
 
 const now = () => Date.now();
+const focusTitle = (element: HTMLInputElement | null) => {
+  element?.focus();
+  element?.select();
+};
 const message = (error: unknown) =>
   `${strings.updateFailed} ${error instanceof Error ? error.message : String(error)}`;
 
-export function DeckWorkspace(props: Props) {
+export function DeckWorkspace(props: WorkspaceProps) {
   const visible = useMemo(
     () =>
       activeDecks(props.decks, props.selectedPageId, props.selectedDeckKind),
@@ -62,6 +84,9 @@ export function DeckWorkspace(props: Props) {
   );
   const [noteEntity, setNoteEntity] = useState<Deck | Card | null>(null);
   const [movingCard, setMovingCard] = useState<Card | null>(null);
+  const [editingDeckId, setEditingDeckId] = useState<string | null>(
+    props.initialEditingDeckId ?? null,
+  );
   const [recentTargets, setRecentTargets] = useState(() =>
     parseRecentTargets(localStorage.getItem(RECENT_TARGETS_KEY)),
   );
@@ -75,11 +100,31 @@ export function DeckWorkspace(props: Props) {
     keymap: props.keymap,
     cards: props.cards,
     repository: props.data.repository,
-    isPaused: !props.isOpen || noteEntity !== null || movingCard !== null,
+    isPaused:
+      !props.isOpen ||
+      props.isNoteOpen ||
+      noteEntity !== null ||
+      movingCard !== null,
     onCardsChange: props.onCardsChange,
     onError: (error) => props.onError(message(error)),
-    onNote: setNoteEntity,
+    onSuccess: props.onSuccess,
+    onNote: props.onEditNote ?? setNoteEntity,
     onMove: setMovingCard,
+    onEdit: (card) => {
+      mainRef.current
+        ?.querySelector<HTMLElement>(
+          `[data-card-id="${window.CSS.escape(card.id)}"] [data-deck="card-edit"]`,
+        )
+        ?.click();
+    },
+    onDone: (card) => {
+      mainRef.current
+        ?.querySelector<HTMLElement>(
+          `[data-card-id="${window.CSS.escape(card.id)}"] [aria-label="${strings.markDone}"]`,
+        )
+        ?.click();
+    },
+    offerUndo: props.offerUndo,
   });
   // After a panel closes, keyboard focus goes back to the card it was about.
   const refocus = (id: string) =>
@@ -99,6 +144,22 @@ export function DeckWorkspace(props: Props) {
       props.onCardsChange(
         await moveCards(props.data.repository, props.cards, [card.id], deckId),
       );
+      props.offerUndo?.({
+        label: strings.movedCards(1),
+        undo: async () => {
+          const current = (await props.data.repository.listCards()).find(
+            ({ id }) => id === card.id,
+          );
+          if (!current) throw new Error(strings.updateFailed);
+          await props.data.repository.upsertCard({
+            ...current,
+            deckId: card.deckId,
+            order: card.order,
+            updatedAt: now(),
+          });
+          props.onCardsChange(await props.data.repository.listCards());
+        },
+      });
       refocus(card.id);
     } catch (error) {
       props.onError(message(error));
@@ -120,7 +181,9 @@ export function DeckWorkspace(props: Props) {
         updatedAt: time,
         deletedAt: null,
       });
+      setEditingDeckId(saved.id);
       props.onDecksChange([...props.decks, saved]);
+      props.onSuccess?.(strings.deckSaved);
     } catch (error) {
       props.onError(message(error));
     }
@@ -130,6 +193,9 @@ export function DeckWorkspace(props: Props) {
   return (
     <main ref={mainRef} data-deck="decks" className="deck-workspace">
       <div className="deck-grid">
+        {props.selectedDeckKind === 'session' && visible.length === 0 ? (
+          <p data-deck="sessions-empty">{strings.sessionsEmpty}</p>
+        ) : null}
         <SortableContext
           items={visible.map(({ id }) => dragId('deck', id))}
           strategy={rectSortingStrategy}
@@ -139,19 +205,22 @@ export function DeckWorkspace(props: Props) {
               key={deck.id}
               {...props}
               deck={deck}
+              isNew={editingDeckId === deck.id}
               visibleCards={activeCards(props.cards, deck.id)}
-              onEditNote={setNoteEntity}
+              onEditNote={props.onEditNote ?? setNoteEntity}
             />
           ))}
         </SortableContext>
-        <button
-          type="button"
-          className="deck-add"
-          data-deck="deck-add"
-          onClick={() => void addDeck()}
-        >
-          {strings.addDeck}
-        </button>
+        {props.selectedDeckKind !== 'session' ? (
+          <button
+            type="button"
+            className="deck-add"
+            data-deck="deck-add"
+            onClick={() => void addDeck()}
+          >
+            {strings.addDeck}
+          </button>
+        ) : null}
       </div>
       {noteEntity ? (
         <NotePanel
@@ -167,6 +236,7 @@ export function DeckWorkspace(props: Props) {
               props.onCardsChange(replaceEntity(props.cards, saved));
             else props.onDecksChange(replaceEntity(props.decks, saved));
             setNoteEntity(saved);
+            props.onSuccess?.(strings.noteSaved);
           }}
         />
       ) : null}
@@ -187,11 +257,13 @@ export function DeckWorkspace(props: Props) {
 
 function DeckColumn({
   deck,
+  isNew,
   visibleCards,
   onEditNote,
   ...props
-}: Props & {
+}: WorkspaceProps & {
   deck: Deck;
+  isNew: boolean;
   visibleCards: Card[];
   onEditNote: (entity: Deck | Card) => void;
 }) {
@@ -199,29 +271,94 @@ function DeckColumn({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
-    isOver,
   } = useSortable({
     id: dragId('deck', deck.id),
     transition: { duration: DROP_SETTLE_MS, easing: DROP_SETTLE_EASING },
   });
+  const isOver = useDropHighlight(dragId('deck', deck.id));
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
+  const isOpening = useRef(false);
+  const [isEditing, setIsEditing] = useState(isNew);
+  const [title, setTitle] = useState(deck.title);
+  const menuButton = useRef<HTMLButtonElement>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [url, setUrl] = useState('');
+  const open = async (mode: DeckOpenMode = 'tabs') => {
+    if (isOpening.current) return;
+    isOpening.current = true;
+    setIsMenuOpen(false);
+    try {
+      const tab = await chrome.tabs.getCurrent();
+      if (!tab) throw new Error(strings.openTabFailed);
+      const count = await openDeck(
+        props.data.repository,
+        deck.id,
+        tab.windowId,
+        mode,
+      );
+      props.onSuccess?.(strings.tabsOpened(count));
+    } catch (error) {
+      props.onError(message(error));
+    } finally {
+      try {
+        const [cards, decks] = await Promise.all([
+          props.data.repository.listCards(),
+          props.data.repository.listDecks(),
+        ]);
+        props.onCardsChange(cards);
+        props.onDecksChange(decks);
+      } catch (error) {
+        props.onError(message(error));
+      }
+      isOpening.current = false;
+    }
+  };
+  const commitTitle = () => {
+    const trimmed = title.trim();
+    setIsEditing(false);
+    if (trimmed && trimmed !== deck.title) void saveDeck({ title: trimmed });
+    else setTitle(deck.title);
+  };
   const saveDeck = async (change: Partial<Deck>) => {
     try {
-      props.onDecksChange(
-        replaceEntity(
-          props.decks,
-          await props.data.repository.upsertDeck({
-            ...deck,
-            ...change,
-            updatedAt: now(),
-          }),
-        ),
+      const next = {
+        ...deck,
+        ...change,
+        updatedAt: now(),
+      };
+      const { expiresAt, ...withoutExpiry } = next;
+      const saved = await props.data.repository.upsertDeck(
+        expiresAt === undefined ? withoutExpiry : next,
       );
+      props.onDecksChange(replaceEntity(props.decks, saved));
+      if ('expiresAt' in change)
+        props.onSuccess?.(
+          saved.expiresAt === undefined
+            ? strings.sessionKept
+            : strings.sessionExpiring,
+        );
+      else if (change.pageId && change.pageId !== deck.pageId)
+        props.offerUndo?.({
+          label: strings.movedDeck,
+          undo: async () => {
+            const current = (await props.data.repository.listDecks()).find(
+              ({ id }) => id === deck.id,
+            );
+            if (!current) throw new Error(strings.updateFailed);
+            await props.data.repository.upsertDeck({
+              ...current,
+              pageId: deck.pageId,
+              updatedAt: now(),
+            });
+            props.onDecksChange(await props.data.repository.listDecks());
+          },
+        });
+      else props.onSuccess?.(strings.deckSaved);
     } catch (error) {
       props.onError(message(error));
     }
@@ -245,6 +382,7 @@ function DeckColumn({
       props.onCardsChange([...props.cards, saved]);
       setUrl('');
       setIsAdding(false);
+      props.onSuccess?.(strings.cardSaved);
     } catch (error) {
       props.onError(message(error));
     }
@@ -258,58 +396,161 @@ function DeckColumn({
       }}
       data-deck="deck"
       data-deck-id={deck.id}
+      data-task-mode={deck.isTaskMode || undefined}
       className="deck-column"
       data-color={deck.color ?? undefined}
       data-dragging={isDragging || undefined}
       data-drag-over={isOver || undefined}
-      {...attributes}
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (
+          !props.isOpen ||
+          deck.kind !== 'session' ||
+          isTypingTarget(event.target) ||
+          (event.target as HTMLElement).closest(
+            '[data-deck="card"], input, textarea, [role="menu"]',
+          )
+        )
+          return;
+        const chord = chordFromEvent(event);
+        if (!chord || actionForChord(props.keymap, 'drawer', chord) !== 'pin')
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        void saveDeck({
+          expiresAt:
+            deck.expiresAt === undefined
+              ? now() + SESSION_LIFETIME_MS
+              : undefined,
+        });
+      }}
     >
-      <header className="deck-column__header" {...listeners}>
+      <header className="deck-column__header">
+        <button
+          hidden
+          type="button"
+          data-deck="deck-open-all"
+          onClick={() => void open()}
+        />
+        <button
+          ref={setActivatorNodeRef}
+          type="button"
+          data-deck="deck-drag"
+          className="deck-column__drag"
+          aria-label={strings.dragDeck}
+          title={strings.dragDeck}
+          {...attributes}
+          {...listeners}
+        >
+          ⋮⋮
+        </button>
         <button
           type="button"
-          aria-label={strings.collapseDeck}
+          aria-label={
+            deck.isCollapsed ? strings.expandDeck : strings.collapseDeck
+          }
+          title={deck.isCollapsed ? strings.expandDeck : strings.collapseDeck}
           onClick={() => void saveDeck({ isCollapsed: !deck.isCollapsed })}
         >
           {deck.isCollapsed ? '›' : '⌄'}
         </button>
+        {isEditing ? (
+          <input
+            ref={focusTitle}
+            className="deck-column__title deck-blurrable"
+            aria-label={strings.renameDeckPrompt}
+            value={title}
+            onChange={(event) => setTitle(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') commitTitle();
+              if (event.key === 'Escape') {
+                setTitle(deck.title);
+                setIsEditing(false);
+              }
+            }}
+            onBlur={commitTitle}
+          />
+        ) : (
+          <button
+            type="button"
+            data-deck="deck-title"
+            className="deck-column__title deck-blurrable"
+            onClick={() => {
+              setTitle(deck.title);
+              setIsEditing(true);
+            }}
+          >
+            {deck.title}
+          </button>
+        )}
+        <small data-deck="deck-count">
+          {deck.isTaskMode
+            ? strings.taskProgress(
+                visibleCards.filter((card) => card.done).length,
+                visibleCards.length,
+              )
+            : visibleCards.length}
+        </small>
+        {deck.kind === 'session' && deck.expiresAt === undefined ? (
+          <small data-deck="session-kept">{strings.sessionKeptLabel}</small>
+        ) : null}
         <button
-          type="button"
-          className="deck-column__title"
-          onDoubleClick={() => void renameDeck(deck, saveDeck)}
-        >
-          {deck.title}
-        </button>
-        <small>{visibleCards.length}</small>
-        <button
+          ref={menuButton}
           type="button"
           aria-label={strings.deckMenu}
-          onClick={() => setIsMenuOpen((value) => !value)}
+          title={strings.deckMenu}
+          aria-expanded={isMenuOpen}
+          onClick={(event) => {
+            setMenuAnchor(event.currentTarget);
+            setIsMenuOpen((value) => !value);
+          }}
         >
-          •••
+          <Icon name="menu" />
         </button>
       </header>
-      {isMenuOpen ? (
+      {isMenuOpen && menuAnchor ? (
         <DeckMenu
+          anchor={menuAnchor}
           deck={deck}
           pages={props.pages}
-          cards={visibleCards}
+          cards={
+            deck.kind === 'session'
+              ? props.cards.filter(
+                  (card) => card.deckId === deck.id && card.deletedAt === null,
+                )
+              : visibleCards
+          }
+          onOpen={open}
           saveDeck={saveDeck}
+          onRename={() => {
+            setTitle(deck.title);
+            setIsEditing(true);
+          }}
           onEditNote={onEditNote}
           onTrash={() => void trashDeck(deck, props)}
           onError={props.onError}
+          onClose={() => setIsMenuOpen(false)}
         />
       ) : null}
       {!deck.isCollapsed ? (
         <>
+          {deck.id === 'deck_examples' ? (
+            <p data-deck="example-hint">{strings.exampleHint}</p>
+          ) : null}
           {deck.note ? (
-            <button
-              type="button"
-              data-deck="deck-note"
-              className="deck-note"
-              onClick={() => onEditNote(deck)}
-            >
-              {deck.note}
-            </button>
+            <div data-deck="deck-note" className="deck-note">
+              <div className="deck-blurrable">
+                <MarkdownNote value={deck.note} />
+              </div>
+              <button
+                type="button"
+                data-deck="deck-note-edit"
+                onClick={() => onEditNote(deck)}
+                aria-label={strings.editDeckNote}
+              >
+                {strings.edit}
+              </button>
+            </div>
           ) : null}
           <div className="deck-cards">
             <SortableContext
@@ -328,6 +569,10 @@ function DeckColumn({
             {!visibleCards.length ? <p>{strings.emptyDeck}</p> : null}
           </div>
           <footer>
+            {visibleCards.length > 0 &&
+            visibleCards.every((card) => card.done) ? (
+              <span data-deck="all-done">{strings.allDone}</span>
+            ) : null}
             {isAdding ? (
               <form
                 onSubmit={(event) => {
@@ -359,191 +604,27 @@ function DeckColumn({
   );
 }
 
-function CardRow({
-  card,
-  onEditNote,
-  ...props
-}: Omit<Props, 'selectedPageId'> & {
-  card: Card;
-  onEditNote: (entity: Deck | Card) => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-    isOver,
-  } = useSortable({
-    id: dragId('card', card.id),
-    transition: { duration: DROP_SETTLE_MS, easing: DROP_SETTLE_EASING },
-  });
-  const update = async (change: Partial<Card>) => {
-    try {
-      props.onCardsChange(
-        replaceEntity(
-          props.cards,
-          await props.data.repository.upsertCard({
-            ...card,
-            ...change,
-            updatedAt: now(),
-          }),
-        ),
-      );
-    } catch (error) {
-      props.onError(message(error));
-    }
-  };
-  const trash = async () => {
-    try {
-      await props.data.repository.softDelete('card', card.id);
-      props.onCardsChange(props.cards.filter(({ id }) => id !== card.id));
-    } catch (error) {
-      props.onError(message(error));
-    }
-  };
-  return (
-    <article
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
-      data-deck="card"
-      data-card-id={card.id}
-      className="deck-card"
-      data-done={card.done || undefined}
-      data-dragging={isDragging || undefined}
-      data-drag-over={isOver || undefined}
-      {...attributes}
-      {...listeners}
-    >
-      <img
-        src={`/_favicon/?pageUrl=${encodeURIComponent(card.url)}&size=32`}
-        alt=""
-      />
-      <a href={card.url}>
-        <strong>{card.title}</strong>
-        <small>{card.hostname}</small>
-      </a>
-      <div className="deck-card__actions">
-        <button
-          type="button"
-          aria-label={strings.editNote}
-          onClick={() => onEditNote(card)}
-        >
-          {card.note ? '●' : '✎'}
-        </button>
-        <button
-          type="button"
-          aria-label={strings.markDone}
-          onClick={() => void update({ done: !card.done })}
-        >
-          ✓
-        </button>
-        <button
-          type="button"
-          aria-label={strings.trashCard}
-          onClick={() => void trash()}
-        >
-          ×
-        </button>
-      </div>
-    </article>
-  );
-}
-
-function DeckMenu({
-  deck,
-  pages,
-  cards,
-  saveDeck,
-  onEditNote,
-  onTrash,
-  onError,
-}: {
-  deck: Deck;
-  pages: Page[];
-  cards: Card[];
-  saveDeck: (change: Partial<Deck>) => Promise<void>;
-  onEditNote: (deck: Deck) => void;
-  onTrash: () => void;
-  onError: (value: string) => void;
-}) {
-  const openAll = async () => {
-    try {
-      const allowed = await chrome.permissions.request({
-        permissions: ['tabs'],
-      });
-      if (!allowed) return onError(strings.tabsPermissionDeclined);
-      await Promise.all(
-        cards.map(({ url }) => chrome.tabs.create({ url, active: false })),
-      );
-    } catch (error) {
-      onError(message(error));
-    }
-  };
-  return (
-    <div className="deck-menu" role="menu">
-      <button type="button" onClick={() => void renameDeck(deck, saveDeck)}>
-        {strings.renameDeck}
-      </button>
-      <button type="button" onClick={() => onEditNote(deck)}>
-        {strings.editDeckNote}
-      </button>
-      <button type="button" onClick={() => void openAll()}>
-        {strings.openAll}
-      </button>
-      <label>
-        {strings.deckColor}
-        <select
-          value={deck.color ?? ''}
-          onChange={(event) =>
-            void saveDeck({ color: event.target.value || null })
-          }
-        >
-          <option value="">{strings.defaultColor}</option>
-          {DECK_COLORS.map((color) => (
-            <option key={color}>{color}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {strings.moveToPage}
-        <select
-          value={deck.pageId}
-          onChange={(event) => void saveDeck({ pageId: event.target.value })}
-        >
-          {pages
-            .filter(({ deletedAt }) => deletedAt === null)
-            .map((page) => (
-              <option value={page.id} key={page.id}>
-                {page.title}
-              </option>
-            ))}
-        </select>
-      </label>
-      {deck.kind === 'normal' ? (
-        <button type="button" onClick={onTrash}>
-          {strings.trashDeck}
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-async function renameDeck(
-  deck: Deck,
-  saveDeck: (change: Partial<Deck>) => Promise<void>,
-) {
-  const title = window.prompt(strings.renameDeckPrompt, deck.title)?.trim();
-  if (title && title !== deck.title) await saveDeck({ title });
-}
-async function trashDeck(deck: Deck, props: Props) {
+async function trashDeck(deck: Deck, props: WorkspaceProps) {
   try {
-    await props.data.repository.softDelete('deck', deck.id);
-    props.onDecksChange(props.decks.filter(({ id }) => id !== deck.id));
+    await props.data.repository.trashDeck(deck.id);
+    const [decks, cards] = await Promise.all([
+      props.data.repository.listDecks(),
+      props.data.repository.listCards(),
+    ]);
+    props.onDecksChange(decks);
+    props.onCardsChange(cards);
+    props.offerUndo?.({
+      label: strings.trashedDeck,
+      undo: async () => {
+        await props.data.repository.restoreDeck(deck.id);
+        const [restoredDecks, restoredCards] = await Promise.all([
+          props.data.repository.listDecks(),
+          props.data.repository.listCards(),
+        ]);
+        props.onDecksChange(restoredDecks);
+        props.onCardsChange(restoredCards);
+      },
+    });
   } catch (error) {
     props.onError(message(error));
   }

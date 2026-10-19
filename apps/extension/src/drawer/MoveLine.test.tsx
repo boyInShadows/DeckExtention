@@ -133,7 +133,7 @@ describe('MoveLine', () => {
     view.unmount();
   });
 
-  it('cancels on Escape and on blur', async () => {
+  it('cancels on Escape and an outside pointer', async () => {
     const { view, input, onCancel } = await renderMoveLine();
     let escape: KeyboardEvent | undefined;
     await view.act(() => {
@@ -142,8 +142,9 @@ describe('MoveLine', () => {
     expect(escape?.defaultPrevented).toBe(true);
     expect(onCancel).toHaveBeenCalledTimes(1);
     await view.act(() => {
-      // preact/compat listens for onBlur as the bubbling focusout.
-      input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+      document.body.dispatchEvent(
+        new PointerEvent('pointerdown', { bubbles: true }),
+      );
     });
     expect(onCancel).toHaveBeenCalledTimes(2);
     view.unmount();
