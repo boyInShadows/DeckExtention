@@ -99,14 +99,15 @@ export async function openDeckDatabase(
   name = DATABASE_NAME,
   validation?: MigrationValidation,
 ): Promise<DeckDatabaseHandle> {
-  const activeName =
+  const [stored, databases] = await Promise.all([
     name === DATABASE_NAME &&
     typeof chrome !== 'undefined' &&
     chrome.storage?.local
-      ? (await chrome.storage.local.get(ACTIVE_DATABASE_KEY))[
-          ACTIVE_DATABASE_KEY
-        ]
-      : undefined;
+      ? chrome.storage.local.get(ACTIVE_DATABASE_KEY)
+      : undefined,
+    indexedDB.databases(),
+  ]);
+  const activeName = stored?.[ACTIVE_DATABASE_KEY];
   if (
     activeName !== undefined &&
     (typeof activeName !== 'string' || !activeName.startsWith('deck-recovery-'))
@@ -114,7 +115,7 @@ export async function openDeckDatabase(
     throw new Error('Bad database');
   }
   const selectedName = activeName ?? name;
-  const version = (await indexedDB.databases()).find(
+  const version = databases.find(
     (entry) => entry.name === selectedName,
   )?.version;
   let isPrepared = false;
