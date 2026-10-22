@@ -75,6 +75,24 @@ it('rejects an invalid active database without opening or upgrading it', async (
   expect(open).not.toHaveBeenCalled();
 });
 
+it('opens an already upgraded database despite stale version discovery', async () => {
+  const original = await openDeckDatabase(RECOVERY_DATABASE);
+  const record = { key: 'preserve-me', value: 'saved data' };
+  await original.put('meta', record);
+  original.close();
+  vi.spyOn(indexedDB, 'databases').mockResolvedValue([
+    { name: RECOVERY_DATABASE, version: 1 },
+  ]);
+  const database = await openDeckDatabase(RECOVERY_DATABASE);
+  try {
+    expect(database.version).toBe(3);
+    expect(await database.get('meta', record.key)).toEqual(record);
+    expect(await database.getAll('snapshots')).toEqual([]);
+  } finally {
+    database.close();
+  }
+});
+
 it.each(['selection', 'versions'])(
   'propagates failed %s reads without opening a database',
   async (failure) => {

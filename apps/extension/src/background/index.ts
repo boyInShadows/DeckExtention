@@ -12,6 +12,7 @@
 import { BACKUP_ERROR_KEY } from 'deck-schema';
 import { MAINTENANCE_MESSAGE } from 'deck-schema/constants';
 import { captureStrings } from '../i18n/captureStrings';
+import { TOAST_MESSAGE_TYPE } from '../capture/toastModel';
 import { BackupService } from '../storage/backup';
 import { ACTIVE_DATABASE_KEY, openDeckDatabase } from '../storage/database';
 import { DeckRepository } from '../storage/repository';
@@ -89,17 +90,21 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!sender.tab || sender.id !== chrome.runtime.id) return false;
+  let response: Promise<unknown>;
   if (message?.type === STASH_MESSAGE || message?.type === UNDO_STASH_MESSAGE) {
-    void handleStashMessage(repository, message, sender).then(sendResponse);
-    return true;
+    response = handleStashMessage(repository, message, sender);
+  } else if (message?.type === MAINTENANCE_MESSAGE) {
+    response = runBackupMaintenance().then((error) => ({ error }));
+  } else if (message?.type === TOAST_MESSAGE_TYPE) {
+    response = handleToastDecision(repository, message, sender);
+  } else {
+    return false;
   }
-  if (message?.type === MAINTENANCE_MESSAGE) {
-    void runBackupMaintenance().then((error) => sendResponse({ error }));
-    return true;
-  }
-  void handleToastDecision(repository, message, sender).then((reply) => {
-    if (reply) sendResponse(reply);
-  });
+  void response.then(sendResponse, (error: unknown) =>
+    sendResponse({
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
   return true;
 });
 
