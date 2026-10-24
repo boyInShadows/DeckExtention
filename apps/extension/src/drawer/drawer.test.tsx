@@ -840,6 +840,10 @@ describe('Drawer - keys', () => {
     ).toBe('true');
     await press(view, '[');
     expect(
+      view.getByText(strings.tasks).closest('button')?.dataset.selected,
+    ).toBe('true');
+    await press(view, '[');
+    expect(
       view.getByText(strings.sessions).closest('button')?.dataset.selected,
     ).toBe('true');
     await press(view, '[');
@@ -849,6 +853,10 @@ describe('Drawer - keys', () => {
     await press(view, ']');
     expect(
       view.getByText(strings.sessions).closest('button')?.dataset.selected,
+    ).toBe('true');
+    await press(view, ']');
+    expect(
+      view.getByText(strings.tasks).closest('button')?.dataset.selected,
     ).toBe('true');
     await press(view, ']');
     expect(

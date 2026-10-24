@@ -566,15 +566,18 @@
   /* The surface behind the drawer is already blurred. */
   .deck-drawer {
     position: fixed;
-    inset-inline: 0;
-    inset-block: var(--deck-drawer-peek) 0;
+    inset-inline: var(--deck-workspace-inline-start) var(--deck-space-4);
+    inset-block: var(--deck-workspace-block-start) var(--deck-space-4);
     z-index: 4;
     display: grid;
-    grid-template-columns: var(--deck-drawer-rail) 1fr;
+    grid-template-columns: var(--deck-drawer-rail) minmax(0, 1fr);
     overflow: hidden;
-    border-block-start: 1px solid var(--deck-color-hairline);
+    border: 1px solid var(--deck-color-panel-hairline);
+    border-radius: var(--deck-radius-tile);
     background: var(--deck-color-panel-glass);
-    box-shadow: 0 -1rem 3rem var(--deck-color-shadow);
+    color: var(--deck-color-panel-text);
+    box-shadow: 0 var(--deck-space-3) 3rem var(--deck-color-shadow);
+    backdrop-filter: blur(var(--deck-glass-blur));
     transform: translateY(100%);
     animation: deck-drawer-exit var(--deck-drawer-duration)
       var(--deck-drawer-ease) forwards;
@@ -589,7 +592,12 @@
     inset-block-start: var(--deck-space-1);
     inset-inline-end: var(--deck-space-1);
     z-index: 1;
+    display: grid;
+    place-items: center;
+    min-inline-size: var(--deck-control-size);
+    min-block-size: var(--deck-control-size);
     border: 0;
+    border-radius: calc(var(--deck-radius-panel) / 2);
     background: var(--deck-color-glass);
     color: var(--deck-color-text);
     font-size: 1.5rem;
@@ -618,7 +626,10 @@
 
   .deck-pages {
     display: grid;
-    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+    grid-template-rows:
+      repeat(5, auto) minmax(var(--deck-control-size), 1fr)
+      auto;
+    overflow-y: auto;
     gap: var(--deck-space-1);
     min-block-size: 0;
     padding: var(--deck-space-2);
@@ -1613,11 +1624,16 @@
 
   @media (width < 720px) {
     .deck-drawer {
+      inset-inline: var(--deck-space-1);
+      inset-block: calc(var(--deck-workspace-block-start) + var(--deck-space-1))
+        var(--deck-space-1);
       grid-template-columns: 4rem minmax(0, 1fr);
     }
 
     .deck-pages {
-      grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+      grid-template-rows:
+        repeat(4, auto) minmax(var(--deck-control-size), 1fr)
+        auto;
       padding-inline: var(--deck-space-1);
     }
 

@@ -1,0 +1,153 @@
+@layer components {
+  .deck-task-manager {
+    overflow: auto;
+    min-inline-size: 0;
+    padding: var(--deck-space-4);
+    color: var(--deck-color-panel-text);
+    scrollbar-color: var(--deck-color-text-muted) transparent;
+    caret-color: var(--deck-color-focus);
+  }
+
+  .deck-task-manager h1 {
+    margin: 0;
+    font-size: var(--deck-font-note-h1);
+    font-weight: 550;
+    letter-spacing: -0.03em;
+  }
+
+  .deck-task-manager header p,
+  .deck-tasks-empty {
+    color: var(--deck-color-panel-muted);
+    font-size: var(--deck-font-note-body);
+  }
+
+  .deck-task-manager form {
+    display: flex;
+    gap: var(--deck-space-1);
+    margin-block: var(--deck-space-4) var(--deck-space-3);
+    padding: var(--deck-space-1);
+    border: 1px solid var(--deck-color-panel-hairline);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-glass);
+  }
+
+  .deck-task-manager input {
+    flex: 1;
+    min-inline-size: 0;
+    inline-size: 100%;
+    padding-inline: var(--deck-space-1);
+    border: 0;
+    background: transparent;
+    color: inherit;
+  }
+
+  .deck-task-manager input::placeholder {
+    color: var(--deck-color-panel-muted);
+  }
+
+  .deck-task-manager button {
+    min-block-size: var(--deck-control-size);
+    border: 1px solid transparent;
+    border-radius: var(--deck-radius-panel);
+    padding-inline: var(--deck-space-2);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition: background var(--deck-motion-hover) var(--deck-ease-hover);
+  }
+
+  .deck-task-manager button:hover,
+  .deck-task-manager button[aria-pressed='true'] {
+    background: var(--deck-color-glass);
+    border-color: var(--deck-color-panel-hairline);
+  }
+
+  .deck-task-manager button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .deck-task-manager [data-deck='task-submit'] {
+    background: var(--deck-color-focus);
+    color: var(--deck-color-canvas);
+  }
+
+  .deck-task-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--deck-space-1);
+  }
+
+  .deck-task-filters span {
+    margin-inline-start: var(--deck-space-1);
+    color: var(--deck-color-panel-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .deck-task-list {
+    padding: 0;
+    margin-block: var(--deck-space-3) 0;
+    list-style: none;
+  }
+
+  .deck-task-list li {
+    display: flex;
+    align-items: center;
+    gap: var(--deck-space-1);
+    min-block-size: var(--deck-line-height);
+    border-block-end: 1px solid var(--deck-color-panel-hairline);
+  }
+
+  .deck-task-list [data-deck='task-note'] {
+    flex: 1;
+    min-inline-size: 0;
+    padding-inline: var(--deck-space-1);
+    text-align: start;
+    overflow-wrap: anywhere;
+  }
+
+  .deck-task-list :is([data-deck='task-done'], [data-deck='task-trash']) {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    padding-inline: var(--deck-space-1);
+  }
+
+  .deck-task-list [data-deck='task-done'] {
+    border-color: var(--deck-color-panel-muted);
+    border-radius: calc(var(--deck-radius-panel) / 2);
+  }
+
+  .deck-task-list [aria-checked='false'] svg {
+    visibility: hidden;
+  }
+
+  .deck-task-list [aria-checked='true'] {
+    background: var(--deck-color-focus);
+    color: var(--deck-color-canvas);
+  }
+
+  .deck-task-list [data-done] [data-deck='task-note'] {
+    color: var(--deck-color-panel-muted);
+    text-decoration: line-through;
+  }
+
+  .deck-tasks-empty {
+    padding-block: var(--deck-space-4);
+    line-height: 1.6;
+  }
+
+  @media (width < 720px) {
+    .deck-task-manager {
+      padding: var(--deck-space-3) var(--deck-space-2);
+    }
+
+    .deck-task-manager form {
+      gap: 0;
+    }
+
+    .deck-task-manager [data-deck='task-submit'] {
+      padding-inline: var(--deck-space-1);
+    }
+  }
+}

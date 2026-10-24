@@ -23,4 +23,6 @@ export interface DrawerProps {
   onNoteOpened?: () => void;
   initialPageId?: string | undefined;
   initialEditingDeckId?: string | undefined;
+  onPageSelect?: (id: string | null) => void;
+  navigationRequest?: { pageId: string } | undefined;
 }

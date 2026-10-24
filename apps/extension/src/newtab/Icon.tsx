@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 
 type IconName =
+  | 'links'
+  | 'tasks'
   | 'close'
   | 'menu'
   | 'edit'
@@ -12,6 +14,15 @@ type IconName =
   | 'chevron';
 
 const PATHS: Record<IconName, ReactNode> = {
+  links: (
+    <path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" />
+  ),
+  tasks: (
+    <>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="m8 12 3 3 5-6" />
+    </>
+  ),
   chevron: <path d="m6 9 6 6 6-6" />,
   close: <path d="M5 5 19 19M19 5 5 19" />,
   menu: (

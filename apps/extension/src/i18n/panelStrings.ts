@@ -6,6 +6,16 @@ import { strings } from './strings';
  */
 export const panelStrings = {
   ...strings,
+  tasksDescription: 'A little less on your mind.',
+  taskPlaceholder: 'What needs doing?',
+  addTask: 'Add',
+  openTasks: 'Open',
+  completedTasks: 'Completed',
+  taskStatus: 'Task status',
+  toggleTask: (title: string) => `Toggle task: ${title}`,
+  trashTask: 'Move task to Trash',
+  noOpenTasks: 'A clear list. Add a task when something comes to mind.',
+  noCompletedTasks: 'Completed tasks will appear here.',
   pinUrlPlaceholder: 'Paste a URL',
   pinLabelPlaceholder: 'Label (optional)',
   renamePin: 'Rename pin',

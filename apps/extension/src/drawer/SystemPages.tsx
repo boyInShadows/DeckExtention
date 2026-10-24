@@ -1,6 +1,7 @@
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { Icon } from '../newtab/Icon';
 import { SESSIONS_PAGE_ID } from '../sessions/constants';
+import { TASKS_PAGE_ID } from '../tasks/constants';
 import { INBOX_PAGE_ID, TRASH_PAGE_ID } from './drawerModel';
 
 export function SystemPages({
@@ -26,6 +27,12 @@ export function SystemPages({
       label: strings.sessions,
       icon: 'sessions' as const,
       count: sessionCount,
+    },
+    {
+      id: TASKS_PAGE_ID,
+      label: strings.tasks,
+      icon: 'tasks' as const,
+      count: 0,
     },
     {
       id: TRASH_PAGE_ID,

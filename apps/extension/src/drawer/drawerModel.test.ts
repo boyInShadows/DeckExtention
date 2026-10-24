@@ -51,6 +51,7 @@ describe('drawer page model', () => {
     expect(selectedPageId(pages, 'page_002')).toBe('page_002');
     expect(selectedPageId(pages, INBOX_PAGE_ID)).toBe(INBOX_PAGE_ID);
     expect(selectedPageId(pages, TRASH_PAGE_ID)).toBe(TRASH_PAGE_ID);
+    expect(selectedPageId(pages, 'tasks')).toBe('tasks');
     expect(selectedPageId(pages, 'missing')).toBe('page_001');
   });
 
