@@ -148,11 +148,31 @@ test('Resurface: one daily link across tabs, five-second Keep, tomorrow, Open, r
       await page.getByLabel('Close settings', { exact: true }).click();
       await expect(page.locator('[data-deck="toast"]')).toHaveCount(0);
       await page.setViewportSize({ width, height });
+      await page.evaluate(() => window.scrollTo(0, 0));
+      if (width < 900) {
+        const clock = await page.locator('[data-deck="clock"]').boundingBox();
+        const rail = await page
+          .locator('[data-deck="section-nav"]')
+          .boundingBox();
+        if (!clock || !rail)
+          throw new Error('Missing clock or navigation bounds');
+        expect(clock.y).toBeGreaterThanOrEqual(rail.y + rail.height);
+      }
       await panel.scrollIntoViewIfNeeded();
       const bounds = await panel.boundingBox();
       const pins = await page.locator('[data-deck="pins"]').boundingBox();
       expect(bounds).not.toBeNull();
       if (!bounds || !pins) throw new Error('Missing review or Pins bounds');
+      const navigation = await page
+        .locator('[data-deck="section-nav"]')
+        .boundingBox();
+      if (!navigation) throw new Error('Missing section navigation bounds');
+      expect(
+        bounds.x >= navigation.x + navigation.width ||
+          bounds.x + bounds.width <= navigation.x ||
+          bounds.y >= navigation.y + navigation.height ||
+          bounds.y + bounds.height <= navigation.y,
+      ).toBe(true);
       expect(bounds.y).toBeGreaterThan(pins.y + pins.height);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
       expect(bounds.y + bounds.height).toBeLessThanOrEqual(height);

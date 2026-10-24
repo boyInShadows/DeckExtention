@@ -1,0 +1,100 @@
+@layer components {
+  @media (width < 900px) {
+    .deck-drawer {
+      inset-inline: var(--deck-space-3);
+      inline-size: auto;
+    }
+
+    .deck-surface {
+      padding-inline: var(--deck-space-2);
+      padding-block-start: var(--deck-workspace-block-start);
+    }
+
+    .deck-settings {
+      inline-size: 100%;
+    }
+  }
+
+  @media (width < 720px) {
+    .deck-workspace {
+      padding: var(--deck-space-2);
+      padding-block-start: var(--deck-workspace-content-start);
+    }
+
+    .deck-drawer {
+      inset-inline: var(--deck-space-1);
+      inset-block: calc(var(--deck-workspace-block-start) + var(--deck-space-1))
+        var(--deck-space-1);
+      inline-size: auto;
+      block-size: auto;
+      grid-template-columns: 3.5rem minmax(0, 1fr);
+    }
+
+    .deck-pages {
+      grid-template-rows:
+        repeat(4, auto) minmax(var(--deck-control-size), 1fr)
+        auto;
+      padding-inline: var(--deck-space-1);
+    }
+
+    .deck-pages header,
+    .deck-pages__label {
+      display: none;
+    }
+
+    .deck-pages [data-page-glyph]::before {
+      display: grid;
+      place-items: center;
+      inline-size: 1.5rem;
+      block-size: 1.5rem;
+      border-radius: 0.375rem;
+      background: var(--deck-color-glass);
+      content: attr(data-page-glyph);
+      font-weight: 700;
+    }
+
+    .deck-pages :where(button) {
+      position: relative;
+      justify-content: center;
+    }
+
+    .deck-pages [data-deck='page'] small {
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline-end: 0;
+      min-inline-size: 1rem;
+      block-size: 1rem;
+      font-size: 0.625rem;
+    }
+
+    .deck-inbox__list .deck-card {
+      grid-template-columns: 1.25rem minmax(0, 1fr);
+    }
+
+    .deck-inbox__list .deck-card time {
+      display: none;
+    }
+
+    .deck-column:not([data-task-mode]) .deck-card:not([data-kind='task']) {
+      grid-template-columns: auto 1.25rem minmax(0, 1fr);
+    }
+
+    .deck-column:not([data-task-mode])
+      .deck-card:not([data-kind='task'])
+      .deck-card__actions {
+      position: absolute;
+      inset-inline-end: var(--deck-space-half);
+      inset-block-start: 50%;
+      border-radius: var(--deck-space-half);
+      background: var(--deck-color-canvas-raised);
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .deck-column:not([data-task-mode])
+      .deck-card:is(:hover, :focus-within)
+      .deck-card__actions {
+      pointer-events: auto;
+    }
+  }
+}

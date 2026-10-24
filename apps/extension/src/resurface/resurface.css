@@ -5,9 +5,9 @@
     --deck-color-hairline: var(--deck-color-panel-hairline);
     --deck-color-glass: var(--deck-color-panel-hover);
 
-    position: absolute;
-    inset-inline-start: var(--deck-space-3);
-    inset-block-end: var(--deck-space-3);
+    position: static;
+    place-self: end center;
+    margin-block-start: var(--deck-space-3);
     inline-size: min(
       var(--deck-resurface-width),
       calc(100% - 2 * var(--deck-space-3))
@@ -90,10 +90,6 @@
   }
 
   @media (width <= 56rem) {
-    .deck-resurface {
-      inset-block-end: calc(var(--deck-control-size) + 2 * var(--deck-space-3));
-    }
-
     .deck-surface:has([data-deck='resurface']) {
       min-block-size: max(100dvb, var(--deck-resurface-surface-height));
     }

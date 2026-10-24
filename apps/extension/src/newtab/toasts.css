@@ -1,0 +1,56 @@
+@layer components {
+  .deck-toast-stack {
+    position: fixed;
+    inset-block-end: var(--deck-space-3);
+    inset-inline: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--deck-space-2);
+    inline-size: max-content;
+    margin-inline: auto;
+  }
+
+  .deck-toast {
+    display: flex;
+    align-items: center;
+    gap: var(--deck-space-2);
+    max-inline-size: min(40rem, 90vw);
+    padding: var(--deck-space-2);
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-canvas-raised);
+    color: var(--deck-color-text);
+    box-shadow: 0 1rem 2rem var(--deck-color-shadow);
+    animation: deck-toast-enter var(--deck-drawer-duration)
+      var(--deck-drawer-ease) both;
+  }
+
+  @keyframes deck-toast-enter {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .deck-toast[data-kind='error'] {
+    border-color: var(--deck-color-danger);
+  }
+
+  .deck-toast[data-kind='success'] {
+    border-color: var(--deck-color-focus);
+  }
+
+  .deck-toast :where(button) {
+    border: 0;
+    background: transparent;
+    color: var(--deck-color-focus);
+    cursor: pointer;
+  }
+}

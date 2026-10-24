@@ -14,6 +14,20 @@ test('glass sections: direct navigation, persistent tasks, undo, notes, keyboard
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto('chrome://newtab/');
     await page.waitForSelector('html[data-deck-ready="true"]');
+    expect(
+      await page
+        .locator('body')
+        .evaluate((node) => parseFloat(getComputedStyle(node).fontSize)),
+    ).toBeGreaterThanOrEqual(14);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
+    await page.setViewportSize({ width: 375, height: 812 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
     const nav = page.getByRole('navigation', { name: 'Workspace sections' });
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.screenshot({
@@ -168,6 +182,12 @@ test('glass sections: direct navigation, persistent tasks, undo, notes, keyboard
           path: testInfo.outputPath(`tasks-${theme}-${width}.png`),
           animations: 'disabled',
         });
+        await page.getByLabel('Close Deck drawer', { exact: true }).click();
+        await expect(page.locator('[data-deck="drawer"]')).toHaveCount(0);
+        await nav
+          .getByRole('button', { name: 'Open Tasks', exact: true })
+          .click();
+        await expect(manager).toBeVisible();
       }
     }
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -188,6 +208,21 @@ test('glass sections: direct navigation, persistent tasks, undo, notes, keyboard
             ),
         ),
     ).toBe(false);
+    for (const section of ['Links', 'Sessions']) {
+      await nav
+        .getByRole('button', { name: `Open ${section}`, exact: true })
+        .click();
+      expect(
+        await page
+          .locator('[data-deck="decks"]')
+          .evaluate((node) => node.scrollWidth <= node.clientWidth),
+      ).toBe(true);
+      const scan = await new AxeBuilder({ page })
+        .include('[data-deck="drawer"]')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze();
+      expect(scan.violations).toEqual([]);
+    }
     expect(errors).toEqual([]);
   } finally {
     await context.close();

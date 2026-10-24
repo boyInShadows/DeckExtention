@@ -2,7 +2,11 @@
   .deck-task-manager {
     overflow: auto;
     min-inline-size: 0;
-    padding: var(--deck-space-4);
+    padding-block: var(--deck-space-5);
+    padding-inline: max(
+      var(--deck-space-4),
+      calc((100% - var(--deck-task-content-width)) / 2)
+    );
     color: var(--deck-color-panel-text);
     scrollbar-color: var(--deck-color-text-muted) transparent;
     caret-color: var(--deck-color-focus);
@@ -10,6 +14,7 @@
 
   .deck-task-manager h1 {
     margin: 0;
+    padding-inline-end: var(--deck-control-size);
     font-size: var(--deck-font-note-h1);
     font-weight: 550;
     letter-spacing: -0.03em;
@@ -21,11 +26,15 @@
     font-size: var(--deck-font-note-body);
   }
 
+  .deck-task-manager header p {
+    margin-block: var(--deck-space-1) 0;
+  }
+
   .deck-task-manager form {
     display: flex;
     gap: var(--deck-space-1);
     margin-block: var(--deck-space-4) var(--deck-space-3);
-    padding: var(--deck-space-1);
+    padding: var(--deck-space-half);
     border: 1px solid var(--deck-color-panel-hairline);
     border-radius: var(--deck-radius-panel);
     background: var(--deck-color-glass);
@@ -46,7 +55,7 @@
   }
 
   .deck-task-manager button {
-    min-block-size: var(--deck-control-size);
+    min-block-size: var(--deck-task-control-size);
     border: 1px solid transparent;
     border-radius: var(--deck-radius-panel);
     padding-inline: var(--deck-space-2);
@@ -58,7 +67,7 @@
 
   .deck-task-manager button:hover,
   .deck-task-manager button[aria-pressed='true'] {
-    background: var(--deck-color-glass);
+    background: var(--deck-color-selection);
     border-color: var(--deck-color-panel-hairline);
   }
 
@@ -94,14 +103,16 @@
     display: flex;
     align-items: center;
     gap: var(--deck-space-1);
-    min-block-size: var(--deck-line-height);
+    min-block-size: var(--deck-pin-size);
+    padding-block: var(--deck-space-half);
     border-block-end: 1px solid var(--deck-color-panel-hairline);
   }
 
   .deck-task-list [data-deck='task-note'] {
     flex: 1;
     min-inline-size: 0;
-    padding-inline: var(--deck-space-1);
+    padding: var(--deck-space-1);
+    line-height: 1.6;
     text-align: start;
     overflow-wrap: anywhere;
   }
@@ -114,16 +125,35 @@
   }
 
   .deck-task-list [data-deck='task-done'] {
-    border-color: var(--deck-color-panel-muted);
-    border-radius: calc(var(--deck-radius-panel) / 2);
+    position: relative;
+    inline-size: var(--deck-task-control-size);
+    border: 0;
+  }
+
+  .deck-task-list [data-deck='task-done']::before {
+    position: absolute;
+    inset: calc(
+      (var(--deck-task-control-size) - var(--deck-task-checkbox-size)) / 2
+    );
+    border: 1px solid var(--deck-color-panel-muted);
+    border-radius: var(--deck-space-half);
+    content: '';
+  }
+
+  .deck-task-list [data-deck='task-done'] svg {
+    z-index: 1;
   }
 
   .deck-task-list [aria-checked='false'] svg {
     visibility: hidden;
   }
 
-  .deck-task-list [aria-checked='true'] {
+  .deck-task-list [aria-checked='true']::before {
+    border-color: var(--deck-color-focus);
     background: var(--deck-color-focus);
+  }
+
+  .deck-task-list [aria-checked='true'] {
     color: var(--deck-color-canvas);
   }
 
