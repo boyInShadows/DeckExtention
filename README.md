@@ -125,14 +125,14 @@ pnpm workspaces, strict TypeScript, Vite + CRXJS, React 19 interfaces using
 `preact/compat` at runtime, Tailwind 4, IndexedDB via `idb`, `dnd-kit`,
 `fractional-indexing`, Zod, Vitest, Playwright and `size-limit`.
 
-Repository tooling lives in `tools/` and is versioned. CodeBaseMemory and Ponytail
+Repository tooling lives in `tools/` and is versioned. CodeBaseMemory, Graphify and Ponytail
 are external development aids, not extension dependencies; the machine's external
 tools directory is not needed to run Deck.
 
 ### Working with agents
 
 Root `AGENTS.md` contains the owner's local instructions. The task queue and
-backlog are `docs/pending.md` and `docs/ideas.md`; `docs/README.md` indexes the local
+backlog are `docs/pending.md` and `docs/ideas.md`; `docs/INDEX.md` indexes the local
 documentation.
 
 These working documents are intentionally ignored by Git. A fresh clone is incomplete
