@@ -1,11 +1,12 @@
 import { configDefaults, defineConfig } from 'vitest/config';
 
 import { PREACT_ALIAS } from './apps/extension/preactAlias.js';
+import { UNIT_OUTPUT_DIR } from './tools/test-coverage/options.mjs';
 
 export default defineConfig({
   resolve: { alias: { ...PREACT_ALIAS } },
   test: {
-    exclude: [...configDefaults.exclude, 'tests/e2e/**'],
+    exclude: [...configDefaults.exclude, 'tests/e2e/**', 'docs/**'],
     coverage: {
       provider: 'v8',
       include: [
@@ -21,7 +22,7 @@ export default defineConfig({
        * No thresholds here: the 80 % floor applies to unit + E2E merged, and
        * tools/test-coverage/run.mjs (`pnpm test:coverage`) enforces it.
        */
-      reportsDirectory: 'coverage/unit',
+      reportsDirectory: UNIT_OUTPUT_DIR,
       reporter: ['json', 'text-summary'],
     },
   },

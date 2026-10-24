@@ -17,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { resolveKeymap } from '../keys/keymap';
 import { DeckRepository } from '../storage/repository';
-import type { UndoAction } from './UndoToast';
+import type { UndoAction } from './UndoAction';
 import {
   click,
   keyDown,

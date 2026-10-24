@@ -26,7 +26,7 @@ import {
   type RenderResult,
 } from '../testing/render';
 import Drawer from './drawer';
-import type { UndoAction } from './UndoToast';
+import type { UndoAction } from './UndoAction';
 import {
   DRAWER_PAGE_KEY,
   DRAWER_SCROLL_KEY,

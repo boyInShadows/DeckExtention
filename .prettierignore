@@ -1,5 +1,6 @@
 node_modules
 dist
+docs/
 pnpm-lock.yaml
 *.woff2
 *.png

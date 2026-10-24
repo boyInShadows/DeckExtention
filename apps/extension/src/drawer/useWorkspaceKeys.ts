@@ -17,7 +17,7 @@ import {
 } from './drawerKeys';
 import { openCard, pinCards, trashCards } from './inboxActions';
 import { replaceEntity } from './workspaceModel';
-import type { UndoAction } from './UndoToast';
+import type { UndoAction } from './UndoAction';
 
 /**
  * Keyboard for the deck grid (FableTasks P2.S6). Movement is plain DOM focus

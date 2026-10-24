@@ -22,12 +22,12 @@ jobs:
       # Measure production budgets without screencast and DOM snapshot overhead.
       - run: pnpm e2e --reporter=line,json --trace=off
         env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results.json
+          PLAYWRIGHT_JSON_OUTPUT_NAME: docs/artifacts/test-results/results.json
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: production-test-results
-          path: test-results/
+          path: docs/artifacts/test-results/
           retention-days: 3
       - run: pnpm test:coverage
         if: ${{ !cancelled() }}

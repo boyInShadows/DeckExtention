@@ -11,7 +11,7 @@ import { resolveKeymap } from '../keys/keymap';
 import { DeckRepository } from '../storage/repository';
 import { keyDown, render, type RenderResult } from '../testing/render';
 import { useWorkspaceKeys } from './useWorkspaceKeys';
-import type { UndoAction } from './UndoToast';
+import type { UndoAction } from './UndoAction';
 
 const NOW = 1_800_000_000_000;
 const DATABASE_NAME = 'deck-workspace-keys-test';

@@ -18,7 +18,7 @@ import {
 } from 'react';
 
 import { strings } from '../i18n/strings';
-import type { UndoAction } from '../drawer/UndoToast';
+import type { UndoAction } from '../drawer/UndoAction';
 import { dragId } from '../drawer/dragIdentity';
 import { useDropHighlight } from '../drawer/useDropHighlight';
 import {

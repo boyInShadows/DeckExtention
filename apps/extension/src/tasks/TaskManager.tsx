@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { Icon } from '../newtab/Icon';
 import type { DeckRepository } from '../storage/repository';
-import type { UndoAction } from '../drawer/UndoToast';
+import type { UndoAction } from '../drawer/UndoAction';
 import { createTask } from './quickTask';
 import './taskManager.css';
 

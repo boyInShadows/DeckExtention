@@ -18,6 +18,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/dist/**',
       '**/.vite/**',
+      'docs/**',
       'apps/extension/public/**',
     ],
   },

@@ -12,7 +12,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { Icon } from '../newtab/Icon';
 import type { SurfaceData } from '../newtab/bootstrap';
-import type { UndoAction } from './UndoToast';
+import type { UndoAction } from './UndoAction';
 import {
   activeCards,
   activeDecks,

@@ -18,7 +18,7 @@ import {
 
 import { strings } from '../i18n/strings';
 import { WorkspaceDnd } from '../drawer/WorkspaceDnd';
-import type { UndoAction } from '../drawer/UndoToast';
+import type { UndoAction } from '../drawer/UndoAction';
 import type { Notice, NoticeInput } from './ToastStack';
 import { blackScrimForWhiteText } from '../wallpaper/contrast';
 import type { SurfaceData } from './bootstrap';
