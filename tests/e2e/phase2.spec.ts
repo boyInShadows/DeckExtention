@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 import { expectWithinBudget } from './coverage';
 import { launchExtension } from './extension';
+import { measureDrawerOpen } from './drawerTiming';
 
 /**
  * FableTasks P2.S8: one journey through the whole drawer phase - save from a
@@ -65,37 +66,6 @@ async function dispatchQuickSave(context: BrowserContext): Promise<void> {
     },
     { url: ARTICLE_URL, title: ARTICLE_TITLE },
   );
-}
-
-/** Keydown → first painted frame with the drawer open, measured in-page. */
-async function measureDrawerOpen(page: Page): Promise<number> {
-  const measured = page.evaluate(
-    () =>
-      new Promise<number>((resolve) => {
-        let startedAt = 0;
-        const onKey = (event: KeyboardEvent) => {
-          if (event.ctrlKey && event.key.toLowerCase() === 'j')
-            startedAt = event.timeStamp;
-        };
-        window.addEventListener('keydown', onKey, { capture: true });
-        const observer = new MutationObserver(() => {
-          if (!document.querySelector('[data-deck="drawer"][data-open]'))
-            return;
-          observer.disconnect();
-          window.removeEventListener('keydown', onKey, { capture: true });
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => resolve(performance.now() - startedAt)),
-          );
-        });
-        observer.observe(document.body, {
-          subtree: true,
-          childList: true,
-          attributes: true,
-        });
-      }),
-  );
-  await page.keyboard.press('Control+J');
-  return measured;
 }
 
 /** Counts animation frames while a card is dragged across the grid. */
