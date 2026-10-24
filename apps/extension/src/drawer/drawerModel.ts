@@ -2,6 +2,7 @@ import { OPEN_PAGE_HASH_PREFIX, type Page } from 'deck-schema';
 
 import { compareOrder } from './workspaceModel';
 import { SESSIONS_PAGE_ID } from '../sessions/constants';
+import { TASKS_PAGE_ID } from '../tasks/constants';
 
 export const DRAWER_PAGE_KEY = 'deck:last-page';
 export const DRAWER_SCROLL_KEY = 'deck:drawer-scroll';
@@ -23,6 +24,7 @@ export function selectedPageId(
   if (storedId === INBOX_PAGE_ID) return INBOX_PAGE_ID;
   if (storedId === TRASH_PAGE_ID) return TRASH_PAGE_ID;
   if (storedId === SESSIONS_PAGE_ID) return SESSIONS_PAGE_ID;
+  if (storedId === TASKS_PAGE_ID) return TASKS_PAGE_ID;
   if (storedId && ordered.some(({ id }) => id === storedId)) return storedId;
   return ordered[0]?.id ?? null;
 }

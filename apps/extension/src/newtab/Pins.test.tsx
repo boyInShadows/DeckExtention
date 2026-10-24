@@ -9,7 +9,7 @@ import { dragId } from '../drawer/dragIdentity';
 import { compareOrder } from '../drawer/workspaceModel';
 import { WORKSPACE_DROP_EVENT } from '../drawer/WorkspaceDnd';
 import { panelStrings as strings } from '../i18n/panelStrings';
-import type { UndoAction } from '../drawer/UndoToast';
+import type { UndoAction } from '../drawer/UndoAction';
 import type { DeckRepository } from '../storage/repository';
 import {
   click,

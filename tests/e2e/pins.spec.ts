@@ -2,6 +2,61 @@ import { expect, test } from '@playwright/test';
 
 import { launchExtension } from './extension';
 
+test('pin saves survive reloads without backup or message-channel errors', async () => {
+  const context = await launchExtension();
+  try {
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector('html[data-deck-ready="true"]');
+    await page.addInitScript(() => {
+      const databases = indexedDB.databases.bind(indexedDB);
+      indexedDB.databases = async () =>
+        (await databases()).map((database) => ({ ...database, version: 1 }));
+    });
+    for (let index = 0; index < 3; index += 1) {
+      await page.getByRole('button', { name: 'Add pin' }).click();
+      await page
+        .getByRole('textbox', { name: 'Paste a URL' })
+        .fill(`https://pin-${index}.example/`);
+      await page.getByRole('button', { name: 'Add pin' }).click();
+      await expect(page.locator('[data-deck="pin"]')).toHaveCount(index + 1);
+      await page.reload();
+      await page.waitForSelector('html[data-deck-ready="true"]');
+      await expect(page.locator('[data-deck="pin"]')).toHaveCount(index + 1);
+      expect(
+        await page.evaluate(() =>
+          chrome.runtime.sendMessage({ type: 'deck:maintenance' }),
+        ),
+      ).toEqual({ error: null });
+      await expect(
+        page.locator('[data-deck="toast"][data-kind="error"]'),
+      ).toHaveCount(0);
+    }
+    expect(
+      await page.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'deck:unknown' }),
+      ),
+    ).toBeUndefined();
+    expect(
+      await page.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'deck:toast-decision' }),
+      ),
+    ).toBeNull();
+    expect(
+      await page.evaluate(
+        async () =>
+          (await chrome.storage.local.get('deckLatestSnapshot'))
+            .deckLatestSnapshot,
+      ),
+    ).toMatchObject({ schemaVersion: 3 });
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
 test('middle-click opens exactly one native tab and leaves Deck open', async () => {
   const context = await launchExtension();
   try {

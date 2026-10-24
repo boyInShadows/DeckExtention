@@ -16,9 +16,9 @@ import {
 /**
  * `pnpm test:coverage`: the AGENTS.md section 7 gate.
  *
- * 1. Vitest with V8 coverage -> coverage/unit (Istanbul JSON).
+ * 1. Vitest with V8 coverage -> docs/artifacts/coverage/unit (Istanbul JSON).
  * 2. A source-mapped, unminified build (DECK_COVERAGE=1).
- * 3. Playwright against it, collecting V8 coverage per page -> coverage/e2e.
+ * 3. Playwright against it -> docs/artifacts/coverage/e2e.
  * 4. Merge E2E hits onto the unit report's structure (merge.mjs), report,
  *    and fail under the floor.
  *

@@ -26,7 +26,7 @@ import {
   type RenderResult,
 } from '../testing/render';
 import Drawer from './drawer';
-import type { UndoAction } from './UndoToast';
+import type { UndoAction } from './UndoAction';
 import {
   DRAWER_PAGE_KEY,
   DRAWER_SCROLL_KEY,
@@ -840,6 +840,10 @@ describe('Drawer - keys', () => {
     ).toBe('true');
     await press(view, '[');
     expect(
+      view.getByText(strings.tasks).closest('button')?.dataset.selected,
+    ).toBe('true');
+    await press(view, '[');
+    expect(
       view.getByText(strings.sessions).closest('button')?.dataset.selected,
     ).toBe('true');
     await press(view, '[');
@@ -849,6 +853,10 @@ describe('Drawer - keys', () => {
     await press(view, ']');
     expect(
       view.getByText(strings.sessions).closest('button')?.dataset.selected,
+    ).toBe('true');
+    await press(view, ']');
+    expect(
+      view.getByText(strings.tasks).closest('button')?.dataset.selected,
     ).toBe('true');
     await press(view, ']');
     expect(

@@ -125,10 +125,14 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
     ).toHaveCount(0);
     await expect.poll(() => focusedCardId(page)).not.toBeNull();
 
-    // Switch through Trash and Sessions to Inbox, then back.
+    // Switch through Trash, Tasks and Sessions to Inbox, then back.
     await keys.press('[');
     await expect(
       page.getByRole('button', { name: 'Trash', exact: true }),
+    ).toHaveAttribute('data-selected', 'true');
+    await keys.press('[');
+    await expect(
+      page.getByRole('button', { name: 'Tasks', exact: true }),
     ).toHaveAttribute('data-selected', 'true');
     await keys.press('[');
     await expect(
@@ -139,6 +143,7 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
       page.locator('[data-deck="page"][data-system][data-selected]'),
     ).toBeVisible();
     await expect(page.locator('[data-deck="inbox-zero"]')).toBeVisible();
+    await keys.press(']');
     await keys.press(']');
     await keys.press(']');
     await keys.press(']');

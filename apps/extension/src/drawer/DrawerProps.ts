@@ -1,7 +1,7 @@
 import type { Card, Deck, KeyBinding, Page } from 'deck-schema';
 import type { RefObject } from 'react';
 import type { SurfaceData } from '../newtab/bootstrap';
-import type { UndoAction } from './UndoToast';
+import type { UndoAction } from './UndoAction';
 
 export interface DrawerProps {
   /** Settings.keymap, resolved in the drawer so keymap code stays lazy. */
@@ -23,4 +23,6 @@ export interface DrawerProps {
   onNoteOpened?: () => void;
   initialPageId?: string | undefined;
   initialEditingDeckId?: string | undefined;
+  onPageSelect?: (id: string | null) => void;
+  navigationRequest?: { pageId: string } | undefined;
 }

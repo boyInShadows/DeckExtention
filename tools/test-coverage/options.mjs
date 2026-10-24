@@ -6,11 +6,15 @@ import { resolve } from 'node:path';
  * Unit tests (Vitest) and E2E tests (Playwright) each cover part of the code;
  * the 80 % floor applies to what both of them run, merged.
  */
-export const COVERAGE_ROOT = resolve('coverage');
-export const UNIT_COVERAGE_FILE = resolve('coverage/unit/coverage-final.json');
-export const E2E_OUTPUT_DIR = resolve('coverage/e2e');
-export const E2E_COVERAGE_FILE = resolve('coverage/e2e/coverage-final.json');
-export const MERGED_OUTPUT_DIR = resolve('coverage/merged');
+export const COVERAGE_ROOT = resolve('docs/artifacts/coverage');
+export const UNIT_OUTPUT_DIR = resolve(COVERAGE_ROOT, 'unit');
+export const UNIT_COVERAGE_FILE = resolve(
+  UNIT_OUTPUT_DIR,
+  'coverage-final.json',
+);
+export const E2E_OUTPUT_DIR = resolve(COVERAGE_ROOT, 'e2e');
+export const E2E_COVERAGE_FILE = resolve(E2E_OUTPUT_DIR, 'coverage-final.json');
+export const MERGED_OUTPUT_DIR = resolve(COVERAGE_ROOT, 'merged');
 
 /** AGENTS.md section 7. Not a dial: lower code, not this number. */
 export const COVERAGE_FLOOR_PCT = 80;

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { SETTINGS_DEFAULTS } from '../../packages/schema/src/settings';
 
 import { expectWithinBudget } from './coverage';
@@ -7,7 +7,32 @@ import { launchExtension } from './extension';
 const READY_SELECTOR = 'html[data-deck-ready="true"]';
 const WARM_RUNS = 20;
 const SURFACE_READY_BUDGET_MS = 60;
+const PAINT_REPORT_TIMEOUT_MS = 2_000;
 const DRAWER_TEST_TIMEOUT_MS = 120_000;
+
+async function readPaintTimings(page: Page) {
+  await page.waitForFunction(
+    () =>
+      performance
+        .getEntriesByType('paint')
+        .some(({ name }) => name === 'first-contentful-paint'),
+    undefined,
+    { timeout: PAINT_REPORT_TIMEOUT_MS },
+  );
+  const timing = await page.evaluate(() => {
+    const paints = performance.getEntriesByType('paint');
+    return {
+      firstPaintMs:
+        paints.find(({ name }) => name === 'first-paint')?.startTime ?? null,
+      firstContentfulPaintMs:
+        paints.find(({ name }) => name === 'first-contentful-paint')
+          ?.startTime ?? null,
+    };
+  });
+  expect(timing.firstPaintMs).not.toBeNull();
+  expect(timing.firstContentfulPaintMs).not.toBeNull();
+  return timing;
+}
 
 test('Line results overlay without moving the clock', async () => {
   const context = await launchExtension();
@@ -156,13 +181,7 @@ test('surface persists a pin, exports data, and stays fast when warm', async ({
         performance.getEntriesByName('deck-ready').at(-1)?.startTime ??
         Infinity,
     );
-    const firstPaintMs = await page.evaluate(
-      () =>
-        performance
-          .getEntriesByType('paint')
-          .find(({ name }) => name === 'first-contentful-paint')?.startTime ??
-        null,
-    );
+    const coldPaint = await readPaintTimings(page);
     await expect(page.locator('[data-deck="clock"]')).toBeVisible();
     await expect(page.locator('[data-deck="line"]')).toBeVisible();
     await expect(page.locator('[data-deck="pins"]')).toBeVisible();
@@ -186,6 +205,7 @@ test('surface persists a pin, exports data, and stays fast when warm', async ({
     );
 
     const timings: number[] = [];
+    const warmPaints = [];
     const startupPhases = [];
     for (let run = 0; run < WARM_RUNS; run += 1) {
       await page.reload();
@@ -219,12 +239,14 @@ test('surface persists a pin, exports data, and stays fast when warm', async ({
           };
         }),
       );
+      warmPaints.push(await readPaintTimings(page));
     }
     await testInfo.attach('surface-timings.json', {
       body: JSON.stringify({
-        firstPaintMs,
+        ...coldPaint,
         coldTiming,
         warmTimings: timings,
+        warmPaints,
         warmMaxMs: Math.max(...timings),
         overBudgetWarmRuns: timings.flatMap((ms, index) =>
           ms >= SURFACE_READY_BUDGET_MS ? [{ run: index + 1, ms }] : [],

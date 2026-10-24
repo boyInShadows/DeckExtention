@@ -241,7 +241,7 @@ test('stash permission can be dismissed and the Line delegates a granted stash',
         .evaluateAll((buttons) =>
           buttons.map((button) => button.getBoundingClientRect().height),
         );
-      expect(heights).toHaveLength(3);
+      expect(heights).toHaveLength(4);
       expect(Math.max(...heights)).toBeLessThanOrEqual(48);
       await expect(
         summary.getByRole('button', { name: 'Examples', exact: true }),

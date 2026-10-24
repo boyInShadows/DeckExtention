@@ -18,13 +18,14 @@ import {
 
 import { strings } from '../i18n/strings';
 import { WorkspaceDnd } from '../drawer/WorkspaceDnd';
-import type { UndoAction } from '../drawer/UndoToast';
+import type { UndoAction } from '../drawer/UndoAction';
 import type { Notice, NoticeInput } from './ToastStack';
 import { blackScrimForWhiteText } from '../wallpaper/contrast';
 import type { SurfaceData } from './bootstrap';
 import { Line } from './Line';
 import { Pins } from './Pins';
 import { greetingForHour } from './surfaceModel';
+import { SectionNav } from './SectionNav';
 import type ResurfacePanel from '../resurface/Resurface';
 import type ShelfPanel from '../shelf/Shelf';
 import type { Card } from 'deck-schema';
@@ -57,6 +58,12 @@ export function Surface({ initialData }: SurfaceProps) {
   const [pages, setPages] = useState(initialData.pages);
   const [settings, setSettings] = useState(initialData.settings);
   const [requestedNote, setRequestedNote] = useState<Card | null>(null);
+  const [navigationRequest, setNavigationRequest] = useState<{
+    pageId: string;
+  }>();
+  const [selectedWorkspacePage, setSelectedWorkspacePage] = useState<
+    string | null
+  >(null);
   const [createdWorkspace, setCreatedWorkspace] =
     useState<CreatedWorkspace | null>(null);
   const [Shelf, setShelf] = useState<typeof ShelfPanel | null>(null);
@@ -129,6 +136,7 @@ export function Surface({ initialData }: SurfaceProps) {
     drawerExitTimer.current = window.setTimeout(() => {
       setIsDrawerMounted(false);
       setCreatedWorkspace(null);
+      setNavigationRequest(undefined);
     }, DRAWER_EXIT_MS);
     return true;
   }, []);
@@ -362,6 +370,24 @@ export function Surface({ initialData }: SurfaceProps) {
           className="deck-wallpaper"
           data-loaded={Boolean(wallpaperUrl) || undefined}
         />
+        <SectionNav
+          selectedId={isDrawerOpen ? selectedWorkspacePage : null}
+          linksPageId={
+            pages
+              .filter((page) => page.deletedAt === null)
+              .toSorted((a, b) =>
+                a.order < b.order ? -1 : a.order > b.order ? 1 : 0,
+              )[0]?.id ?? 'links'
+          }
+          onOpen={(id) => {
+            void (async () => {
+              if ((await beforeDrawerClose.current?.()) === false) return;
+              setCreatedWorkspace(null);
+              setNavigationRequest({ pageId: id });
+              openDrawer();
+            })().catch(notifyFailure);
+          }}
+        />
         <div data-deck="surface-column" className="deck-surface__column">
           <time
             data-deck="clock"
@@ -509,6 +535,8 @@ export function Surface({ initialData }: SurfaceProps) {
             <Drawer
               key={createdWorkspace?.deckId ?? createdWorkspace?.pageId}
               initialPageId={createdWorkspace?.pageId}
+              navigationRequest={navigationRequest}
+              onPageSelect={setSelectedWorkspacePage}
               initialEditingDeckId={createdWorkspace?.deckId}
               requestedNote={requestedNote}
               onNoteOpened={() => setRequestedNote(null)}

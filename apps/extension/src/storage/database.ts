@@ -30,15 +30,16 @@ type MigrationValidation = { migrateDocument: typeof migrateDocument };
 
 async function prepareMigration(
   name: string,
-  version: number,
   validation: MigrationValidation,
 ): Promise<void> {
-  const legacy = await openDB<DeckDatabase>(name, version, {
+  // Another tab or worker can upgrade after version discovery; use the live version.
+  const legacy = await openDB<DeckDatabase>(name, undefined, {
     blocking(_current, _next, event) {
       (event.target as IDBDatabase).close();
     },
   });
   try {
+    if (legacy.version >= DATABASE_VERSION) return;
     const tx = legacy.transaction(['pages', 'decks', 'cards', 'meta']);
     const [pages, decks, cards, settings] = await Promise.all([
       tx.objectStore('pages').getAll(),
@@ -49,7 +50,7 @@ async function prepareMigration(
     await tx.done;
     const now = Date.now();
     const original = {
-      schemaVersion: version,
+      schemaVersion: legacy.version,
       exportedAt: now,
       pages,
       decks,
@@ -60,7 +61,7 @@ async function prepareMigration(
     const snapshot: Snapshot = {
       id: crypto.randomUUID(),
       ts: now,
-      schemaVersion: version,
+      schemaVersion: legacy.version,
       blob: JSON.stringify(original),
     };
     await legacy.put('snapshots', snapshot);
@@ -99,14 +100,15 @@ export async function openDeckDatabase(
   name = DATABASE_NAME,
   validation?: MigrationValidation,
 ): Promise<DeckDatabaseHandle> {
-  const activeName =
+  const [stored, databases] = await Promise.all([
     name === DATABASE_NAME &&
     typeof chrome !== 'undefined' &&
     chrome.storage?.local
-      ? (await chrome.storage.local.get(ACTIVE_DATABASE_KEY))[
-          ACTIVE_DATABASE_KEY
-        ]
-      : undefined;
+      ? chrome.storage.local.get(ACTIVE_DATABASE_KEY)
+      : undefined,
+    indexedDB.databases(),
+  ]);
+  const activeName = stored?.[ACTIVE_DATABASE_KEY];
   if (
     activeName !== undefined &&
     (typeof activeName !== 'string' || !activeName.startsWith('deck-recovery-'))
@@ -114,19 +116,14 @@ export async function openDeckDatabase(
     throw new Error('Bad database');
   }
   const selectedName = activeName ?? name;
-  const version = (await indexedDB.databases()).find(
+  const version = databases.find(
     (entry) => entry.name === selectedName,
   )?.version;
   let isPrepared = false;
   if (version !== undefined && version > 0 && version < DATABASE_VERSION) {
     const validator = validation ?? (await import('./documentMigration'));
-    try {
-      await prepareMigration(selectedName, version, validator);
-      isPrepared = true;
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'VersionError'))
-        throw error;
-    }
+    await prepareMigration(selectedName, validator);
+    isPrepared = true;
   }
   return openDB<DeckDatabase>(selectedName, DATABASE_VERSION, {
     blocking(_current, _next, event) {

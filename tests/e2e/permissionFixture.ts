@@ -1,7 +1,7 @@
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 
-const ROOT = resolve('scratch');
+const ROOT = resolve('docs/artifacts/permission-fixtures');
 const PREFIX = join(ROOT, 'deck-permission-');
 
 export async function createPermissionFixture(
@@ -10,7 +10,7 @@ export async function createPermissionFixture(
   await mkdir(ROOT, { recursive: true });
   const path = await mkdtemp(PREFIX);
   if (!path.startsWith(PREFIX) || !path.startsWith(ROOT + sep))
-    throw new Error('Test fixture escaped scratch');
+    throw new Error('Test fixture escaped artifact directory');
   const extensionPath = join(path, 'dist');
   await cp(resolve('apps/extension/dist'), extensionPath, { recursive: true });
   // Native grant acceptance is an owner check. Only this disposable test
@@ -28,6 +28,6 @@ export async function createPermissionFixture(
 export async function removePermissionFixture(path: string) {
   const target = resolve(path);
   if (!target.startsWith(PREFIX) || !target.startsWith(ROOT + sep))
-    throw new Error('Test fixture escaped scratch');
+    throw new Error('Test fixture escaped artifact directory');
   await rm(target, { recursive: true, force: true });
 }

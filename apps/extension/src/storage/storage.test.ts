@@ -8,7 +8,7 @@ import {
   type Page,
 } from 'deck-schema';
 import { deleteDB, openDB } from 'idb';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BackupService, migrateDocument, SNAPSHOT_INTERVAL_MS } from './backup';
 import {
@@ -104,8 +104,8 @@ async function createServices() {
   return { repository, database, backups };
 }
 
-async function createLegacyDatabase() {
-  const database = await openDB<DeckDatabase>(LEGACY_DATABASE_NAME, 1, {
+async function createLegacyDatabase(version = 1) {
+  const database = await openDB<DeckDatabase>(LEGACY_DATABASE_NAME, version, {
     upgrade(handle) {
       handle.createObjectStore('pages', { keyPath: 'id' });
       handle.createObjectStore('decks', { keyPath: 'id' });
@@ -131,6 +131,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   const database = await openDeckDatabase(DATABASE_NAME);
   database.close();
   await deleteDB(DATABASE_NAME);
@@ -138,6 +139,29 @@ afterEach(async () => {
 });
 
 describe('database v1 to current migration', () => {
+  it('snapshots the live version when another context has advanced beyond discovery', async () => {
+    await createLegacyDatabase(2);
+    vi.spyOn(indexedDB, 'databases').mockResolvedValue([
+      { name: LEGACY_DATABASE_NAME, version: 1 },
+    ]);
+    const database = await openDeckDatabase(LEGACY_DATABASE_NAME);
+    try {
+      expect(database.version).toBe(SCHEMA_VERSION);
+      expect(await database.getAll('cards')).toEqual([card]);
+      expect(await database.getAll('pages')).toEqual([page]);
+      expect(await database.getAll('decks')).toEqual([deck]);
+      const [snapshot] = await database.getAll('snapshots');
+      expect(snapshot?.schemaVersion).toBe(2);
+      expect(JSON.parse(snapshot?.blob ?? '{}')).toMatchObject({
+        schemaVersion: 2,
+        cards: [card],
+        settings: SETTINGS_DEFAULTS,
+      });
+    } finally {
+      database.close();
+    }
+  });
+
   it('preserves records and stores a pre-upgrade snapshot', async () => {
     await createLegacyDatabase();
     const database = await openDeckDatabase(LEGACY_DATABASE_NAME);

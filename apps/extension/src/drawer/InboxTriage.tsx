@@ -10,7 +10,7 @@ import {
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
-import type { UndoAction } from './UndoToast';
+import type { UndoAction } from './UndoAction';
 import { moveCards, openCard, pinCards, trashCards } from './inboxActions';
 import {
   clampIndex,

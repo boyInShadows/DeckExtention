@@ -1,7 +1,7 @@
 import { INBOX_DECK_ID, UrlSchema, type Card } from 'deck-schema';
 import { generateKeyBetween } from 'fractional-indexing';
 
-import type { UndoAction } from '../drawer/UndoToast';
+import type { UndoAction } from '../drawer/UndoAction';
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from './bootstrap';
 import { openCard } from '../drawer/inboxActions';
