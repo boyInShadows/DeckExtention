@@ -1,5 +1,8 @@
 // @vitest-environment happy-dom
-import { CAPTURE_PERMISSIONS } from 'deck-schema';
+import {
+  CAPTURE_PERMISSION_DECLINED_KEY,
+  CAPTURE_PERMISSIONS,
+} from 'deck-schema';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
@@ -14,8 +17,12 @@ function stubPermissions(isGranted: boolean) {
     request: vi.fn(() => Promise.resolve(true)),
     remove: vi.fn(() => Promise.resolve(true)),
   };
-  vi.stubGlobal('chrome', { permissions });
-  return permissions;
+  const removeDecline = vi.fn(() => Promise.resolve());
+  vi.stubGlobal('chrome', {
+    permissions,
+    storage: { local: { remove: removeDecline } },
+  });
+  return { ...permissions, removeDecline };
 }
 
 async function settle(view: RenderResult): Promise<void> {
@@ -47,6 +54,9 @@ describe('QuickSavePermission', () => {
     await view.act(() => click(view.getByText(strings.allowAccess)));
 
     expect(permissions.request).toHaveBeenCalledWith(PERMISSIONS);
+    expect(permissions.removeDecline).toHaveBeenCalledWith(
+      CAPTURE_PERMISSION_DECLINED_KEY,
+    );
     expect(view.getByText(strings.revokeAccess)).toBeTruthy();
     view.unmount();
   });

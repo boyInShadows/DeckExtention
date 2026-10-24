@@ -10,6 +10,7 @@ import {
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from '../newtab/bootstrap';
+import type { UndoAction } from './UndoToast';
 import { moveCards, openCard, pinCards, trashCards } from './inboxActions';
 import {
   clampIndex,
@@ -29,6 +30,26 @@ import { MoveLine } from './MoveLine';
 import { NotePanel } from './NotePanel';
 import { useTriageQueue } from './useTriageQueue';
 import { activeCards, replaceEntity } from './workspaceModel';
+import FaviconTile from '../newtab/FaviconTile';
+
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+function savedAgo(createdAt: number): string {
+  const elapsed = Math.max(0, Date.now() - createdAt);
+  if (elapsed < MINUTE_MS) return strings.savedAgo(strings.justNow);
+  const unit =
+    elapsed >= DAY_MS ? 'day' : elapsed >= HOUR_MS ? 'hour' : 'minute';
+  const duration =
+    unit === 'day' ? DAY_MS : unit === 'hour' ? HOUR_MS : MINUTE_MS;
+  return strings.savedAgo(
+    new Intl.RelativeTimeFormat(undefined, { style: 'narrow' }).format(
+      -Math.floor(elapsed / duration),
+      unit,
+    ),
+  );
+}
 
 interface InboxTriageProps {
   keymap: Keymap;
@@ -40,6 +61,9 @@ interface InboxTriageProps {
   data: SurfaceData;
   onCardsChange: (cards: Card[]) => void;
   onError: (message: string) => void;
+  onSuccess?: ((message: string) => void) | undefined;
+  offerUndo?: (action: UndoAction) => void;
+  onEditNote?: (card: Card) => void;
 }
 
 const message = (error: unknown) =>
@@ -64,6 +88,7 @@ export function InboxTriage(props: InboxTriageProps) {
     [props.decks, props.pages],
   );
   const [cursor, setCursor] = useState(0);
+  const [hasNavigated, setHasNavigated] = useState(false);
   const [anchor, setAnchor] = useState<number | null>(null);
   const [isMoving, setIsMoving] = useState(false);
   const [noteCard, setNoteCard] = useState<Card | null>(null);
@@ -73,10 +98,6 @@ export function InboxTriage(props: InboxTriageProps) {
   const listRef = useRef<HTMLOListElement>(null);
   const position = clampIndex(cursor, ids.length);
   const selected = selectionOf(ids, position, anchor);
-  const homeDeckId =
-    props.decks.find(
-      ({ id, deletedAt }) => id === props.data.defaultDeckId && !deletedAt,
-    )?.id ?? targets[0]?.deckId;
 
   useEffect(() => listRef.current?.focus(), []);
   useEffect(() => {
@@ -110,16 +131,45 @@ export function InboxTriage(props: InboxTriageProps) {
     const nextRecent = rememberTarget(recent, deckId);
     setRecent(nextRecent);
     localStorage.setItem(RECENT_TARGETS_KEY, JSON.stringify(nextRecent));
-    enqueue((cards, ids) => moveCards(repository, cards, ids, deckId));
+    enqueue(async (cards, ids) => {
+      const originals = cards.filter(({ id }) => ids.includes(id));
+      const next = await moveCards(repository, cards, ids, deckId);
+      props.offerUndo?.({
+        label: strings.movedCards(ids.length),
+        undo: async () => {
+          const stored = await repository.listCards();
+          const restored = originals.map((original) => {
+            const current = stored.find(({ id }) => id === original.id);
+            if (!current) throw new Error(strings.updateFailed);
+            return {
+              ...current,
+              deckId: original.deckId,
+              order: original.order,
+              updatedAt: Date.now(),
+            };
+          });
+          await repository.upsertMany({ cards: restored });
+          props.onCardsChange(await repository.listCards());
+        },
+      });
+      return next;
+    });
     listRef.current?.focus();
   };
 
   const pin = () => {
-    if (!homeDeckId) return props.onError(strings.noDecks);
-    enqueue((cards, ids) => pinCards(repository, cards, ids, homeDeckId));
+    enqueue(async (cards, ids) => {
+      const next = await pinCards(repository, cards, ids);
+      props.onSuccess?.(strings.pinSaved);
+      return next;
+    });
   };
 
   const open = async (card: Card, isNewTab: boolean) => {
+    if (!card.url) {
+      (props.onEditNote ?? setNoteCard)(card);
+      return;
+    }
     try {
       props.onCardsChange(
         replaceEntity(props.cards, await openCard(repository, card, isNewTab)),
@@ -131,14 +181,29 @@ export function InboxTriage(props: InboxTriageProps) {
 
   const act = (action: KeyActionId, card: Card, isExtending: boolean) => {
     if (action === 'next' || action === 'previous') {
+      setHasNavigated(true);
       setAnchor(isExtending ? (anchor ?? position) : null);
       setCursor(
-        clampIndex(position + (action === 'next' ? 1 : -1), ids.length),
+        !hasNavigated
+          ? action === 'next'
+            ? 0
+            : ids.length - 1
+          : clampIndex(position + (action === 'next' ? 1 : -1), ids.length),
       );
     } else if (action === 'move') setIsMoving(true);
     else if (action === 'trash')
-      enqueue((cards, targetIds) => trashCards(repository, cards, targetIds));
-    else if (action === 'note') setNoteCard(card);
+      enqueue(async (cards, targetIds) => {
+        const next = await trashCards(repository, cards, targetIds);
+        props.offerUndo?.({
+          label: strings.trashedCards(targetIds.length),
+          undo: async () => {
+            await repository.restoreCards(targetIds);
+            props.onCardsChange(await repository.listCards());
+          },
+        });
+        return next;
+      });
+    else if (action === 'note') (props.onEditNote ?? setNoteCard)(card);
     else if (action === 'pin') pin();
     else if (action === 'open' || action === 'openInNewTab')
       void open(card, action === 'openInNewTab');
@@ -148,6 +213,13 @@ export function InboxTriage(props: InboxTriageProps) {
 
   const onKeyDown = (event: KeyboardEvent<HTMLOListElement>) => {
     if (!props.isOpen || event.target !== event.currentTarget) return;
+    if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      setHasNavigated(true);
+      setAnchor(event.shiftKey ? (anchor ?? position) : null);
+      setCursor(event.key === 'Home' ? 0 : ids.length - 1);
+      return;
+    }
     const card = inboxCards[position];
     const chord = chordFromEvent(event);
     if (!card || !chord) return;
@@ -203,17 +275,24 @@ export function InboxTriage(props: InboxTriageProps) {
             }
             onClick={() => {
               setCursor(index);
+              setHasNavigated(true);
               setAnchor(null);
             }}
           >
-            <img
-              src={`/_favicon/?pageUrl=${encodeURIComponent(card.url)}&size=32`}
-              alt=""
-            />
-            <span>
+            <FaviconTile url={card.url} hostname={card.hostname} />
+            <span className="deck-blurrable">
               <strong>{card.title}</strong>
-              <small>{card.note ? `● ${card.hostname}` : card.hostname}</small>
+              <small>
+                {card.url
+                  ? card.note
+                    ? `● ${card.hostname}`
+                    : card.hostname
+                  : strings.taskMode}
+              </small>
             </span>
+            <time dateTime={new Date(card.createdAt).toISOString()}>
+              {savedAgo(card.createdAt)}
+            </time>
           </li>
         ))}
       </ol>
@@ -246,6 +325,7 @@ export function InboxTriage(props: InboxTriageProps) {
             if ('deckId' in saved) {
               props.onCardsChange(replaceEntity(props.cards, saved));
               setNoteCard(saved);
+              props.onSuccess?.(strings.noteSaved);
             }
           }}
         />

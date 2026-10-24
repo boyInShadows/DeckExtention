@@ -5,43 +5,54 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { UrlSchema, type Card } from 'deck-schema';
-import { generateKeyBetween } from 'fractional-indexing';
-import { useEffect, useMemo, useState } from 'react';
+import type { Card } from 'deck-schema';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from 'react';
 
 import { strings } from '../i18n/strings';
-import { dragId, parseDragId } from '../drawer/dragIdentity';
-import { fractionalOrderForMove } from '../drawer/fractionalOrder';
-import { compareOrder } from '../drawer/workspaceModel';
+import type { UndoAction } from '../drawer/UndoToast';
+import { dragId } from '../drawer/dragIdentity';
+import { useDropHighlight } from '../drawer/useDropHighlight';
 import {
   WORKSPACE_DROP_EVENT,
   type WorkspaceDropDetail,
 } from '../drawer/WorkspaceDnd';
 import type { SurfaceData } from './bootstrap';
-import { focusOnMount } from './focusOnMount';
+import type { NoticeInput } from './ToastStack';
 
 const MAX_PINS = 12;
-const FAVICON_SIZE = 64;
+const PinMenu = lazy(() => import('./PinMenu'));
+const PinAddForm = lazy(() => import('./PinAddForm'));
+const FaviconTile = lazy(() => import('./FaviconTile'));
 
 interface PinsProps {
   cards: Card[];
-  defaultDeckId: string;
   repository: SurfaceData['repository'];
   onCardsChange: (cards: Card[]) => void;
-}
-
-function faviconUrl(url: string): string {
-  const endpoint = chrome.runtime.getURL('/_favicon/');
-  return `${endpoint}?pageUrl=${encodeURIComponent(url)}&size=${FAVICON_SIZE}`;
+  offerUndo?: (action: UndoAction) => void;
+  notify: (notice: NoticeInput) => void;
 }
 
 function SortablePin({
   card,
   onMenu,
+  onOpen,
+  onUnpin,
 }: {
   card: Card;
-  onMenu: (card: Card) => void;
+  onMenu: (card: Card, anchor: HTMLElement) => void;
+  onOpen: (card: Card, isNewTab: boolean) => void;
+  onUnpin: (card: Card) => void;
 }) {
+  const label = card.pinLabel ?? card.title;
   const {
     attributes,
     listeners,
@@ -54,6 +65,41 @@ function SortablePin({
     transform: CSS.Transform.toString(transform),
     transition,
   };
+  const open = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.type === 'auxclick' && event.button !== 1) return;
+    event.preventDefault();
+    onOpen(
+      card,
+      event.button === 1 || event.ctrlKey || event.metaKey || event.shiftKey,
+    );
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLAnchorElement>) => {
+    if (
+      event.key === 'ContextMenu' ||
+      (event.shiftKey && event.key === 'F10')
+    ) {
+      event.preventDefault();
+      onMenu(card, event.currentTarget);
+    } else if (event.key === 'Delete') {
+      event.preventDefault();
+      onUnpin(card);
+    } else if (event.key === 'Enter' && event.shiftKey) {
+      event.preventDefault();
+      onOpen(card, true);
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      const tiles = [
+        ...(event.currentTarget.parentElement?.querySelectorAll<HTMLElement>(
+          '[data-deck="pin"]',
+        ) ?? []),
+      ];
+      const index = tiles.indexOf(event.currentTarget);
+      const next = tiles[index + (event.key === 'ArrowRight' ? 1 : -1)];
+      if (next) {
+        event.preventDefault();
+        next.focus();
+      }
+    }
+  };
   return (
     <a
       ref={setNodeRef}
@@ -62,14 +108,21 @@ function SortablePin({
       className="deck-pin"
       href={card.url}
       draggable={false}
-      aria-label={card.pinLabel ?? card.title}
+      aria-label={label}
+      aria-haspopup="menu"
       data-dragging={isDragging || undefined}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        onMenu(card);
-      }}
       {...attributes}
       {...listeners}
+      onClick={open}
+      onAuxClick={open}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onMenu(card, event.currentTarget);
+      }}
+      onKeyDown={(event) => {
+        onKeyDown(event);
+        if (!event.defaultPrevented) listeners?.onKeyDown?.(event);
+      }}
     >
       <span className="deck-pin__tile">
         {card.pinIcon ? (
@@ -77,95 +130,123 @@ function SortablePin({
             {card.pinIcon}
           </span>
         ) : (
-          <img src={faviconUrl(card.url)} alt="" width="32" height="32" />
+          <Suspense
+            fallback={
+              <span className="deck-site-icon">
+                {card.hostname.replace(/^www\./, '')[0]?.toUpperCase()}
+              </span>
+            }
+          >
+            <FaviconTile url={card.url} hostname={card.hostname} />
+          </Suspense>
         )}
       </span>
-      <span className="deck-pin__label">{card.pinLabel ?? card.title}</span>
+      <span className="deck-pin__label deck-blurrable">{label}</span>
     </a>
   );
 }
 
 export function Pins({
   cards,
-  defaultDeckId,
   repository,
   onCardsChange,
+  offerUndo,
+  notify,
 }: PinsProps) {
   const [isAdding, setIsAdding] = useState(false);
-  const [urlInput, setUrlInput] = useState('');
-  const [error, setError] = useState('');
-  const [menuCard, setMenuCard] = useState<Card | null>(null);
-  const { isOver, setNodeRef } = useDroppable({ id: dragId('pin', 'strip') });
+  const [menu, setMenu] = useState<{ card: Card; anchor: HTMLElement } | null>(
+    null,
+  );
+  const [initialUrl, setInitialUrl] = useState('');
+  const { setNodeRef } = useDroppable({ id: dragId('pin', 'strip') });
+  const isOver = useDropHighlight(dragId('pin', 'strip'));
   const pins = useMemo(
     () =>
       cards
         .filter((card) => card.pinned && card.deletedAt === null)
-        .toSorted((a, b) => compareOrder(a.order, b.order)),
+        .toSorted((a, b) =>
+          a.order < b.order ? -1 : a.order > b.order ? 1 : 0,
+        ),
     [cards],
   );
+  const reportWriteError = useCallback(
+    (error: unknown) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      notify({ kind: 'error', text: `${strings.updateFailed} ${detail}` });
+    },
+    [notify],
+  );
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(
+          'input, textarea, [contenteditable], [data-deck="drawer"], [data-deck="settings"], [data-deck="help"]',
+        )
+      )
+        return;
+      const candidate = event.clipboardData?.getData('text/plain').trim() ?? '';
+      if (!/^https?:\/\//i.test(candidate)) return;
+      if (pins.length >= MAX_PINS) return;
+      event.preventDefault();
+      setInitialUrl(candidate);
+      setIsAdding(true);
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [pins.length]);
 
-  const saveCard = async (card: Card) => {
-    const saved = await repository.upsertCard(card);
-    onCardsChange(cards.map((item) => (item.id === saved.id ? saved : item)));
+  const open = async (card: Card, isNewTab: boolean) => {
+    try {
+      const { openPin } = await import('./pinUndo');
+      await openPin(repository, card, isNewTab);
+    } catch (openError) {
+      reportWriteError(openError);
+    }
   };
 
   useEffect(() => {
     const onDrop = (event: Event) => {
       if (!(event instanceof CustomEvent)) return;
-      const { activeId, overId } = event.detail as WorkspaceDropDetail;
-      const active = parseDragId(activeId);
-      const over = parseDragId(overId);
-      if (active?.entity !== 'pin' || over?.entity !== 'pin') return;
-      const moved = pins.find(({ id }) => id === active.id);
-      if (!moved) return;
-      void saveCard({
-        ...moved,
-        order: fractionalOrderForMove(pins, active.id, over.id),
-        updatedAt: Date.now(),
-      }).catch((saveError: unknown) => {
-        const detail =
-          saveError instanceof Error ? saveError.message : String(saveError);
-        setError(`${strings.updateFailed} ${detail}`);
-      });
+      void import('./reorderPin')
+        .then(({ reorderPin }) =>
+          reorderPin(repository, pins, event.detail as WorkspaceDropDetail),
+        )
+        .then((saved) => {
+          if (!saved) return;
+          onCardsChange(
+            cards.map((item) => (item.id === saved.id ? saved : item)),
+          );
+          notify({ kind: 'success', text: strings.saved });
+        })
+        .catch(reportWriteError);
     };
     window.addEventListener(WORKSPACE_DROP_EVENT, onDrop);
     return () => window.removeEventListener(WORKSPACE_DROP_EVENT, onDrop);
-  });
+  }, [cards, notify, onCardsChange, pins, reportWriteError, repository]);
 
-  const addPin = async () => {
-    const parsed = UrlSchema.safeParse(urlInput.trim());
-    if (
-      !parsed.success ||
-      !['http:', 'https:'].includes(new URL(parsed.data).protocol)
-    ) {
-      setError(strings.invalidUrl);
-      return;
+  const savePin = async (
+    card: Card,
+    change: Partial<Card>,
+  ): Promise<boolean> => {
+    try {
+      const { updatePin } = await import('./pinUndo');
+      await updatePin(
+        repository,
+        card,
+        change,
+        cards,
+        onCardsChange,
+        offerUndo,
+      );
+      if (!('pinned' in change && change.pinned === false))
+        notify({ kind: 'success', text: strings.saved });
+      return true;
+    } catch (saveError) {
+      reportWriteError(saveError);
+      return false;
     }
-    const url = new URL(parsed.data);
-    const now = Date.now();
-    const saved = await repository.upsertCard({
-      id: crypto.randomUUID(),
-      deckId: defaultDeckId,
-      url: url.href,
-      title: url.hostname,
-      hostname: url.hostname,
-      order: generateKeyBetween(pins.at(-1)?.order ?? null, null),
-      pinned: true,
-      lastOpenedAt: null,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-    });
-    onCardsChange([...cards, saved]);
-    setUrlInput('');
-    setError('');
-    setIsAdding(false);
-  };
-
-  const updateMenuCard = async (change: Partial<Card>) => {
-    if (!menuCard) return;
-    await saveCard({ ...menuCard, ...change, updatedAt: Date.now() });
-    setMenuCard(null);
   };
 
   return (
@@ -181,76 +262,72 @@ export function Pins({
         strategy={horizontalListSortingStrategy}
       >
         {pins.map((card) => (
-          <SortablePin key={card.id} card={card} onMenu={setMenuCard} />
+          <SortablePin
+            key={card.id}
+            card={card}
+            onMenu={(card, anchor) => setMenu({ card, anchor })}
+            onOpen={(item, isNewTab) => void open(item, isNewTab)}
+            onUnpin={(card) => void savePin(card, { pinned: false })}
+          />
         ))}
       </SortableContext>
       {pins.length < MAX_PINS ? (
         isAdding ? (
-          <div className="deck-pin-add-form">
-            <input
-              className="deck-pin-url-input"
-              ref={focusOnMount}
-              value={urlInput}
-              placeholder={strings.pinUrlPlaceholder}
-              aria-label={strings.pinUrlPlaceholder}
-              onChange={(event) => setUrlInput(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') void addPin();
-                if (event.key === 'Escape') setIsAdding(false);
+          <Suspense>
+            <PinAddForm
+              key={initialUrl}
+              cards={cards}
+              pins={pins}
+              initialUrl={initialUrl}
+              repository={repository}
+              onCardsChange={onCardsChange}
+              onClose={() => {
+                setIsAdding(false);
+                setInitialUrl('');
               }}
+              notify={notify}
             />
-            {error ? <span role="alert">{error}</span> : null}
-          </div>
+          </Suspense>
         ) : (
           <button
             data-deck="pin-add"
             className="deck-pin-add"
             type="button"
-            onClick={() => setIsAdding(true)}
+            onClick={() => {
+              setInitialUrl('');
+              setIsAdding(true);
+            }}
             aria-label={strings.addPin}
+            title={strings.addPin}
           >
             <span aria-hidden="true">+</span>
           </button>
         )
-      ) : null}
-      {menuCard ? <PinMenu card={menuCard} onUpdate={updateMenuCard} /> : null}
+      ) : (
+        <button
+          data-deck="pin-add"
+          className="deck-pin-add"
+          type="button"
+          disabled
+          title={strings.pinLimit}
+          aria-label={strings.pinLimit}
+        >
+          <span aria-hidden="true">+</span>
+        </button>
+      )}
+      {!pins.length && !isAdding && (
+        <p data-deck="pins-empty">{strings.pinsEmptyHint}</p>
+      )}
+      <Suspense>
+        {menu ? (
+          <PinMenu
+            card={menu.card}
+            anchor={menu.anchor}
+            onClose={() => setMenu(null)}
+            onUpdate={(change) => savePin(menu.card, change)}
+          />
+        ) : null}
+      </Suspense>
     </section>
-  );
-}
-
-function PinMenu({
-  card,
-  onUpdate,
-}: {
-  card: Card;
-  onUpdate: (change: Partial<Card>) => Promise<void>;
-}) {
-  const rename = () => {
-    const label = window.prompt(
-      strings.renamePinPrompt,
-      card.pinLabel ?? card.title,
-    );
-    if (label !== null) void onUpdate({ pinLabel: label });
-  };
-  const changeIcon = () => {
-    const icon = window.prompt(strings.iconPrompt, card.pinIcon ?? '');
-    if (icon !== null) void onUpdate({ pinIcon: icon || undefined });
-  };
-  return (
-    <div data-deck="pin-menu" className="deck-pin-menu" role="menu">
-      <button type="button" role="menuitem" onClick={rename}>
-        {strings.renamePin}
-      </button>
-      <button type="button" role="menuitem" onClick={changeIcon}>
-        {strings.changePinIcon}
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        onClick={() => void onUpdate({ pinned: false })}
-      >
-        {strings.unpin}
-      </button>
-    </div>
   );
 }

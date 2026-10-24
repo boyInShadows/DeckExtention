@@ -1,5 +1,10 @@
 // @vitest-environment happy-dom
-import { SETTINGS_DEFAULTS, type Settings, type Snapshot } from 'deck-schema';
+import {
+  SCHEMA_VERSION,
+  SETTINGS_DEFAULTS,
+  type Settings,
+  type Snapshot,
+} from 'deck-schema';
 import {
   afterEach,
   beforeEach,
@@ -21,6 +26,7 @@ import {
   type RenderResult,
 } from '../testing/render';
 import SettingsPanel from './SettingsPanel';
+import type { NoticeInput } from './ToastStack';
 
 /*
  * The panel builds its own BackupService on IndexedDB; the service has its
@@ -58,10 +64,10 @@ const NOW = 1_800_000_000_000;
 const SNAPSHOT: Snapshot = {
   id: 'snap_1',
   ts: NOW,
-  schemaVersion: 1,
+  schemaVersion: SCHEMA_VERSION,
   blob: '{}',
 };
-const EXPORT_JSON = '{"schemaVersion":1}';
+const EXPORT_JSON = `{"schemaVersion":${SCHEMA_VERSION}}`;
 const BLOB_URL = 'blob:deck-export';
 const BOOKMARK_TREE = [
   {
@@ -91,19 +97,29 @@ function createRepository() {
     listDecks: vi.fn(() => Promise.resolve([])),
     listCards: vi.fn(() => Promise.resolve([])),
     upsertMany: vi.fn(() => Promise.resolve()),
+    purge: vi.fn(() => Promise.resolve(0)),
   };
 }
 
-function stubChrome() {
+function stubChrome(storageItems: Record<string, unknown> = {}) {
   const chromeFake = {
     permissions: {
       contains: vi.fn(() => Promise.resolve(false)),
       getAll: vi.fn(() => Promise.resolve({ permissions: [] })),
       request: vi.fn(() => Promise.resolve(true)),
       remove: vi.fn(() => Promise.resolve(true)),
+      onRemoved: { addListener: vi.fn(), removeListener: vi.fn() },
     },
     tabs: { create: vi.fn(() => Promise.resolve()) },
     bookmarks: { getTree: vi.fn(() => Promise.resolve(BOOKMARK_TREE)) },
+    storage: {
+      onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
+      local: {
+        get: vi.fn(() => Promise.resolve(storageItems)),
+        set: vi.fn(() => Promise.resolve()),
+        remove: vi.fn(() => Promise.resolve()),
+      },
+    },
   };
   vi.stubGlobal('chrome', chromeFake);
   return chromeFake;
@@ -115,9 +131,17 @@ interface Mounted {
   onChange: ReturnType<typeof vi.fn<(settings: Settings) => Promise<void>>>;
   onDataChange: ReturnType<typeof vi.fn>;
   onClose: ReturnType<typeof vi.fn>;
+  chromeFake: ReturnType<typeof stubChrome>;
 }
 
-async function mount(settings: Settings = SETTINGS_DEFAULTS): Promise<Mounted> {
+async function mount(
+  settings: Settings = SETTINGS_DEFAULTS,
+  storageItems?: Record<string, unknown>,
+): Promise<Mounted> {
+  latestNotice = null;
+  const chromeFake = storageItems
+    ? stubChrome(storageItems)
+    : (chrome as unknown as ReturnType<typeof stubChrome>);
   const repository = createRepository();
   const onChange = vi.fn<(next: Settings) => Promise<void>>(() =>
     Promise.resolve(),
@@ -127,14 +151,19 @@ async function mount(settings: Settings = SETTINGS_DEFAULTS): Promise<Mounted> {
   const view = await render(
     <SettingsPanel
       settings={settings}
+      pages={[]}
+      decks={[]}
       repository={repository as unknown as DeckRepository}
       onChange={onChange}
       onDataChange={onDataChange}
       onClose={onClose}
+      notify={(notice: NoticeInput) => {
+        latestNotice = notice;
+      }}
     />,
   );
   await settle(view);
-  return { view, repository, onChange, onDataChange, onClose };
+  return { view, repository, onChange, onDataChange, onClose, chromeFake };
 }
 
 async function settle(view: RenderResult): Promise<void> {
@@ -170,7 +199,10 @@ async function chooseFile(
   labelText: string,
   file: File | null,
 ) {
-  const input = control<HTMLInputElement>(view, labelText);
+  const input = view
+    .getAll<HTMLInputElement>('input[type="file"]')
+    .find((item) => item.getAttribute('aria-label') === labelText);
+  if (!input) throw new Error(`No file control labelled ${labelText}`);
   Object.defineProperty(input, 'files', {
     configurable: true,
     value: file ? [file] : [],
@@ -178,8 +210,9 @@ async function chooseFile(
   await change(view, input);
 }
 
-function alertText(view: RenderResult): string | null {
-  return view.query('[role="alert"]')?.textContent ?? null;
+let latestNotice: NoticeInput | null = null;
+function alertText(_view: RenderResult): string | null {
+  return latestNotice?.kind === 'error' ? latestNotice.text : null;
 }
 
 function buttonWithText(view: RenderResult, text: string): HTMLButtonElement {
@@ -216,14 +249,38 @@ describe('SettingsPanel - appearance', () => {
     view.unmount();
   });
 
-  it('saves theme, name, toggles and dim as whole new settings', async () => {
+  it('closes with Escape or the backdrop', async () => {
+    const { view, onClose } = await mount();
+    await view.act(() => {
+      keyDown(window, 'Escape');
+    });
+    await clickAndSettle(view, view.get('[data-deck="settings-backdrop"]'));
+    expect(onClose).toHaveBeenCalledTimes(2);
+    view.unmount();
+  });
+
+  it('writes a drafted name once on close', async () => {
     const { view, onChange } = await mount();
-    const theme = control<HTMLSelectElement>(view, strings.theme);
-    theme.value = 'day';
-    await change(view, theme);
     await view.act(() =>
       type(control<HTMLInputElement>(view, strings.yourName), 'Kasra'),
     );
+    expect(onChange).not.toHaveBeenCalled();
+    await clickAndSettle(view, view.getByLabel(strings.closeSettings));
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange).toHaveBeenCalledWith({
+      ...SETTINGS_DEFAULTS,
+      ownerName: 'Kasra',
+    });
+    view.unmount();
+  });
+
+  it('saves theme, name, toggles and dim without reverting earlier changes', async () => {
+    const { view, onChange } = await mount();
+    await clickAndSettle(view, view.getByLabel(strings.themeDay));
+    await view.act(() =>
+      type(control<HTMLInputElement>(view, strings.yourName), 'Kasra'),
+    );
+    await clickAndSettle(view, view.getByLabel(strings.closeSettings));
     await view.act(() =>
       click(control<HTMLInputElement>(view, strings.showSeconds)),
     );
@@ -235,17 +292,65 @@ describe('SettingsPanel - appearance', () => {
     );
     const dim = control<HTMLInputElement>(view, strings.wallpaperDim);
     await view.act(() => type(dim, '40'));
+    await settle(view);
 
     const changes = onChange.mock.calls.map(([next]) => next);
     expect(changes).toEqual([
       { ...SETTINGS_DEFAULTS, theme: 'day' },
-      { ...SETTINGS_DEFAULTS, ownerName: 'Kasra' },
-      { ...SETTINGS_DEFAULTS, showSeconds: true },
-      { ...SETTINGS_DEFAULTS, isBlurred: true },
-      { ...SETTINGS_DEFAULTS, canSpaceOpenDrawer: false },
-      { ...SETTINGS_DEFAULTS, wallpaperDim: 40 },
+      { ...SETTINGS_DEFAULTS, theme: 'day', ownerName: 'Kasra' },
+      {
+        ...SETTINGS_DEFAULTS,
+        theme: 'day',
+        ownerName: 'Kasra',
+        showSeconds: true,
+      },
+      {
+        ...SETTINGS_DEFAULTS,
+        theme: 'day',
+        ownerName: 'Kasra',
+        showSeconds: true,
+        isBlurred: true,
+      },
+      {
+        ...SETTINGS_DEFAULTS,
+        theme: 'day',
+        ownerName: 'Kasra',
+        showSeconds: true,
+        isBlurred: true,
+        canSpaceOpenDrawer: false,
+      },
+      {
+        ...SETTINGS_DEFAULTS,
+        theme: 'day',
+        ownerName: 'Kasra',
+        showSeconds: true,
+        isBlurred: true,
+        canSpaceOpenDrawer: false,
+        wallpaperDim: 40,
+      },
     ]);
     expect(SETTINGS_DEFAULTS.theme).toBe('night');
+    view.unmount();
+  });
+
+  it('saves date, 12-hour clock and Resurface preferences', async () => {
+    const { view, onChange } = await mount();
+    await view.act(() =>
+      click(control<HTMLInputElement>(view, strings.showDate)),
+    );
+    await view.act(() =>
+      click(control<HTMLInputElement>(view, strings.use12HourClock)),
+    );
+    await view.act(() =>
+      click(control<HTMLInputElement>(view, strings.showResurface)),
+    );
+    await settle(view);
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...SETTINGS_DEFAULTS,
+      showDate: false,
+      use12HourClock: true,
+      showResurface: false,
+    });
     view.unmount();
   });
 
@@ -258,7 +363,10 @@ describe('SettingsPanel - appearance', () => {
     };
     const { view, onChange } = await mount(withFile);
     await clickAndSettle(view, buttonWithText(view, strings.wallpaperNone));
-    await clickAndSettle(view, buttonWithText(view, strings.wallpaperColor));
+    await clickAndSettle(
+      view,
+      view.getByLabel(`${strings.wallpaperColor}: slate`),
+    );
     expect(onChange.mock.calls.map(([next]) => next)).toEqual([
       {
         ...withFile,
@@ -268,7 +376,7 @@ describe('SettingsPanel - appearance', () => {
       },
       {
         ...withFile,
-        wallpaper: { kind: 'color', token: 'canvas-raised' },
+        wallpaper: { kind: 'color', token: 'slate' },
         wallpaperGradient: null,
         wallpaperLuminance: null,
       },
@@ -306,7 +414,7 @@ describe('SettingsPanel - appearance', () => {
     view.unmount();
   });
 
-  it('shows why a wallpaper failed, and clears it after a success', async () => {
+  it('shows why a wallpaper failed', async () => {
     const { view, repository } = await mount();
     const file = new File(['image'], 'wall.png', { type: 'image/png' });
     processWallpaper.mockRejectedValueOnce(new Error('cannot decode'));
@@ -319,7 +427,7 @@ describe('SettingsPanel - appearance', () => {
     expect(alertText(view)).toBe(`${strings.updateFailed} quota`);
 
     await chooseFile(view, strings.wallpaperLocal, file);
-    expect(alertText(view)).toBeNull();
+    expect(alertText(view)).toBe(`${strings.updateFailed} quota`);
     view.unmount();
   });
 });
@@ -350,22 +458,58 @@ describe('SettingsPanel - keys and advanced', () => {
 
   it('saves the search template and custom CSS', async () => {
     const { view, onChange } = await mount();
+    const engine = control<HTMLSelectElement>(view, strings.searchEngine);
+    engine.value = 'custom';
+    await change(view, engine);
     await view.act(() =>
       type(
-        control<HTMLInputElement>(view, strings.searchEngine),
+        control<HTMLInputElement>(view, strings.searchTemplate),
         'https://duck.example/?q={query}',
       ),
     );
     await view.act(() =>
       type(control<HTMLTextAreaElement>(view, strings.customCss), 'a{}'),
     );
+    await clickAndSettle(view, view.getByLabel(strings.closeSettings));
     expect(onChange.mock.calls.map(([next]) => next)).toEqual([
       {
         ...SETTINGS_DEFAULTS,
         searchUrlTemplate: 'https://duck.example/?q={query}',
+        customCss: 'a{}',
       },
-      { ...SETTINGS_DEFAULTS, customCss: 'a{}' },
     ]);
+    view.unmount();
+  });
+
+  it('offers four search engines and lets a declined search grant be retried', async () => {
+    const { view, onChange } = await mount({
+      ...SETTINGS_DEFAULTS,
+      searchPermission: 'declined',
+    });
+    const engine = control<HTMLSelectElement>(view, strings.searchEngine);
+    expect(Array.from(engine.options, (option) => option.textContent)).toEqual([
+      'Google',
+      'DuckDuckGo',
+      'Bing',
+      'Brave',
+      strings.searchCustom,
+    ]);
+    engine.value = 'https://duckduckgo.com/?q={query}';
+    await change(view, engine);
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        searchUrlTemplate: 'https://duckduckgo.com/?q={query}',
+      }),
+    );
+    await clickAndSettle(
+      view,
+      view.get('[data-deck="search-permission-retry"]'),
+    );
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        searchPermission: undefined,
+      }),
+    );
     view.unmount();
   });
 
@@ -380,6 +524,82 @@ describe('SettingsPanel - keys and advanced', () => {
 });
 
 describe('SettingsPanel - backups', () => {
+  it('lists seven dated snapshots with counts and restores the chosen one', async () => {
+    const blob = JSON.stringify({
+      schemaVersion: SCHEMA_VERSION,
+      exportedAt: NOW,
+      pages: [],
+      decks: [],
+      cards: [],
+      settings: SETTINGS_DEFAULTS,
+    });
+    backups.listSnapshots.mockResolvedValue(
+      Array.from({ length: 7 }, (_, index) => ({
+        ...SNAPSHOT,
+        id: `snap_${index}`,
+        ts: NOW - index * 1000,
+        blob,
+      })),
+    );
+    backups.restoreSnapshot.mockResolvedValue(undefined);
+    vi.stubGlobal('confirm', () => true);
+    const { view } = await mount();
+    const rows = view.getAll('[data-deck="snapshot"]');
+    expect(rows).toHaveLength(7);
+    expect(rows[0]?.textContent).toContain('0 pages · 0 decks · 0 cards');
+    expect(view.get('[data-deck="last-backup"]').textContent).toContain(
+      strings.lastBackup(''),
+    );
+    const restore = nth(rows, 6).querySelector('button');
+    if (!restore) throw new Error('Restore button is missing');
+    await clickAndSettle(view, restore);
+    expect(backups.restoreSnapshot).toHaveBeenCalledWith('snap_6');
+    view.unmount();
+  });
+
+  it('makes a snapshot without purging data', async () => {
+    const { view, repository } = await mount();
+    await clickAndSettle(view, view.get('[data-deck="snapshot-now"]'));
+    expect(backups.createSnapshot).toHaveBeenCalledOnce();
+    expect(repository.purge).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('offers retry while backup maintenance failed and clears the key after a successful retry', async () => {
+    const { view, repository, chromeFake } = await mount(SETTINGS_DEFAULTS, {
+      backupMaintenanceError: { message: 'quota', occurredAt: NOW },
+    });
+    const retry = view.get('[data-deck="backup-retry"]');
+    expect(retry.textContent).toBe(strings.backupRetry);
+    expect(view.get('[data-deck="backup-error"]').textContent).toContain(
+      'quota',
+    );
+    await clickAndSettle(view, retry);
+    expect(backups.createSnapshot).toHaveBeenCalledOnce();
+    expect(repository.purge).toHaveBeenCalledOnce();
+    expect(chromeFake.storage.local.remove).toHaveBeenCalledWith(
+      'backupMaintenanceError',
+    );
+    expect(view.query('[data-deck="backup-retry"]')).toBeNull();
+    expect(latestNotice).toEqual({
+      kind: 'success',
+      text: strings.backupSaved,
+    });
+    view.unmount();
+  });
+
+  it('keeps backup retry available when snapshot creation fails', async () => {
+    backups.createSnapshot.mockRejectedValueOnce(new Error('disk full'));
+    const { view, repository, chromeFake } = await mount(SETTINGS_DEFAULTS, {
+      backupMaintenanceError: { message: 'quota', occurredAt: NOW },
+    });
+    await clickAndSettle(view, view.get('[data-deck="backup-retry"]'));
+    expect(alertText(view)).toContain('disk full');
+    expect(view.query('[data-deck="backup-retry"]')).not.toBeNull();
+    expect(repository.purge).not.toHaveBeenCalled();
+    expect(chromeFake.storage.local.remove).not.toHaveBeenCalled();
+    view.unmount();
+  });
   it('says when there are no snapshots yet', async () => {
     const { view } = await mount();
     expect(view.container.textContent).toContain(strings.noBackups);
@@ -466,29 +686,50 @@ describe('SettingsPanel - importing data', () => {
   const exportFile = () =>
     new File([EXPORT_JSON], 'deck.json', { type: 'application/json' });
 
-  it('previews, then replaces data only after confirmation', async () => {
-    backups.previewImport.mockResolvedValue({});
-    backups.importData.mockResolvedValue({});
-    const confirm = vi.fn(() => false);
-    vi.stubGlobal('confirm', confirm);
-    const { view } = await mount();
-
-    await chooseFile(view, strings.importData, exportFile());
-    expect(backups.previewImport).toHaveBeenCalledWith(
-      JSON.parse(EXPORT_JSON),
-      'replace',
+  it('previews both modes, imports the selected mode, and offers the pre-import backup as Undo', async () => {
+    backups.previewImport.mockImplementation(async (_value, mode) =>
+      mode === 'merge'
+        ? { pages: 1, decks: 2, cards: 3, skipped: 4 }
+        : { pages: 5, decks: 6, cards: 7, skipped: 0 },
     );
-    expect(confirm).toHaveBeenCalledWith(strings.importConfirm);
-    expect(backups.importData).not.toHaveBeenCalled();
-    expect(reload).not.toHaveBeenCalled();
+    backups.importData.mockResolvedValue({
+      pages: 5,
+      decks: 6,
+      cards: 7,
+      skipped: 0,
+      snapshotId: 'before-import',
+    });
+    backups.restoreSnapshot.mockResolvedValue(undefined);
+    const { view, onDataChange, onClose } = await mount();
 
-    confirm.mockReturnValue(true);
     await chooseFile(view, strings.importData, exportFile());
+    expect(view.get('[data-deck="data-import-preview"]').textContent).toContain(
+      '1 pages · 2 decks · 3 cards · 4 duplicates',
+    );
+    expect(backups.importData).not.toHaveBeenCalled();
+    await clickAndSettle(view, buttonWithText(view, strings.replace));
+    expect(view.get('[data-deck="data-import-preview"]').textContent).toContain(
+      '5 pages · 6 decks · 7 cards · 0 duplicates',
+    );
+    await clickAndSettle(
+      view,
+      view.get('[data-deck="data-import-preview"] > button'),
+    );
+
     expect(backups.importData).toHaveBeenCalledWith(
       JSON.parse(EXPORT_JSON),
       'replace',
     );
-    expect(reload).toHaveBeenCalledTimes(1);
+    expect(onDataChange).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(reload).not.toHaveBeenCalled();
+    expect(latestNotice).toMatchObject({
+      text: strings.importedCards(7),
+      action: { label: strings.undo },
+    });
+    await latestNotice?.action?.run();
+    expect(backups.restoreSnapshot).toHaveBeenCalledWith('before-import');
+    expect(onDataChange).toHaveBeenCalledTimes(2);
     view.unmount();
   });
 
@@ -496,6 +737,27 @@ describe('SettingsPanel - importing data', () => {
     const { view } = await mount();
     await chooseFile(view, strings.importData, null);
     expect(backups.previewImport).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('keeps the preview available when the import write fails', async () => {
+    backups.previewImport.mockResolvedValue({
+      pages: 0,
+      decks: 0,
+      cards: 1,
+      skipped: 0,
+    });
+    backups.importData.mockRejectedValue(new Error('disk full'));
+    const { view, onDataChange, onClose } = await mount();
+    await chooseFile(view, strings.importData, exportFile());
+    await clickAndSettle(
+      view,
+      view.get('[data-deck="data-import-preview"] > button'),
+    );
+    expect(alertText(view)).toContain('disk full');
+    expect(view.query('[data-deck="data-import-preview"]')).not.toBeNull();
+    expect(onDataChange).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
     view.unmount();
   });
 

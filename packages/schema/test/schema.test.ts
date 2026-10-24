@@ -67,6 +67,15 @@ describe('valid fixtures parse', () => {
     ).toEqual([{ action: 'trash', chord: 'Delete' }]);
   });
 
+  it('supplies visual defaults to Settings saved before the polish pass', () => {
+    const legacy = Object.fromEntries(
+      Object.entries(SETTINGS_DEFAULTS).filter(
+        ([key]) => key !== 'showDate' && key !== 'use12HourClock',
+      ),
+    );
+    expect(SettingsSchema.parse(legacy)).toEqual(SETTINGS_DEFAULTS);
+  });
+
   it('parses an upsert Op and a delete Op', () => {
     const upsert = OpSchema.parse(validFixtures.op);
     expect(upsert.entity).toBe('card');

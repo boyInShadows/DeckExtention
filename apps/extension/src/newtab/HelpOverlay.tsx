@@ -1,5 +1,11 @@
 import type { KeyBinding } from 'deck-schema';
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import {
@@ -10,6 +16,7 @@ import {
   type Keymap,
 } from '../keys/keymap';
 import { focusOnMount } from './focusOnMount';
+import { useDismissable } from '../hooks/useDismissable';
 
 interface HelpOverlayProps {
   keymapOverrides: readonly KeyBinding[];
@@ -44,10 +51,17 @@ export default function HelpOverlay({
     [keymapOverrides],
   );
   const [commands, setCommands] = useState<BrowserCommand[]>([]);
+  const [showShortcutHint, setShowShortcutHint] = useState(false);
+  const [shortcutError, setShortcutError] = useState('');
+  const panelRef = useRef<HTMLElement>(null);
+  const [returnFocus] = useState(
+    () => document.activeElement as HTMLElement | null,
+  );
+  useDismissable(panelRef, onClose, returnFocus, false);
 
   useEffect(() => {
     chrome.commands.getAll().then(
-      (all) =>
+      (all) => {
         setCommands(
           all
             .filter(({ name }) => name && name !== '_execute_action')
@@ -56,7 +70,17 @@ export default function HelpOverlay({
               description: description ?? '',
               shortcut: shortcut || strings.keyNotSet,
             })),
-        ),
+        );
+        if (
+          all.some(
+            ({ name, shortcut }) => name === 'toggle-drawer' && !shortcut,
+          ) &&
+          !localStorage.getItem('deck:shortcut-hint-shown')
+        ) {
+          localStorage.setItem('deck:shortcut-hint-shown', 'true');
+          setShowShortcutHint(true);
+        }
+      },
       (error: unknown) =>
         setCommands([
           { name: 'error', description: String(error), shortcut: '' },
@@ -71,6 +95,7 @@ export default function HelpOverlay({
         ...scopeRows(keymap, 'surface'),
         ['?', strings.keyHelp],
         ['Space', strings.keySpace],
+        ['Ctrl Shift Enter', strings.taskShortcut],
         ['Esc', strings.keyEscape],
       ],
     },
@@ -101,14 +126,22 @@ export default function HelpOverlay({
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     // Esc closes the sheet only - not the drawer underneath it.
     event.stopPropagation();
-    // aria-modal: Close is the only focusable element, so Tab stays on it.
+    // Keep both controls in the modal's keyboard loop when the hint appears.
     if (event.key === 'Tab') {
       event.preventDefault();
+      const buttons = [...event.currentTarget.querySelectorAll('button')];
+      const current = buttons.indexOf(
+        document.activeElement as HTMLButtonElement,
+      );
+      const next =
+        (current + (event.shiftKey ? buttons.length - 1 : 1)) % buttons.length;
+      buttons[next]?.focus();
       return;
     }
-    if (event.key === 'Escape' || event.key === '?') {
+    if (event.key === '?') {
       event.preventDefault();
       onClose();
+      returnFocus?.focus();
     }
   };
 
@@ -120,6 +153,7 @@ export default function HelpOverlay({
       }}
     >
       <section
+        ref={panelRef}
         data-deck="help"
         className="deck-help"
         role="dialog"
@@ -147,6 +181,26 @@ export default function HelpOverlay({
                   </div>
                 ))}
               </dl>
+              {title === strings.keysBrowser && showShortcutHint ? (
+                <p data-deck="shortcut-hint">
+                  {strings.drawerShortcutHint}{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void chrome.tabs
+                        .create({ url: 'chrome://extensions/shortcuts' })
+                        .catch((error: unknown) =>
+                          setShortcutError(String(error)),
+                        );
+                    }}
+                  >
+                    {strings.openShortcutSettings}
+                  </button>
+                  {shortcutError ? (
+                    <span role="alert">{shortcutError}</span>
+                  ) : null}
+                </p>
+              ) : null}
             </div>
           ))}
         </div>

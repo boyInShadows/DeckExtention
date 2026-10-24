@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { SETTINGS_DEFAULTS } from 'deck-schema';
-import type { ComponentChildren } from 'preact';
+import { render as renderImmediately, type ComponentChildren } from 'preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { strings } from '../i18n/strings';
-import { render } from '../testing/render';
+import { keyDown, render } from '../testing/render';
 import type { SurfaceData } from './bootstrap';
 import { Surface } from './Surface';
 
@@ -17,6 +17,16 @@ vi.mock('../drawer/drawer', () => {
   throw new Error('chunk missing');
 });
 vi.mock('./Pins', () => ({ Pins: () => null }));
+vi.mock('../resurface/Resurface', () => ({
+  get default() {
+    throw new Error('Resurface chunk missing');
+  },
+}));
+vi.mock('../shelf/Shelf', () => ({
+  get default() {
+    throw new Error('Shelf chunk missing');
+  },
+}));
 vi.mock('../drawer/WorkspaceDnd', () => ({ WorkspaceDnd: PassThrough }));
 
 function PassThrough({ children }: { children: ComponentChildren }) {
@@ -33,26 +43,64 @@ beforeEach(() => {
   vi.stubGlobal('requestIdleCallback', schedule);
   vi.stubGlobal('cancelIdleCallback', vi.fn());
   vi.stubGlobal('chrome', {
+    tabs: { getCurrent: () => Promise.resolve({ id: 7 }) },
     storage: { local: { get: () => Promise.resolve({}), remove: vi.fn() } },
-    runtime: { onMessage: { addListener: vi.fn(), removeListener: vi.fn() } },
+    runtime: {
+      sendMessage: vi.fn(() => Promise.resolve({ error: null })),
+      onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
+    },
   });
   performance.mark('deck-start');
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   document.body.replaceChildren();
+  delete document.documentElement.dataset.deckReady;
+  performance.clearMarks();
+  performance.clearMeasures();
+});
+
+it('accepts the focus shortcut on its first ready frame before passive effects', () => {
+  vi.useFakeTimers({
+    toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+  });
+  const container = document.createElement('div');
+  document.body.append(container);
+  const data: SurfaceData = {
+    cards: [],
+    decks: [],
+    pages: [],
+    defaultDeckId: 'deck_a',
+    settings: SETTINGS_DEFAULTS,
+    repository: { getRecoveryIssueCount: () => 0 } as SurfaceData['repository'],
+  };
+  try {
+    renderImmediately(<Surface initialData={data} />, container);
+    expect(document.documentElement.dataset.deckReady).toBeUndefined();
+    for (const callback of callbacks.splice(0)) callback();
+    expect(document.documentElement.dataset.deckReady).toBe('true');
+    keyDown(window, '/');
+    expect(document.activeElement).toBe(container.querySelector('input'));
+    expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+  } finally {
+    renderImmediately(null, container);
+    container.remove();
+  }
 });
 
 describe('Surface drawer preload failure', () => {
-  it('tells the owner when the drawer chunk cannot be loaded', async () => {
+  it('keeps the surface usable and reports missing drawer, Resurface and Shelf chunks', async () => {
     const data: SurfaceData = {
       cards: [],
       decks: [],
       pages: [],
       defaultDeckId: 'deck_a',
-      settings: SETTINGS_DEFAULTS,
-      repository: {} as SurfaceData['repository'],
+      settings: { ...SETTINGS_DEFAULTS, showShelf: true },
+      repository: {
+        getRecoveryIssueCount: () => 0,
+      } as SurfaceData['repository'],
     };
     const view = await render(<Surface initialData={data} />);
     // Two rounds: the frame schedules the idle callback, which preloads.
@@ -65,9 +113,13 @@ describe('Surface drawer preload failure', () => {
       await view.act(async () => {
         await vi.dynamicImportSettled();
       });
-      expect(view.get('[data-deck="error"]').textContent).toContain(
-        strings.updateFailed,
-      );
+      const notices = view.getAll('[data-deck="toast"][data-kind="error"]');
+      expect(notices).toHaveLength(3);
+      const errors = notices.map((item) => item.textContent).join(' ');
+      expect(errors).toContain(strings.updateFailed);
+      expect(errors).toContain('Resurface chunk missing');
+      expect(errors).toContain('Shelf chunk missing');
+      expect(view.query('[data-deck="line"]')).not.toBeNull();
     });
     view.unmount();
   });

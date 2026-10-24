@@ -6,11 +6,15 @@ import { click, keyDown, render } from '../testing/render';
 import HelpOverlay from './HelpOverlay';
 
 function stubCommands(getAll: () => Promise<chrome.commands.Command[]>) {
-  vi.stubGlobal('chrome', { commands: { getAll } });
+  vi.stubGlobal('chrome', {
+    commands: { getAll },
+    tabs: { create: vi.fn(() => Promise.resolve({ id: 4 })) },
+  });
 }
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  localStorage.clear();
   document.body.replaceChildren();
 });
 
@@ -48,6 +52,33 @@ describe('HelpOverlay', () => {
     await view.act(async () => {});
     expect(view.container.textContent).toContain('no commands');
     view.unmount();
+  });
+
+  it('offers shortcut settings once when Ctrl+J is unassigned', async () => {
+    stubCommands(() =>
+      Promise.resolve([
+        { name: 'toggle-drawer', description: 'Drawer', shortcut: '' },
+      ]),
+    );
+    const view = await render(
+      <HelpOverlay keymapOverrides={[]} onClose={vi.fn()} />,
+    );
+    await view.act(async () => {});
+    expect(view.get('[data-deck="shortcut-hint"]').textContent).toContain(
+      strings.drawerShortcutHint,
+    );
+    click(view.getByText(strings.openShortcutSettings));
+    expect(chrome.tabs.create).toHaveBeenCalledWith({
+      url: 'chrome://extensions/shortcuts',
+    });
+    view.unmount();
+
+    const again = await render(
+      <HelpOverlay keymapOverrides={[]} onClose={vi.fn()} />,
+    );
+    await again.act(async () => {});
+    expect(again.query('[data-deck="shortcut-hint"]')).toBeNull();
+    again.unmount();
   });
 
   it('closes on Escape, ?, Close and the backdrop - and keeps Tab inside', async () => {

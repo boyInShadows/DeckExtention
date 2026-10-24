@@ -101,7 +101,11 @@ describe('workspace drop persistence', () => {
 
     expect(context.repository.upsertCard).toHaveBeenCalledOnce();
     expect(context.repository.upsertCard).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'card_a', pinned: true }),
+      expect.objectContaining({
+        id: 'card_a',
+        pinned: true,
+        deckId: 'deck_inbox',
+      }),
     );
     expect(context.value.cards.map(({ order }) => order)).toEqual(
       originalOrders,

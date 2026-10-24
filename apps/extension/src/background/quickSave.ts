@@ -1,5 +1,6 @@
 import {
   CAPTURE_NOTICE_KEY,
+  CAPTURE_PERMISSION_DECLINED_KEY,
   CAPTURE_PERMISSIONS,
   IdSchema,
   NoteSchema,
@@ -73,9 +74,32 @@ async function runQuickSave(
     permissions: [...CAPTURE_PERMISSIONS],
   });
   if (!isGranted) {
-    await tellUser(captureStrings.needsPermission);
-    await openNewTab(OPEN_SETTINGS_HASH);
-    return;
+    const saved = await chrome.storage.local.get(
+      CAPTURE_PERMISSION_DECLINED_KEY,
+    );
+    if (saved[CAPTURE_PERMISSION_DECLINED_KEY] === true) {
+      await tellUser(captureStrings.needsPermission);
+      return;
+    }
+    try {
+      if (
+        !(await chrome.permissions.request({
+          permissions: [...CAPTURE_PERMISSIONS],
+        }))
+      ) {
+        await chrome.storage.local.set({
+          [CAPTURE_PERMISSION_DECLINED_KEY]: true,
+        });
+        await tellUser(captureStrings.needsPermission);
+        return;
+      }
+    } catch (error) {
+      await tellUser(
+        `${captureStrings.permissionPromptFailed} ${String(error)}`,
+      );
+      await openNewTab(OPEN_SETTINGS_HASH);
+      return;
+    }
   }
   const target = linkUrl
     ? captureTarget(linkUrl, undefined)
@@ -92,13 +116,14 @@ async function runQuickSave(
     tab?.id !== undefined &&
     (await showToast(
       tab.id,
-      buildToastModel(result, settings.theme, TOAST_CSS),
+      buildToastModel(result, settings.theme, TOAST_CSS, !isGranted),
     ));
   if (isShown) return;
   await flashBadge(BADGE_SAVED);
   if (result.kind === 'saved') {
     await leaveNotice(
       `${captureStrings.savedWithoutToast} ${result.card.title}`,
+      'success',
     );
   }
 }
@@ -168,8 +193,11 @@ async function flashBadge(text: string): Promise<void> {
   }, BADGE_FLASH_MS);
 }
 
-async function leaveNotice(message: string): Promise<void> {
-  const notice: CaptureNotice = { message, createdAt: Date.now() };
+async function leaveNotice(
+  message: string,
+  kind: 'success' | 'error' = 'error',
+): Promise<void> {
+  const notice: CaptureNotice = { message, createdAt: Date.now(), kind };
   await chrome.storage.local.set({ [CAPTURE_NOTICE_KEY]: notice });
 }
 

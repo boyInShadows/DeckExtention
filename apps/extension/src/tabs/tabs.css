@@ -1,0 +1,44 @@
+@layer components {
+  [data-deck='tab-keys'] {
+    margin-block: 0;
+    padding-inline: var(--deck-space-2);
+    padding-block-end: var(--deck-space-1);
+  }
+
+  .deck-tab-result {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .deck-tab-result .deck-result {
+    flex: 1;
+    min-inline-size: 0;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    padding-block: var(--deck-space-1);
+  }
+
+  .deck-tab-result .deck-result span,
+  .deck-tab-result .deck-result small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .deck-tab-action {
+    display: grid;
+    place-items: center;
+    flex: 0 0 var(--deck-control-size);
+    min-inline-size: var(--deck-control-size);
+    border: 0;
+    background: transparent;
+    color: var(--deck-color-text-muted);
+    cursor: pointer;
+  }
+
+  .deck-tab-action:is(:hover, :focus-visible) {
+    background: var(--deck-color-glass);
+    color: var(--deck-color-text);
+  }
+}

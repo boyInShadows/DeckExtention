@@ -9,6 +9,7 @@ import { generateKeyBetween } from 'fractional-indexing';
 
 import { captureStrings } from '../i18n/captureStrings';
 import type { DeckRepository } from '../storage/repository';
+import { SESSIONS_PAGE_ID } from '../sessions/constants';
 
 /**
  * Quick Save's data path (FableTasks P2.S4, MasterPlan I3): one keystroke
@@ -149,12 +150,20 @@ function describeDuplicate(
   if (!deck || deck.kind === 'inbox') {
     return { kind: 'duplicate', card, pageId: 'inbox', location: null };
   }
-  const page = pages.find((item) => item.id === deck.pageId);
+  const page =
+    deck.kind === 'session'
+      ? undefined
+      : pages.find((item) => item.id === deck.pageId);
   const location = page ? `${page.title} › ${deck.title}` : deck.title;
-  return { kind: 'duplicate', card, pageId: deck.pageId, location };
+  return {
+    kind: 'duplicate',
+    card,
+    pageId: deck.kind === 'session' ? SESSIONS_PAGE_ID : deck.pageId,
+    location,
+  };
 }
 
-async function ensureInbox(
+export async function ensureInbox(
   repository: DeckRepository,
   decks: Deck[],
   pages: Page[],

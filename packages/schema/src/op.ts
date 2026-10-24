@@ -1,4 +1,5 @@
 import { z } from 'zod';
+export { SETTINGS_ENTITY_ID } from './constants';
 import { CardSchema } from './card';
 import { IdSchema, TimestampSchema } from './common';
 import { DeckSchema } from './deck';
@@ -38,7 +39,6 @@ const entityOp = <TEntity extends string, TSchema extends z.ZodType>(
   });
 
 /** Settings is a singleton, so its "id" is the fixed key below. */
-export const SETTINGS_ENTITY_ID = 'settings';
 
 export const OpSchema = z
   .discriminatedUnion('entity', [

@@ -78,14 +78,24 @@ interface Setup {
   isOpen?: boolean;
 }
 
-function fakeRepository() {
+function fakeRepository(cards: Card[]) {
   const upsertCard = vi.fn(async (value: Card) => value);
-  const softDelete = vi.fn(async (_entity: string, _id: string) => undefined);
-  return { upsertCard, softDelete };
+  const listCards = vi.fn(async () => cards);
+  const markCardsOpened = vi.fn(async (ids: string[]) =>
+    cards
+      .filter((card) => ids.includes(card.id) && card.deletedAt === null)
+      .map((card) => ({ ...card, lastOpenedAt: Date.now() })),
+  );
+  const trashCards = vi.fn(async (ids: string[]) =>
+    cards
+      .filter(({ id }) => ids.includes(id))
+      .map((card) => ({ ...card, deletedAt: STAMP })),
+  );
+  return { upsertCard, listCards, trashCards, markCardsOpened };
 }
 
 async function renderTriage(setup: Setup = {}) {
-  const fake = fakeRepository();
+  const fake = fakeRepository(setup.cards ?? CARDS);
   const onCardsChange = vi.fn();
   const onError = vi.fn();
   const data: SurfaceData = {
@@ -176,6 +186,16 @@ describe('InboxTriage - list', () => {
     triage.view.unmount();
   });
 
+  it('shows when an inbox card was saved', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(2 * 60 * 60 * 1000 + STAMP);
+    const triage = await renderTriage();
+    expect(triage.view.get('[data-deck="card"] time').textContent).toContain(
+      '2h ago',
+    );
+    triage.view.unmount();
+  });
+
   it('shows inbox zero and ignores triage keys when the inbox is empty', async () => {
     const triage = await renderTriage({ cards: [] });
     expect(triage.view.get('[data-deck="inbox-zero"]').textContent).toBe(
@@ -185,7 +205,7 @@ describe('InboxTriage - list', () => {
     expect(triage.list().hasAttribute('aria-activedescendant')).toBe(false);
     const trash = await press(triage, 'x');
     expect(trash.defaultPrevented).toBe(false);
-    expect(triage.softDelete).not.toHaveBeenCalled();
+    expect(triage.trashCards).not.toHaveBeenCalled();
     triage.view.unmount();
   });
 
@@ -202,19 +222,27 @@ describe('InboxTriage - list', () => {
 
   it('moves the cursor with j, k and the arrows, clamped to the list', async () => {
     const triage = await renderTriage();
-    expect((await press(triage, 'k')).defaultPrevented).toBe(true);
+    expect((await press(triage, 'j')).defaultPrevented).toBe(true);
     expect(cursorTitle(triage.view)).toBe('Title one');
-    await press(triage, 'j');
     await press(triage, 'ArrowDown');
     await press(triage, 'ArrowDown');
     expect(cursorTitle(triage.view)).toBe('Title three');
     await press(triage, 'ArrowUp');
     expect(cursorTitle(triage.view)).toBe('Title two');
+    await press(triage, 'Home');
+    expect(cursorTitle(triage.view)).toBe('Title one');
+    await press(triage, 'End');
+    expect(cursorTitle(triage.view)).toBe('Title three');
     triage.view.unmount();
+    const fromBottom = await renderTriage();
+    await press(fromBottom, 'k');
+    expect(cursorTitle(fromBottom.view)).toBe('Title three');
+    fromBottom.view.unmount();
   });
 
   it('moves the cursor to a clicked row and drops any selection', async () => {
     const triage = await renderTriage();
+    await press(triage, 'j');
     await press(triage, 'j', { shiftKey: true });
     expect(selectedTitles(triage.view)).toEqual(['Title one', 'Title two']);
     await triage.view.act(() => click(triage.view.getByText('Title three')));
@@ -228,7 +256,7 @@ describe('InboxTriage - keys that must not act', () => {
   it('ignores keys while the drawer is closing', async () => {
     const triage = await renderTriage({ isOpen: false });
     expect((await press(triage, 'x')).defaultPrevented).toBe(false);
-    expect(triage.softDelete).not.toHaveBeenCalled();
+    expect(triage.trashCards).not.toHaveBeenCalled();
     triage.view.unmount();
   });
 
@@ -237,7 +265,7 @@ describe('InboxTriage - keys that must not act', () => {
     await triage.view.act(() => {
       keyDown(triage.view.get('[role="option"]'), 'x');
     });
-    expect(triage.softDelete).not.toHaveBeenCalled();
+    expect(triage.trashCards).not.toHaveBeenCalled();
     triage.view.unmount();
   });
 
@@ -253,7 +281,7 @@ describe('InboxTriage - keys that must not act', () => {
     expect(
       (await press(triage, 'x', { shiftKey: true })).defaultPrevented,
     ).toBe(false);
-    expect(triage.softDelete).not.toHaveBeenCalled();
+    expect(triage.trashCards).not.toHaveBeenCalled();
     expect(cursorTitle(triage.view)).toBe('Title one');
     triage.view.unmount();
   });
@@ -262,6 +290,7 @@ describe('InboxTriage - keys that must not act', () => {
 describe('InboxTriage - trash and selection', () => {
   it('extends the selection with Shift and trashes the whole range', async () => {
     const triage = await renderTriage();
+    await press(triage, 'j');
     await press(triage, 'j', { shiftKey: true });
     await press(triage, 'ArrowDown', { shiftKey: true });
     expect(selectedTitles(triage.view)).toEqual([
@@ -273,10 +302,7 @@ describe('InboxTriage - trash and selection', () => {
     expect(selectedTitles(triage.view)).toEqual(['Title one', 'Title two']);
 
     expect((await press(triage, 'x')).defaultPrevented).toBe(true);
-    expect(triage.softDelete.mock.calls).toEqual([
-      ['card', 'one'],
-      ['card', 'two'],
-    ]);
+    expect(triage.trashCards).toHaveBeenCalledWith(['one', 'two']);
     expect(rowTitles(triage.view)).toEqual(['Title three']);
     expect(selectedTitles(triage.view)).toEqual([]);
     triage.view.unmount();
@@ -284,7 +310,7 @@ describe('InboxTriage - trash and selection', () => {
 
   it('reports a failed write and keeps every card', async () => {
     const triage = await renderTriage();
-    triage.softDelete.mockRejectedValueOnce(new Error('disk full'));
+    triage.trashCards.mockRejectedValueOnce(new Error('disk full'));
     await press(triage, 'x');
     expect(triage.onError).toHaveBeenCalledWith(
       `${strings.updateFailed} disk full`,
@@ -296,7 +322,7 @@ describe('InboxTriage - trash and selection', () => {
 
   it('reports a non-Error failure as text', async () => {
     const triage = await renderTriage();
-    triage.softDelete.mockRejectedValueOnce('locked');
+    triage.trashCards.mockRejectedValueOnce('locked');
     await press(triage, 'x');
     expect(triage.onError).toHaveBeenCalledWith(
       `${strings.updateFailed} locked`,
@@ -321,7 +347,7 @@ describe('InboxTriage - trash and selection', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(document.activeElement).toBe(triage.list());
-    expect(triage.softDelete).toHaveBeenCalledTimes(2);
+    expect(triage.trashCards).toHaveBeenCalledTimes(2);
     triage.view.unmount();
   });
 });
@@ -382,16 +408,20 @@ describe('InboxTriage - move', () => {
 });
 
 describe('InboxTriage - pin', () => {
-  it('pins into the default deck', async () => {
+  it('pins into the Inbox record without leaving it in a user deck', async () => {
     const triage = await renderTriage();
     await press(triage, 'p');
     expect(triage.upsertCard).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'one', pinned: true, deckId: HOME_ID }),
+      expect.objectContaining({
+        id: 'one',
+        pinned: true,
+        deckId: 'deck_inbox',
+      }),
     );
     triage.view.unmount();
   });
 
-  it('falls back to the first deck when the default deck is trashed', async () => {
+  it('keeps pins in the Inbox record when the default deck is trashed', async () => {
     const triage = await renderTriage({
       decks: DECKS.map((item) =>
         item.id === HOME_ID ? { ...item, deletedAt: STAMP } : item,
@@ -399,18 +429,20 @@ describe('InboxTriage - pin', () => {
     });
     await press(triage, 'p');
     expect(triage.upsertCard).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'one', deckId: 'deck_docs' }),
+      expect.objectContaining({ id: 'one', deckId: 'deck_inbox' }),
     );
     triage.view.unmount();
   });
 
-  it('asks for a deck first when there is nowhere to pin', async () => {
+  it('can pin without a user deck', async () => {
     const triage = await renderTriage({
       decks: DECKS.filter(({ kind }) => kind === 'inbox'),
     });
     await press(triage, 'p');
-    expect(triage.onError).toHaveBeenCalledWith(strings.noDecks);
-    expect(triage.upsertCard).not.toHaveBeenCalled();
+    expect(triage.onError).not.toHaveBeenCalled();
+    expect(triage.upsertCard).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'one', deckId: 'deck_inbox' }),
+    );
     triage.view.unmount();
   });
 });
@@ -438,7 +470,9 @@ describe('InboxTriage - note and open', () => {
     expect(triage.view.container.textContent).toContain('● one.test');
 
     await triage.view.act(() => click(triage.view.getByText(strings.close)));
-    expect(triage.view.query('[data-deck="note"]')).toBeNull();
+    await vi.waitFor(() =>
+      expect(triage.view.query('[data-deck="note"]')).toBeNull(),
+    );
     expect(document.activeElement).toBe(triage.list());
     triage.view.unmount();
   });
@@ -457,7 +491,9 @@ describe('InboxTriage - note and open', () => {
       '_blank',
       'noopener',
     );
-    expect(triage.upsertCard).toHaveBeenCalledTimes(2);
+    expect(triage.markCardsOpened).toHaveBeenCalledTimes(2);
+    expect(triage.markCardsOpened).toHaveBeenCalledWith(['one']);
+    expect(triage.upsertCard).not.toHaveBeenCalled();
     expect(triage.onCardsChange).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({

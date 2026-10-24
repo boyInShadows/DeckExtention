@@ -4,32 +4,45 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
 } from 'react';
 
 import {
-  CAPTURE_NOTICE_KEY,
-  CaptureNoticeSchema,
+  MAINTENANCE_MESSAGE,
   OPEN_PAGE_HASH_PREFIX,
   OPEN_SETTINGS_HASH,
-} from 'deck-schema';
+} from 'deck-schema/constants';
 
 import { strings } from '../i18n/strings';
 import { WorkspaceDnd } from '../drawer/WorkspaceDnd';
+import type { UndoAction } from '../drawer/UndoToast';
+import type { Notice, NoticeInput } from './ToastStack';
 import { blackScrimForWhiteText } from '../wallpaper/contrast';
 import type { SurfaceData } from './bootstrap';
 import { Line } from './Line';
 import { Pins } from './Pins';
 import { greetingForHour } from './surfaceModel';
+import type ResurfacePanel from '../resurface/Resurface';
+import type ShelfPanel from '../shelf/Shelf';
+import type { Card } from 'deck-schema';
+import type { CreatedWorkspace } from './lineWorkspace';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
 const HelpOverlay = lazy(() => import('./HelpOverlay'));
+const RecoveryNotice = lazy(() =>
+  import('./RecoverySurface').then(({ RecoveryNotice }) => ({
+    default: RecoveryNotice,
+  })),
+);
 const loadDrawer = () => import('../drawer/drawer');
 const Drawer = lazy(loadDrawer);
-const CLOCK_UPDATE_MS = 1_000;
-const DRAWER_EXIT_MS = 320;
+const ToastStack = lazy(() => import('./ToastStack'));
+const SECOND_MS = 1_000;
+const MINUTE_MS = 60_000;
+const DRAWER_EXIT_MS = 480;
 const BRIGHT_WALLPAPER_THRESHOLD = 0.18;
 
 export interface SurfaceProps {
@@ -37,17 +50,29 @@ export interface SurfaceProps {
 }
 
 export function Surface({ initialData }: SurfaceProps) {
-  const [now, setNow] = useState(() => new Date());
+  const recoveryIssueCount = initialData.repository.getRecoveryIssueCount();
+  const [now, setNow] = useState(new Date());
   const [cards, setCards] = useState(initialData.cards);
   const [decks, setDecks] = useState(initialData.decks);
   const [pages, setPages] = useState(initialData.pages);
   const [settings, setSettings] = useState(initialData.settings);
+  const [requestedNote, setRequestedNote] = useState<Card | null>(null);
+  const [createdWorkspace, setCreatedWorkspace] =
+    useState<CreatedWorkspace | null>(null);
+  const [Shelf, setShelf] = useState<typeof ShelfPanel | null>(null);
+  const [Resurface, setResurface] = useState<typeof ResurfacePanel | null>(
+    null,
+  );
+  const keymap = useMemo(
+    () => new Map(settings.keymap.map(({ action, chord }) => [action, chord])),
+    [settings.keymap],
+  );
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(
-    () => location.hash === OPEN_SETTINGS_HASH,
+    location.hash === OPEN_SETTINGS_HASH,
   );
   // A `#page=` link (Quick Save's "open Deck") arrives with the drawer open.
-  const [isDrawerOpen, setIsDrawerOpen] = useState(() =>
+  const [isDrawerOpen, setIsDrawerOpen] = useState(
     location.hash.startsWith(OPEN_PAGE_HASH_PREFIX),
   );
   const [isDrawerMounted, setIsDrawerMounted] = useState(isDrawerOpen);
@@ -55,35 +80,58 @@ export function Surface({ initialData }: SurfaceProps) {
     key: string;
     url: string;
   } | null>(null);
-  const [error, setError] = useState('');
-  const drawerExitTimer = useRef<number | null>(null);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const notify = useCallback((notice: NoticeInput) => {
+    setNotices((current) => [
+      ...current,
+      { ...notice, id: crypto.randomUUID() },
+    ]);
+  }, []);
+  const notifyError = useCallback(
+    (text: string) => notify({ kind: 'error', text }),
+    [notify],
+  );
+  const notifyFailure = useCallback(
+    (error: unknown) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      notifyError(`${strings.updateFailed} ${detail}`);
+    },
+    [notifyError],
+  );
+  const dismissNotice = useCallback((id: string) => {
+    setNotices((current) => current.filter((notice) => notice.id !== id));
+  }, []);
+  const offerUndo = useCallback(
+    (action: UndoAction) => {
+      notify({
+        kind: 'success',
+        text: action.label,
+        action: { label: strings.undo, run: action.undo },
+      });
+    },
+    [notify],
+  );
+  const drawerExitTimer = useRef(0);
+  const beforeDrawerClose = useRef<(() => Promise<boolean>) | null>(null);
+  const tabId = useRef(0);
 
   const openDrawer = useCallback(() => {
-    if (drawerExitTimer.current !== null) {
-      window.clearTimeout(drawerExitTimer.current);
-      drawerExitTimer.current = null;
-    }
+    clearTimeout(drawerExitTimer.current);
     setIsSettingsOpen(false);
     setIsDrawerMounted(true);
-    window.requestAnimationFrame(() => setIsDrawerOpen(true));
+    requestAnimationFrame(() => setIsDrawerOpen(true));
   }, []);
 
-  const closeDrawer = useCallback(() => {
+  const closeDrawer = useCallback(async () => {
+    if ((await beforeDrawerClose.current?.()) === false) return false;
+    clearTimeout(drawerExitTimer.current);
     setIsDrawerOpen(false);
     drawerExitTimer.current = window.setTimeout(() => {
       setIsDrawerMounted(false);
-      drawerExitTimer.current = null;
+      setCreatedWorkspace(null);
     }, DRAWER_EXIT_MS);
+    return true;
   }, []);
-
-  useEffect(
-    () => () => {
-      if (drawerExitTimer.current !== null) {
-        window.clearTimeout(drawerExitTimer.current);
-      }
-    },
-    [],
-  );
 
   const saveSettings = useCallback(
     async (next: typeof settings) => {
@@ -91,102 +139,128 @@ export function Surface({ initialData }: SurfaceProps) {
         const saved = await initialData.repository.setSettings(next);
         setSettings(saved);
         document.documentElement.dataset.theme = saved.theme;
-        document.body.style.backgroundImage = saved.wallpaperGradient ?? '';
-        setError('');
+        notify({ kind: 'success', text: strings.saved });
       } catch (saveError) {
-        const detail =
-          saveError instanceof Error ? saveError.message : String(saveError);
-        setError(`${strings.updateFailed} ${detail}`);
+        notifyFailure(saveError);
       }
     },
-    [initialData.repository],
+    [initialData.repository, notify, notifyFailure],
   );
 
-  // A bulk write from Settings (bookmark import) - re-read what changed.
+  // A bulk write from Settings can also replace appearance and key bindings.
   const reloadWorkspace = useCallback(() => {
-    const { repository } = initialData;
     void Promise.all([
-      repository.listPages(),
-      repository.listDecks(),
-      repository.listCards(),
+      initialData.repository.listPages(),
+      initialData.repository.listDecks(),
+      initialData.repository.listCards(),
+      initialData.repository.getSettings(),
     ])
-      .then(([storedPages, storedDecks, storedCards]) => {
+      .then(([storedPages, storedDecks, storedCards, storedSettings]) => {
         setPages(storedPages);
         setDecks(storedDecks);
         setCards(storedCards);
+        setSettings(storedSettings);
+        document.documentElement.dataset.theme = storedSettings.theme;
       })
-      .catch((loadError: unknown) => {
-        const detail =
-          loadError instanceof Error ? loadError.message : String(loadError);
-        setError(`${strings.updateFailed} ${detail}`);
+      .catch(notifyFailure);
+  }, [initialData, notifyFailure]);
+
+  useEffect(() => {
+    if (!settings.showResurface) return;
+    let isCurrent = true;
+    void import('../resurface/Resurface')
+      .then((module) => {
+        if (isCurrent) setResurface(() => module.default);
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) notifyFailure(error);
       });
-  }, [initialData]);
+    return () => {
+      isCurrent = false;
+    };
+  }, [settings.showResurface, notifyFailure]);
+
+  useEffect(() => {
+    if (!settings.showShelf) return;
+    let isCurrent = true;
+    void import('../shelf/Shelf')
+      .then((module) => {
+        if (isCurrent) setShelf(() => module.default);
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) notifyFailure(error);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [settings.showShelf, notifyFailure]);
 
   // Quick Save hands over here when its toast could not show (P2.S4).
   useEffect(() => {
     // Consumed once: a reload of this tab should start calm again.
     if (location.hash === OPEN_SETTINGS_HASH)
       history.replaceState(null, '', location.pathname);
-    chrome.storage.local
-      .get(CAPTURE_NOTICE_KEY)
-      .then((items) => {
-        const notice = CaptureNoticeSchema.safeParse(items[CAPTURE_NOTICE_KEY]);
-        if (!notice.success) return;
-        setError(notice.data.message);
-        return chrome.storage.local.remove(CAPTURE_NOTICE_KEY);
-      })
-      .catch((noticeError: unknown) => setError(String(noticeError)));
-  }, []);
+    void import('./pendingNotices')
+      .then(({ readPendingNotices }) => readPendingNotices(notify))
+      .catch((noticeError: unknown) => notifyError(String(noticeError)));
+  }, [notify, notifyError]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let idle: number | null = null;
     const frame = window.requestAnimationFrame(() => {
+      document.documentElement.dataset.deckReady = 'true';
+      if (performance.getEntriesByName('deck-ready').length === 0) {
+        performance.mark('deck-ready');
+        performance.measure('deck-interactive', 'deck-start', 'deck-ready');
+      }
       idle = window.requestIdleCallback(() => {
-        void loadDrawer().catch((loadError: unknown) => {
-          const detail =
-            loadError instanceof Error ? loadError.message : String(loadError);
-          setError(`${strings.updateFailed} ${detail}`);
-        });
+        void loadDrawer().catch(notifyFailure);
+        void chrome.runtime
+          .sendMessage({ type: MAINTENANCE_MESSAGE })
+          .then((reply: { error: string | null }) => {
+            if (reply.error) notifyFailure(reply.error);
+          })
+          .catch(notifyFailure);
       });
     });
     return () => {
       window.cancelAnimationFrame(frame);
       if (idle !== null) window.cancelIdleCallback(idle);
+      clearTimeout(drawerExitTimer.current);
     };
-  }, []);
+  }, [notifyFailure]);
 
   useLayoutEffect(() => {
-    if (!isDrawerOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      const isInput =
-        event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement;
-      if (event.key === 'Escape' && !isInput) closeDrawer();
-    };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [closeDrawer, isDrawerOpen]);
-
-  useLayoutEffect(() => {
-    const toggleDrawer = () => {
-      if (isDrawerOpen) closeDrawer();
-      else openDrawer();
-    };
+    if (!tabId.current)
+      void chrome.tabs
+        .getCurrent()
+        .then((tab) => (tabId.current = tab?.id ?? 0), notifyFailure);
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key.toLocaleLowerCase() === 'j') {
+      if (event.ctrlKey && event.key.toLowerCase() === 'j') {
         event.preventDefault();
-        toggleDrawer();
+        (isDrawerOpen ? closeDrawer : openDrawer)();
+        return;
       }
-    };
-    const onMessage = (message: unknown) => {
       if (
-        typeof message === 'object' &&
-        message !== null &&
-        'type' in message &&
-        message.type === 'deck:toggle-drawer'
-      ) {
-        toggleDrawer();
-      }
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey ||
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement
+      )
+        return;
+      if (event.key === (keymap.get('blur') ?? 'b'))
+        void saveSettings({ ...settings, isBlurred: !settings.isBlurred });
+      if (event.key === '?') setIsHelpOpen(true);
+    };
+    const onMessage = (
+      message: { drawer?: number } | null,
+      _sender: chrome.runtime.MessageSender,
+      sendResponse: (response: boolean) => void,
+    ) => {
+      if (message?.drawer !== tabId.current) return;
+      (isDrawerOpen ? closeDrawer : openDrawer)();
+      sendResponse(true);
     };
     window.addEventListener('keydown', onKeyDown);
     chrome.runtime.onMessage.addListener(onMessage);
@@ -194,26 +268,33 @@ export function Surface({ initialData }: SurfaceProps) {
       window.removeEventListener('keydown', onKeyDown);
       chrome.runtime.onMessage.removeListener(onMessage);
     };
-  }, [closeDrawer, isDrawerOpen, openDrawer]);
+  }, [
+    closeDrawer,
+    isDrawerOpen,
+    keymap,
+    notifyFailure,
+    openDrawer,
+    saveSettings,
+    settings,
+  ]);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      document.documentElement.dataset.deckReady = 'true';
-      if (performance.getEntriesByName('deck-ready').length === 0) {
-        performance.mark('deck-ready');
-        performance.measure('deck-interactive', 'deck-start', 'deck-ready');
-      }
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
+    const period = settings.showSeconds ? SECOND_MS : MINUTE_MS;
+    let timer: number;
+    const tick = () => {
+      setNow(new Date());
+      timer = window.setTimeout(tick, period - (Date.now() % period));
+    };
+    timer = window.setTimeout(tick, period - (Date.now() % period));
+    return () => window.clearTimeout(timer);
+  }, [settings.showSeconds]);
 
-  useEffect(() => {
-    const interval = window.setInterval(
-      () => setNow(new Date()),
-      CLOCK_UPDATE_MS,
-    );
-    return () => window.clearInterval(interval);
-  }, []);
+  useLayoutEffect(() => {
+    document.body.style.backgroundImage = settings.wallpaperGradient ?? '';
+    return () => {
+      document.body.style.backgroundImage = '';
+    };
+  }, [settings.wallpaperGradient]);
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -234,43 +315,18 @@ export function Surface({ initialData }: SurfaceProps) {
               url: objectUrl,
             });
         })
-        .catch((loadError: unknown) => {
-          const detail =
-            loadError instanceof Error ? loadError.message : String(loadError);
-          setError(`${strings.updateFailed} ${detail}`);
-        });
+        .catch(notifyFailure);
     }
     return () => {
       isCurrent = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [initialData.repository, settings.wallpaper]);
+  }, [initialData.repository, notifyFailure, settings.wallpaper]);
 
-  useLayoutEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const isInput =
-        event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement;
-      const isPlain = !event.ctrlKey && !event.altKey && !event.metaKey;
-      if (isInput || !isPlain) return;
-      // Surface keys are single characters (keys/keymap.ts), so a plain
-      // comparison here keeps the keymap code off the first paint.
-      const blurKey = settings.keymap.find(({ action }) => action === 'blur');
-      if (event.key === (blurKey?.chord ?? 'b')) {
-        void saveSettings({ ...settings, isBlurred: !settings.isBlurred });
-      }
-      if (event.key === '?') setIsHelpOpen(true);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [saveSettings, settings]);
-
-  const time = new Intl.DateTimeFormat(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: settings.showSeconds ? '2-digit' : undefined,
-    hour12: false,
-  }).format(now);
+  const time = now.toLocaleTimeString(undefined, {
+    timeStyle: settings.showSeconds ? 'medium' : 'short',
+    hour12: settings.use12HourClock,
+  });
   const wallpaperUrl =
     settings.wallpaper.kind === 'file' &&
     loadedWallpaper?.key === settings.wallpaper.blobKey
@@ -281,6 +337,10 @@ export function Surface({ initialData }: SurfaceProps) {
     '--deck-wallpaper-image': wallpaperUrl ? `url("${wallpaperUrl}")` : 'none',
     '--deck-wallpaper-dim': `${settings.wallpaperDim / 100}`,
     '--deck-auto-scrim': `${blackScrimForWhiteText(settings.wallpaperLuminance ?? 0)}`,
+    '--deck-wallpaper-color':
+      settings.wallpaper.kind === 'color'
+        ? `var(--deck-color-wallpaper-${settings.wallpaper.token})`
+        : 'transparent',
   } as CSSProperties;
 
   return (
@@ -310,29 +370,78 @@ export function Surface({ initialData }: SurfaceProps) {
           >
             {time}
           </time>
+          {settings.showDate && (
+            <p data-deck="date">
+              {now.toLocaleDateString(undefined, { dateStyle: 'full' })}
+            </p>
+          )}
           {settings.ownerName ? (
             <p data-deck="greeting" className="deck-greeting">
               {greetingForHour(now.getHours())}, {settings.ownerName}
             </p>
           ) : null}
           <Line
+            prepareWorkspace={closeDrawer}
+            openWorkspace={(workspace) => {
+              setCreatedWorkspace(workspace);
+              reloadWorkspace();
+              openDrawer();
+            }}
+            openNote={(card) => {
+              setRequestedNote(card);
+              openDrawer();
+            }}
+            onDataChange={reloadWorkspace}
+            notifyNotice={notify}
             cards={cards}
             settings={settings}
             repository={initialData.repository}
             openSettings={() => setIsSettingsOpen(true)}
             saveSettings={saveSettings}
-            notify={setError}
+            notify={notifyError}
+            notifyInfo={(text) => notify({ kind: 'info', text })}
+            notifySuccess={(text) => notify({ kind: 'success', text })}
             canSpaceOpenDrawer={settings.canSpaceOpenDrawer}
             openHelp={() => setIsHelpOpen(true)}
             openDrawer={openDrawer}
           />
           <Pins
             cards={cards}
-            defaultDeckId={initialData.defaultDeckId}
             repository={initialData.repository}
             onCardsChange={setCards}
+            offerUndo={offerUndo}
+            notify={notify}
           />
+          {settings.showShelf && Shelf ? (
+            <Shelf
+              cards={cards}
+              decks={decks}
+              pages={pages}
+              selectedDeckIds={settings.shelfDeckIds}
+              repository={initialData.repository}
+              onDataChange={reloadWorkspace}
+              onError={notifyError}
+              onOpenNote={(card) => {
+                setRequestedNote(card);
+                openDrawer();
+              }}
+            />
+          ) : null}
         </div>
+        <Suspense>
+          {settings.showResurface && Resurface ? (
+            <Resurface
+              repository={initialData.repository}
+              cards={cards}
+              decks={decks}
+              pages={pages}
+              now={now}
+              isVisible={!isDrawerMounted && !isSettingsOpen && !isHelpOpen}
+              onDataChange={reloadWorkspace}
+              notify={notify}
+            />
+          ) : null}
+        </Suspense>
         <nav data-deck="surface-controls" className="deck-surface-controls">
           <button
             type="button"
@@ -341,46 +450,68 @@ export function Surface({ initialData }: SurfaceProps) {
               void saveSettings({ ...settings, isBlurred: !settings.isBlurred })
             }
             aria-pressed={settings.isBlurred}
+            aria-label={strings.blurMode}
+            title={strings.blurMode}
           >
-            ◉
+            <svg aria-hidden="true">
+              <circle cx="10" cy="10" r="7" />
+              <path d="M10 3v14" />
+            </svg>
           </button>
           <button
             type="button"
             data-deck="settings-toggle"
             onClick={() => setIsSettingsOpen(true)}
             aria-label={strings.settings}
+            title={strings.settings}
           >
-            ⚙
+            <svg aria-hidden="true">
+              <circle cx="10" cy="10" r="3" />
+              <circle cx="10" cy="10" r="8" strokeDasharray="3 2" />
+            </svg>
           </button>
         </nav>
         <button
           type="button"
           data-deck="drawer-handle"
-          className="deck-drawer-handle"
           onClick={openDrawer}
           aria-label={strings.openDrawer}
         >
+          <svg aria-hidden="true">
+            <path d="m2 11 6-6 6 6" />
+          </svg>{' '}
           {strings.drawerHandle}
         </button>
-        {error ? (
-          <p data-deck="error" className="deck-error" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <Suspense fallback={null}>
+        <Suspense>
+          {recoveryIssueCount ? (
+            <RecoveryNotice
+              count={recoveryIssueCount}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+          ) : null}
+        </Suspense>
+        <Suspense>
           {isSettingsOpen ? (
             <SettingsPanel
               settings={settings}
+              pages={pages}
+              decks={decks}
               repository={initialData.repository}
               onChange={saveSettings}
               onDataChange={reloadWorkspace}
               onClose={() => setIsSettingsOpen(false)}
+              notify={notify}
             />
           ) : null}
         </Suspense>
-        <Suspense fallback={null}>
+        <Suspense>
           {isDrawerMounted ? (
             <Drawer
+              key={createdWorkspace?.deckId ?? createdWorkspace?.pageId}
+              initialPageId={createdWorkspace?.pageId}
+              initialEditingDeckId={createdWorkspace?.deckId}
+              requestedNote={requestedNote}
+              onNoteOpened={() => setRequestedNote(null)}
               keymapOverrides={settings.keymap}
               data={initialData}
               cards={cards}
@@ -388,18 +519,30 @@ export function Surface({ initialData }: SurfaceProps) {
               pages={pages}
               isOpen={isDrawerOpen}
               onClose={closeDrawer}
+              beforeCloseRef={beforeDrawerClose}
               onCardsChange={setCards}
               onDecksChange={setDecks}
               onPagesChange={setPages}
-              onError={setError}
+              onError={notifyError}
+              onSuccess={(text) => notify({ kind: 'success', text })}
+              offerUndo={offerUndo}
             />
           ) : null}
         </Suspense>
-        <Suspense fallback={null}>
+        <Suspense>
           {isHelpOpen ? (
             <HelpOverlay
               keymapOverrides={settings.keymap}
               onClose={() => setIsHelpOpen(false)}
+            />
+          ) : null}
+        </Suspense>
+        <Suspense>
+          {notices.length ? (
+            <ToastStack
+              notices={notices}
+              dismiss={dismissNotice}
+              notify={notify}
             />
           ) : null}
         </Suspense>

@@ -1,4 +1,4 @@
-import { strings } from '../i18n/strings';
+import { panelStrings as strings } from '../i18n/panelStrings';
 
 export type ActionId =
   | 'blur'
@@ -9,7 +9,9 @@ export type ActionId =
   | 'import'
   | 'settings'
   | 'new-page'
-  | 'stash';
+  | 'new-deck'
+  | 'stash'
+  | 'tabs';
 
 export const LINE_ACTIONS: { id: ActionId; command: string; label: string }[] =
   [
@@ -29,5 +31,18 @@ export const LINE_ACTIONS: { id: ActionId; command: string; label: string }[] =
     { id: 'import', command: '>import', label: strings.actionImport },
     { id: 'settings', command: '>settings', label: strings.actionSettings },
     { id: 'new-page', command: '>new page', label: strings.actionNewPage },
+    { id: 'new-deck', command: '>new deck', label: strings.actionNewDeck },
     { id: 'stash', command: '>stash', label: strings.actionStash },
+    { id: 'tabs', command: '>tabs', label: strings.actionTabs },
   ];
+
+export function filterLineActions(query: string, isCommand: boolean) {
+  if (!query || query[0] === '?') return [];
+  const lower = query.toLowerCase();
+  return LINE_ACTIONS.filter(({ command, label }) =>
+    isCommand
+      ? `${command} ${label}`.toLowerCase().includes(lower) ||
+        lower.startsWith(command)
+      : label.toLowerCase().includes(lower),
+  );
+}

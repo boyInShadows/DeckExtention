@@ -84,12 +84,11 @@ pnpm build
 
 This project is built largely by AI agents working to a written spec.
 
-The planning documents — `MasterPlan.md` (the product and the research behind it),
-`FableTasks.md` (the numbered task list), and **`AGENTS.md` (the binding rules of
-engagement)** — are **deliberately not published to this repository**. They live only in
-the owner's working directory.
+The working plan — `pending.md` (numbered tasks and acceptance checks) — and
+**`AGENTS.md` (the binding rules of engagement)** are **deliberately not published to this
+repository**. They live only in the owner's working directory.
 
-If you are an agent and you cannot see those three files next to this README, **you are
+If you are an agent and you cannot see those two files next to this README, **you are
 working from an incomplete checkout. Stop and ask the owner for them.** Do not infer the
 rules from the code.
 

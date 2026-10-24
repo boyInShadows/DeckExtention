@@ -25,6 +25,7 @@ export const DeckSchema = z.strictObject({
   /** Design-token name for the deck accent, or null for the default. */
   color: TokenNameSchema.nullable(),
   isCollapsed: z.boolean(),
+  isTaskMode: z.boolean().optional(),
   /** Deck-level markdown note, rendered above the deck's cards. */
   note: NoteSchema.optional(),
   /** Session decks self-clean after 30 days unless pinned (MasterPlan I4). */

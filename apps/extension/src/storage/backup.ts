@@ -7,16 +7,18 @@ import {
   type Snapshot,
 } from 'deck-schema';
 
-import { type DeckDatabaseHandle } from './database';
+import { ACTIVE_DATABASE_KEY, type DeckDatabaseHandle } from './database';
 import {
   parseDocument,
-  parseDocumentJson,
   serializeDocument,
   type DeckDocument,
 } from './document';
-import type { DeckRepository } from './repository';
+import { migrateDocument } from './documentMigration';
+export { migrateDocument } from './documentMigration';
+import { DeckRepository } from './repository';
 
 const SNAPSHOT_RETENTION = 7;
+const INDEPENDENT_SNAPSHOT_KEY = 'deckLatestSnapshot';
 export const SNAPSHOT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 export type ImportMode = 'merge' | 'replace';
@@ -28,6 +30,10 @@ export interface ImportPreview {
   skipped: number;
 }
 
+export interface ImportResult extends ImportPreview {
+  snapshotId: string;
+}
+
 export interface ExportResult {
   document: DeckDocument;
   json: string;
@@ -37,36 +43,10 @@ export interface ExportResult {
 export interface BackupOptions {
   now?: () => number;
   createId?: () => string;
-}
-
-type VersionedDocument = { schemaVersion?: unknown };
-type Migration = (document: unknown) => unknown;
-
-export function migrateDocument(
-  value: unknown,
-  migrations: ReadonlyMap<number, Migration> = new Map(),
-): DeckDocument {
-  let copy: unknown = structuredClone(value);
-  const initialVersion = (copy as VersionedDocument)?.schemaVersion;
-  if (!Number.isInteger(initialVersion))
-    throw new Error('Missing schemaVersion');
-  let version = Number(initialVersion);
-  if (version > SCHEMA_VERSION)
-    throw new Error('Export uses a newer schema version');
-  while (version < SCHEMA_VERSION) {
-    const migrate = migrations.get(version);
-    if (!migrate)
-      throw new Error(`No migration from schema version ${version}`);
-    copy = structuredClone(migrate(structuredClone(copy)));
-    const nextVersion = (copy as VersionedDocument)?.schemaVersion;
-    if (nextVersion !== version + 1) {
-      throw new Error(
-        `Migration ${version} did not advance exactly one version`,
-      );
-    }
-    version += 1;
-  }
-  return parseDocument(copy);
+  snapshotStorage?: {
+    get(key: string): Promise<Record<string, unknown>>;
+    set(items: Record<string, unknown>): Promise<void>;
+  } | null;
 }
 
 export class BackupService {
@@ -74,6 +54,7 @@ export class BackupService {
   readonly #database: Promise<DeckDatabaseHandle>;
   readonly #now: () => number;
   readonly #createId: () => string;
+  readonly #snapshotStorage: BackupOptions['snapshotStorage'];
 
   constructor(
     repository: DeckRepository,
@@ -84,6 +65,12 @@ export class BackupService {
     this.#database = database;
     this.#now = options.now ?? Date.now;
     this.#createId = options.createId ?? (() => crypto.randomUUID());
+    this.#snapshotStorage =
+      options.snapshotStorage === undefined
+        ? typeof chrome !== 'undefined'
+          ? chrome.storage?.local
+          : null
+        : options.snapshotStorage;
   }
 
   async createSnapshot(): Promise<Snapshot> {
@@ -97,13 +84,25 @@ export class BackupService {
     const database = await this.#database;
     await database.put('snapshots', snapshot);
     await this.#trimSnapshots(database);
+    await this.#snapshotStorage?.set({ [INDEPENDENT_SNAPSHOT_KEY]: snapshot });
     return structuredClone(snapshot);
   }
 
   async ensureDailySnapshot(): Promise<boolean> {
     const latest = await this.#latestSnapshots();
-    if (latest[0] && this.#now() - latest[0].ts < SNAPSHOT_INTERVAL_MS)
+    const valid = latest.find((snapshot) => {
+      if (snapshot.schemaVersion !== SCHEMA_VERSION) return false;
+      try {
+        migrateDocument(JSON.parse(snapshot.blob) as unknown);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    if (valid && this.#now() - valid.ts < SNAPSHOT_INTERVAL_MS) {
+      await this.#snapshotStorage?.set({ [INDEPENDENT_SNAPSHOT_KEY]: valid });
       return false;
+    }
     await this.createSnapshot();
     return true;
   }
@@ -115,11 +114,30 @@ export class BackupService {
   }
 
   async restoreSnapshot(id: string): Promise<void> {
-    const database = await this.#database;
-    const rawSnapshot = await database.get('snapshots', id);
-    const snapshot = SnapshotSchema.parse(rawSnapshot);
+    const snapshot = (await this.#latestSnapshots()).find(
+      (item) => item.id === id,
+    );
+    if (!snapshot) throw new Error('Snapshot not found');
     const document = migrateDocument(JSON.parse(snapshot.blob) as unknown);
     await this.#repository.replaceDocument(document);
+  }
+
+  async restoreToFreshDatabase(id: string): Promise<void> {
+    if (!this.#snapshotStorage)
+      throw new Error('Independent snapshot storage is unavailable');
+    const snapshot = (await this.#latestSnapshots()).find(
+      (item) => item.id === id,
+    );
+    if (!snapshot) throw new Error('Snapshot not found');
+    const document = migrateDocument(JSON.parse(snapshot.blob) as unknown);
+    const name = `deck-recovery-${this.#createId()}`;
+    const repository = new DeckRepository({ databaseName: name });
+    try {
+      await repository.replaceDocument(document);
+      await this.#snapshotStorage.set({ [ACTIVE_DATABASE_KEY]: name });
+    } finally {
+      await repository.close();
+    }
   }
 
   async exportData(): Promise<ExportResult> {
@@ -127,11 +145,22 @@ export class BackupService {
       const document = await this.#repository.readDocument(this.#now());
       return { document, json: serializeDocument(document), source: 'live' };
     } catch (liveError) {
-      const snapshots = await this.#latestSnapshots();
+      let snapshots: Snapshot[];
+      try {
+        snapshots = await this.#latestSnapshots();
+      } catch (snapshotAccessError) {
+        throw new AggregateError(
+          [liveError, snapshotAccessError],
+          'Live data and snapshots cannot be read',
+          { cause: snapshotAccessError },
+        );
+      }
       const failures: unknown[] = [liveError];
       for (const snapshot of snapshots) {
         try {
-          const document = parseDocumentJson(snapshot.blob);
+          const document = migrateDocument(
+            JSON.parse(snapshot.blob) as unknown,
+          );
           return {
             document,
             json: serializeDocument(document),
@@ -150,21 +179,27 @@ export class BackupService {
   }
 
   previewImport(value: unknown, mode: ImportMode): Promise<ImportPreview> {
-    const incoming = migrateDocument(value);
+    const incoming = normalizeImportedTimestamps(
+      migrateDocument(value),
+      this.#now(),
+    );
     return this.#preview(incoming, mode);
   }
 
-  async importData(value: unknown, mode: ImportMode): Promise<ImportPreview> {
-    const incoming = migrateDocument(value);
+  async importData(value: unknown, mode: ImportMode): Promise<ImportResult> {
+    const incoming = normalizeImportedTimestamps(
+      migrateDocument(value),
+      this.#now(),
+    );
     const preview = await this.#preview(incoming, mode);
-    await this.createSnapshot();
+    const snapshot = await this.createSnapshot();
     if (mode === 'replace') {
       await this.#repository.replaceDocument(incoming);
-      return preview;
+      return { ...preview, snapshotId: snapshot.id };
     }
     await this.#merge(incoming);
     await this.#repository.setSettings(incoming.settings);
-    return preview;
+    return { ...preview, snapshotId: snapshot.id };
   }
 
   async #preview(
@@ -213,12 +248,39 @@ export class BackupService {
   }
 
   async #latestSnapshots(): Promise<Snapshot[]> {
-    const database = await this.#database;
-    const values = await database.getAllFromIndex('snapshots', 'by-ts');
+    let values: unknown[] = [];
+    let databaseError: unknown;
+    try {
+      const database = await this.#database;
+      values = await database.getAllFromIndex('snapshots', 'by-ts');
+    } catch (error) {
+      databaseError = error;
+    }
+    if (this.#snapshotStorage) {
+      try {
+        const stored = await this.#snapshotStorage.get(
+          INDEPENDENT_SNAPSHOT_KEY,
+        );
+        if (stored[INDEPENDENT_SNAPSHOT_KEY])
+          values = [...values, stored[INDEPENDENT_SNAPSHOT_KEY]];
+      } catch (error) {
+        if (databaseError)
+          throw new AggregateError(
+            [databaseError, error],
+            'Neither snapshot store can be read',
+            { cause: error },
+          );
+      }
+    }
+    if (databaseError && values.length === 0) throw databaseError;
     return values
       .map((value) => SnapshotSchema.safeParse(value))
       .filter((result) => result.success)
       .map((result) => result.data)
+      .filter(
+        (snapshot, index, snapshots) =>
+          snapshots.findIndex((item) => item.id === snapshot.id) === index,
+      )
       .toSorted((a, b) => b.ts - a.ts);
   }
 
@@ -229,6 +291,24 @@ export class BackupService {
     await Promise.all(expired.map(({ id }) => transaction.store.delete(id)));
     await transaction.done;
   }
+}
+
+function normalizeImportedTimestamps(
+  document: DeckDocument,
+  now: number,
+): DeckDocument {
+  const normalize = <T extends Page | Deck | Card>(records: T[]): T[] =>
+    records.map((record) => ({
+      ...record,
+      createdAt: Math.min(record.createdAt, now),
+      updatedAt: Math.min(record.updatedAt, now),
+    }));
+  return parseDocument({
+    ...document,
+    pages: normalize(document.pages),
+    decks: normalize(document.decks),
+    cards: normalize(document.cards),
+  });
 }
 
 function selectNewer<T extends Page | Deck | Card>(

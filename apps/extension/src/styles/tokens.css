@@ -16,12 +16,9 @@
   /* Surface */
   --deck-color-canvas: #0b0d12;
   --deck-color-canvas-raised: #12151d;
-  --deck-gradient-canvas: linear-gradient(
-    180deg,
-    #10131a 0%,
-    #0b0d12 55%,
-    #090b0f 100%
-  );
+  --deck-gradient-canvas:
+    radial-gradient(ellipse at 50% 42%, rgb(45 58 85 / 32%), transparent 52%),
+    linear-gradient(180deg, #10131a 0%, #0b0d12 55%, #090b0f 100%);
 
   /* Type */
   --deck-color-text: #e8eaf0;
@@ -29,13 +26,25 @@
 
   /* Glass, per MasterPlan section 3.4 */
   --deck-color-glass: rgb(255 255 255 / 5.5%);
+  --deck-color-panel-glass: rgb(18 21 29 / 88%);
   --deck-color-hairline: rgb(255 255 255 / 12%);
   --deck-color-scrim: rgb(9 11 15 / 45%);
   --deck-color-focus: #7aa2f7;
   --deck-color-shadow: rgb(0 0 0 / 24%);
   --deck-color-danger: #f38ba8;
+  --deck-accent-slate: #aeb7c8;
+  --deck-accent-blue: #87aeff;
+  --deck-accent-green: #75d6a5;
+  --deck-accent-amber: #f2c66d;
+  --deck-accent-rose: #f299b0;
   --deck-color-on-bright: #ffffff;
   --deck-color-on-bright-muted: #e1e4eb;
+  --deck-color-wallpaper-slate: #202a39;
+  --deck-color-wallpaper-indigo: #29254a;
+  --deck-color-wallpaper-teal: #153b3b;
+  --deck-color-wallpaper-rose: #4a2736;
+  --deck-color-wallpaper-sand: #403527;
+  --deck-color-wallpaper-moss: #2b3e2b;
 }
 
 [data-theme='day'] {
@@ -43,24 +52,42 @@
 
   --deck-color-canvas: #f5f6f8;
   --deck-color-canvas-raised: #ffffff;
-  --deck-gradient-canvas: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #f5f6f8 55%,
-    #eef0f4 100%
-  );
+  --deck-gradient-canvas:
+    radial-gradient(
+      ellipse at 20% 22%,
+      rgb(225 233 245 / 80%),
+      transparent 56%
+    ),
+    radial-gradient(
+      ellipse at 80% 78%,
+      rgb(250 231 217 / 70%),
+      transparent 52%
+    ),
+    linear-gradient(180deg, #ffffff 0%, #f5f6f8 55%, #eef0f4 100%);
 
   --deck-color-text: #14161c;
   --deck-color-text-muted: #5c6474;
 
   --deck-color-glass: rgb(255 255 255 / 55%);
-  --deck-color-hairline: rgb(0 0 0 / 12%);
+  --deck-color-panel-glass: rgb(255 255 255 / 82%);
+  --deck-color-hairline: rgb(0 0 0 / 18%);
   --deck-color-scrim: rgb(255 255 255 / 45%);
   --deck-color-focus: #2f5bd8;
   --deck-color-shadow: rgb(20 22 28 / 14%);
   --deck-color-danger: #b4233f;
+  --deck-accent-slate: #455267;
+  --deck-accent-blue: #2459af;
+  --deck-accent-green: #126a45;
+  --deck-accent-amber: #805210;
+  --deck-accent-rose: #9c3155;
   --deck-color-on-bright: #ffffff;
   --deck-color-on-bright-muted: #e1e4eb;
+  --deck-color-wallpaper-slate: #dce4ed;
+  --deck-color-wallpaper-indigo: #e1ddf4;
+  --deck-color-wallpaper-teal: #d4ece9;
+  --deck-color-wallpaper-rose: #f2dce3;
+  --deck-color-wallpaper-sand: #f0e6d2;
+  --deck-color-wallpaper-moss: #e0ead7;
 }
 
 @media (prefers-color-scheme: light) {
@@ -69,22 +96,40 @@
 
     --deck-color-canvas: #f5f6f8;
     --deck-color-canvas-raised: #ffffff;
-    --deck-gradient-canvas: linear-gradient(
-      180deg,
-      #ffffff 0%,
-      #f5f6f8 55%,
-      #eef0f4 100%
-    );
+    --deck-gradient-canvas:
+      radial-gradient(
+        ellipse at 20% 22%,
+        rgb(225 233 245 / 80%),
+        transparent 56%
+      ),
+      radial-gradient(
+        ellipse at 80% 78%,
+        rgb(250 231 217 / 70%),
+        transparent 52%
+      ),
+      linear-gradient(180deg, #ffffff 0%, #f5f6f8 55%, #eef0f4 100%);
 
     --deck-color-text: #14161c;
     --deck-color-text-muted: #5c6474;
 
     --deck-color-glass: rgb(255 255 255 / 55%);
-    --deck-color-hairline: rgb(0 0 0 / 12%);
+    --deck-color-panel-glass: rgb(255 255 255 / 82%);
+    --deck-color-hairline: rgb(0 0 0 / 18%);
     --deck-color-scrim: rgb(255 255 255 / 45%);
     --deck-color-focus: #2f5bd8;
     --deck-color-shadow: rgb(20 22 28 / 14%);
     --deck-color-danger: #b4233f;
+    --deck-accent-slate: #455267;
+    --deck-accent-blue: #2459af;
+    --deck-accent-green: #126a45;
+    --deck-accent-amber: #805210;
+    --deck-accent-rose: #9c3155;
+    --deck-color-wallpaper-slate: #dce4ed;
+    --deck-color-wallpaper-indigo: #e1ddf4;
+    --deck-color-wallpaper-teal: #d4ece9;
+    --deck-color-wallpaper-rose: #f2dce3;
+    --deck-color-wallpaper-sand: #f0e6d2;
+    --deck-color-wallpaper-moss: #e0ead7;
     --deck-color-on-bright: #ffffff;
     --deck-color-on-bright-muted: #e1e4eb;
   }
@@ -95,6 +140,11 @@
  * and motion are named here and referenced everywhere else.
  */
 :root {
+  --deck-color-wallpaper-canvas-raised: var(--deck-color-canvas-raised);
+  --deck-color-panel-text: var(--deck-color-text);
+  --deck-color-panel-muted: var(--deck-color-text-muted);
+  --deck-color-panel-hairline: var(--deck-color-hairline);
+  --deck-color-panel-hover: var(--deck-color-glass);
   --deck-font-ui:
     'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
@@ -105,7 +155,12 @@
   --deck-space-4: 2rem;
 
   --deck-radius-panel: 1rem;
+  --deck-radius-pill: 999px;
   --deck-radius-tile: 1.125rem;
+  --deck-font-note-body: 0.9375rem;
+  --deck-font-note-h1: 1.5rem;
+  --deck-font-note-h2: 1.25rem;
+  --deck-font-note-h3: 1.125rem;
 
   /* One spring for drawer and toasts; 120 ms ease for hovers. */
   --deck-motion-hover: 120ms;
@@ -118,7 +173,13 @@
   --deck-surface-column: 40rem;
   --deck-clock-size: 4rem;
   --deck-clock-width: 8ch;
+  --deck-control-size: 2.25rem;
+  --deck-resurface-width: 20rem;
+  --deck-shelf-max-height: 35dvb;
+  --deck-shelf-row-height: 2.75rem;
+  --deck-resurface-surface-height: 54rem;
   --deck-line-height: 3.5rem;
+  --deck-results-max-block: min(60vh, 32rem);
   --deck-pin-size: 4rem;
   --deck-pin-gap: 1.5rem;
   --deck-pin-lift: -0.375rem;
@@ -127,6 +188,7 @@
   --deck-drawer-rail: 13.75rem;
   --deck-drawer-peek: 3rem;
   --deck-drawer-blur: 0.5rem;
+  --deck-drawer-scrim: rgb(0 0 0 / 40%);
   --deck-drawer-duration: 320ms;
   --deck-drawer-ease: cubic-bezier(0.2, 0.9, 0.25, 1);
 }

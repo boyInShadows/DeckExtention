@@ -1,6 +1,7 @@
 import type { Card, Settings } from 'deck-schema';
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -8,48 +9,130 @@ import {
 } from 'react';
 
 import { strings } from '../i18n/strings';
+import { filterLineActions } from './lineActionCatalog';
 import type { SurfaceData } from './bootstrap';
-import { LINE_ACTIONS } from './lineActionCatalog';
-import { searchCards, shouldSpaceOpenDrawer } from './surfaceModel';
+import { buildSearchIndex } from './lineSearch';
+import LineResults from './LineResults';
+import { shouldSpaceOpenDrawer } from './surfaceModel';
+import type { NoticeInput } from './ToastStack';
+import { useOpenTabs } from '../tabs/useOpenTabs';
+import type { OpenTab, TabAction } from '../tabs/openTabs';
+import type { CreatedWorkspace } from './lineWorkspace';
+
+const MAX_GROUP_ROWS = 8;
+const PLACEHOLDER_ROTATE_MS = 6_000;
+export type ResultGroup = 'cards' | 'notes' | 'actions' | 'tabs' | 'url';
 
 interface LineProps {
   cards: Card[];
   settings: Settings;
   repository: SurfaceData['repository'];
   openSettings: () => void;
+  openWorkspace: (workspace: CreatedWorkspace) => void;
+  prepareWorkspace: () => Promise<boolean>;
   saveSettings: (settings: Settings) => Promise<void>;
   notify: (message: string) => void;
+  notifyInfo: (message: string) => void;
+  notifySuccess: (message: string) => void;
+  notifyNotice: (notice: NoticeInput) => void;
   canSpaceOpenDrawer: boolean;
   openDrawer: () => void;
   openHelp: () => void;
+  onDataChange?: () => void;
+  openNote: (card: Card) => void;
 }
 
 export function Line(props: LineProps) {
+  const { cards: sourceCards, notify } = props;
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const activeCards = props.cards.filter((card) => card.deletedAt === null);
-  const cards = useMemo(
-    () => searchCards(activeCards, query),
-    [activeCards, query],
+  const [isFocused, setIsFocused] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<ResultGroup>('cards');
+  const search = useMemo(
+    () =>
+      buildSearchIndex(sourceCards.filter((card) => card.deletedAt === null)),
+    [sourceCards],
   );
-  const actions = query.startsWith('>')
-    ? LINE_ACTIONS.filter(({ command, label }) => {
-        const normalizedQuery = query.toLocaleLowerCase();
-        return (
-          `${command} ${label}`.toLocaleLowerCase().includes(normalizedQuery) ||
-          normalizedQuery.startsWith(command)
-        );
-      })
+  const inputRef = useRef<HTMLInputElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const isTabActionPending = useRef(false);
+  const isTaskPending = useRef(false);
+  const isActionPending = useRef(false);
+  const isWebSearch = query[0] === '?';
+  const isCommand = query[0] === '>';
+  const isTabsCommand = /^>tabs(?:\s|$)/i.test(query);
+  const tabState = useOpenTabs(
+    Boolean(query) && !isWebSearch && (!isCommand || isTabsCommand),
+    notify,
+  );
+  const searchTabs = useMemo(
+    () => buildSearchIndex(tabState.tabs),
+    [tabState.tabs],
+  );
+  const tabQuery = isTabsCommand ? query.slice('>tabs'.length).trim() : query;
+  const tabs = tabState.hasAccess
+    ? tabQuery.trim()
+      ? searchTabs(tabQuery).cards
+      : tabState.tabs
     : [];
-  const isWebSearch = query.startsWith('?');
-  const itemCount = isWebSearch ? 1 : actions.length || cards.length;
+  const results =
+    isWebSearch || isCommand
+      ? { cards: [], notes: [], url: null }
+      : search(query);
+  const actions =
+    isTabsCommand && tabState.hasAccess
+      ? []
+      : filterLineActions(query, isCommand);
+  const groups = [
+    results.cards.length && 'cards',
+    results.notes.length && 'notes',
+    actions.length && 'actions',
+    tabs.length && 'tabs',
+    !results.cards.length &&
+      !results.notes.length &&
+      !actions.length &&
+      !tabs.length &&
+      results.url &&
+      'url',
+  ].filter(Boolean) as ResultGroup[];
+  const group = groups.includes(selectedGroup) ? selectedGroup : groups[0];
+  const itemCount = isWebSearch
+    ? 1
+    : Math.min(
+        MAX_GROUP_ROWS,
+        group === 'url'
+          ? 1
+          : group === 'cards'
+            ? results.cards.length
+            : group === 'notes'
+              ? results.notes.length
+              : group === 'tabs'
+                ? tabs.length
+                : actions.length,
+      );
   const activeIndex = itemCount > 0 ? Math.min(selected, itemCount - 1) : 0;
-
-  const focusKey =
-    props.settings.keymap.find(({ action }) => action === 'focusLine')?.chord ??
-    '/';
   useEffect(() => {
+    if (isTabsCommand && tabState.hasAccess) inputRef.current?.focus();
+  }, [isTabsCommand, tabState.hasAccess]);
+
+  const keymap = useMemo(
+    () =>
+      new Map(
+        props.settings.keymap.map(({ action, chord }) => [action, chord]),
+      ),
+    [props.settings.keymap],
+  );
+  const focusKey = keymap.get('focusLine') ?? '/';
+  useEffect(() => {
+    if (query || isFocused) return;
+    const timer = window.setInterval(
+      () => setShowHint((value) => !value),
+      PLACEHOLDER_ROTATE_MS,
+    );
+    return () => window.clearInterval(timer);
+  }, [query, isFocused]);
+  useLayoutEffect(() => {
     const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
       const isInput =
         event.target instanceof HTMLInputElement ||
@@ -70,32 +153,94 @@ export function Line(props: LineProps) {
     return () => window.removeEventListener('keydown', onWindowKeyDown);
   }, [focusKey]);
 
-  const execute = async (isNewTab: boolean) => {
+  const focusTab = (index: number) => {
+    const rows = shellRef.current?.querySelectorAll<HTMLButtonElement>(
+      '[data-deck="tab-activate"]',
+    );
+    rows?.[index]?.focus();
+  };
+  const actOnTab = async (tab: OpenTab, action: TabAction) => {
+    if (isTabActionPending.current) return;
+    isTabActionPending.current = true;
+    if (action === 'close') inputRef.current?.focus();
     try {
+      const { performTabAction } = await import('../tabs/openTabs');
+      const message = await performTabAction(props.repository, tab, action);
+      if (action !== 'close') props.onDataChange?.();
+      if (message) props.notifySuccess(message);
+    } catch (error) {
+      props.notify(
+        `${strings.updateFailed} ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      await tabState.refresh();
+      isTabActionPending.current = false;
+    }
+  };
+  const execute = async (
+    isNewTab: boolean,
+    targetGroup = group,
+    index = activeIndex,
+  ) => {
+    try {
+      if (targetGroup === 'tabs') {
+        const tab = tabs[index];
+        if (tab) await actOnTab(tab, 'activate');
+        return;
+      }
       if (isWebSearch) {
         const term = query.slice(1).trim();
         // "?" alone is help, not an empty web search (P2.S6).
         if (!term) return props.openHelp();
         const { searchWeb } = await import('./lineActions');
-        await searchWeb(term, props.settings);
+        await searchWeb(term, props.settings, props.saveSettings);
         return;
       }
-      const action = actions[activeIndex];
+      if (targetGroup === 'url' && results.url) {
+        if (isNewTab) window.open(results.url, '_blank', 'noopener');
+        else window.location.assign(results.url);
+        return;
+      }
+      const action = targetGroup === 'actions' ? actions[index] : undefined;
       if (action) {
-        const { executeAction } = await import('./lineActions');
-        await executeAction(action.id, {
-          settings: props.settings,
-          repository: props.repository,
-          saveSettings: props.saveSettings,
-          openSettings: props.openSettings,
-          notify: props.notify,
-        });
+        if (isActionPending.current) return;
+        isActionPending.current = true;
+        try {
+          const { executeAction } = await import('./lineActions');
+          await executeAction(action.id, {
+            query,
+            settings: props.settings,
+            repository: props.repository,
+            saveSettings: props.saveSettings,
+            openSettings: props.openSettings,
+            openWorkspace: props.openWorkspace,
+            prepareWorkspace: props.prepareWorkspace,
+            notify: props.notifyInfo,
+            notifySuccess: props.notifySuccess,
+            notifyNotice: props.notifyNotice,
+          });
+          const nextQuery =
+            action.id === 'tabs' ? (isTabsCommand ? query : '>tabs') : '';
+          setQuery((current) => (current === query ? nextQuery : current));
+        } finally {
+          isActionPending.current = false;
+        }
         return;
       }
-      const card = cards[activeIndex];
+      const card =
+        targetGroup === 'notes'
+          ? results.notes[index]?.card
+          : targetGroup === 'cards'
+            ? results.cards[index]
+            : undefined;
       if (!card) return;
-      if (isNewTab) window.open(card.url, '_blank', 'noopener');
-      else window.location.assign(card.url);
+      if (!card.url) {
+        props.openNote(card);
+        setQuery('');
+        return;
+      }
+      const { openCard } = await import('../drawer/inboxActions');
+      await openCard(props.repository, card, isNewTab);
     } catch (lineError) {
       const detail =
         lineError instanceof Error ? lineError.message : String(lineError);
@@ -103,7 +248,44 @@ export function Line(props: LineProps) {
     }
   };
 
+  const saveTask = async () => {
+    if (isTaskPending.current) return;
+    isTaskPending.current = true;
+    const text = query;
+    try {
+      const { createTask } = await import('../tasks/quickTask');
+      await createTask(props.repository, text);
+      setQuery((current) => (current === text ? '' : current));
+      props.onDataChange?.();
+      props.notifySuccess(strings.taskSaved);
+    } catch (error) {
+      props.notify(
+        `${strings.updateFailed} ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      isTaskPending.current = false;
+    }
+  };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    if (
+      event.key === 'Enter' &&
+      (event.ctrlKey || event.metaKey) &&
+      event.shiftKey &&
+      !event.altKey
+    ) {
+      event.preventDefault();
+      if (!event.repeat) void saveTask();
+      return;
+    }
+    if (
+      group === 'tabs' &&
+      (event.key === 'ArrowDown' || event.key === 'ArrowUp')
+    ) {
+      event.preventDefault();
+      focusTab(event.key === 'ArrowUp' ? itemCount - 1 : activeIndex);
+      return;
+    }
     if (shouldSpaceOpenDrawer(event.key, query, props.canSpaceOpenDrawer)) {
       event.preventDefault();
       props.openDrawer();
@@ -117,9 +299,13 @@ export function Line(props: LineProps) {
       event.preventDefault();
       setSelected(itemCount ? (activeIndex - 1 + itemCount) % itemCount : 0);
     }
-    if (event.key === 'Tab' && itemCount) {
+    if (event.key === 'Tab' && groups.length) {
       event.preventDefault();
-      setSelected((activeIndex + 1) % itemCount);
+      const nextGroup =
+        groups[(groups.indexOf(group ?? 'cards') + 1) % groups.length];
+      if (nextGroup) setSelectedGroup(nextGroup);
+      setSelected(0);
+      if (nextGroup === 'tabs') focusTab(0);
     }
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -128,7 +314,7 @@ export function Line(props: LineProps) {
   };
 
   return (
-    <div data-deck="line-shell">
+    <div ref={shellRef} data-deck="line-shell">
       <div data-deck="line" className="deck-line">
         <input
           ref={inputRef}
@@ -136,89 +322,45 @@ export function Line(props: LineProps) {
           onChange={(event) => {
             setQuery(event.currentTarget.value);
             setSelected(0);
+            setSelectedGroup('cards');
           }}
           onKeyDown={onKeyDown}
-          placeholder={strings.linePlaceholder}
+          placeholder={
+            showHint ? strings.lineKeyboardHint : strings.linePlaceholder
+          }
           aria-label={strings.linePlaceholder}
+          onFocus={() => {
+            setIsFocused(true);
+            setShowHint(false);
+          }}
+          onBlur={() => {
+            setIsFocused(false);
+            setShowHint(false);
+          }}
           autoComplete="off"
           spellCheck={false}
         />
       </div>
       {query ? (
-        <Results
-          cards={cards}
+        <LineResults
+          maxRows={MAX_GROUP_ROWS}
+          cards={results.cards}
+          notes={results.notes}
+          fallbackUrl={group === 'url' ? results.url : null}
           actions={actions}
+          tabs={tabs}
+          onTabAction={(tab, action) => void actOnTab(tab, action)}
+          onSearch={() => inputRef.current?.focus()}
           isWebSearch={isWebSearch}
+          activeGroup={group}
           activeIndex={activeIndex}
+          onHover={(nextGroup, index) => {
+            setSelectedGroup(nextGroup);
+            setSelected(index);
+          }}
+          onSelect={(nextGroup, index) => void execute(false, nextGroup, index)}
         />
-      ) : (
-        <p data-deck="example-hint" className="deck-example-hint">
-          {strings.exampleHint}
-        </p>
-      )}
+      ) : null}
     </div>
-  );
-}
-
-function Results({
-  cards,
-  actions,
-  isWebSearch,
-  activeIndex,
-}: {
-  cards: Card[];
-  actions: typeof LINE_ACTIONS;
-  isWebSearch: boolean;
-  activeIndex: number;
-}) {
-  return (
-    <section
-      data-deck="line-results"
-      className="deck-results"
-      aria-live="polite"
-    >
-      {isWebSearch ? (
-        <>
-          <h2>{strings.searchWeb}</h2>
-          <p data-active>{strings.searchPermissionReason}</p>
-        </>
-      ) : null}
-      {actions.length ? (
-        <>
-          <h2>{strings.actionsGroup}</h2>
-          {actions.map((action, index) => (
-            <div
-              key={action.id}
-              data-active={index === activeIndex || undefined}
-              className="deck-result"
-            >
-              <span>{action.command}</span>
-              <small>{action.label}</small>
-            </div>
-          ))}
-        </>
-      ) : null}
-      {!isWebSearch && !actions.length ? (
-        <>
-          <h2>{strings.cardsGroup}</h2>
-          {cards.length ? (
-            cards.map((card, index) => (
-              <a
-                key={card.id}
-                data-deck="card"
-                data-active={index === activeIndex || undefined}
-                href={card.url}
-                className="deck-result"
-              >
-                <span>{card.title}</span>
-                <small>{card.hostname}</small>
-              </a>
-            ))
-          ) : (
-            <p>{strings.noResults}</p>
-          )}
-        </>
-      ) : null}
-    </section>
   );
 }

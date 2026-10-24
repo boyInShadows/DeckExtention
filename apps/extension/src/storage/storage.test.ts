@@ -7,16 +7,22 @@ import {
   type Deck,
   type Page,
 } from 'deck-schema';
-import { deleteDB } from 'idb';
+import { deleteDB, openDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { BackupService, migrateDocument, SNAPSHOT_INTERVAL_MS } from './backup';
-import { openDeckDatabase } from './database';
+import {
+  ACTIVE_DATABASE_KEY,
+  openDeckDatabase,
+  type DeckDatabase,
+} from './database';
 import { parseDocument, type DeckDocument } from './document';
 import { DeckRepository } from './repository';
 
 const NOW = 1_800_000_000_000;
+const PURGE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const DATABASE_NAME = 'deck-storage-test';
+const LEGACY_DATABASE_NAME = 'deck-storage-legacy-test';
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 let idSequence = 0;
@@ -64,7 +70,7 @@ const card: Card = {
 
 function populatedDocument(): DeckDocument {
   return parseDocument({
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     exportedAt: NOW,
     pages: [page],
     decks: [deck],
@@ -75,7 +81,7 @@ function populatedDocument(): DeckDocument {
 
 function emptyDocument(): DeckDocument {
   return parseDocument({
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     exportedAt: NOW,
     pages: [],
     decks: [],
@@ -98,6 +104,28 @@ async function createServices() {
   return { repository, database, backups };
 }
 
+async function createLegacyDatabase() {
+  const database = await openDB<DeckDatabase>(LEGACY_DATABASE_NAME, 1, {
+    upgrade(handle) {
+      handle.createObjectStore('pages', { keyPath: 'id' });
+      handle.createObjectStore('decks', { keyPath: 'id' });
+      handle.createObjectStore('cards', { keyPath: 'id' });
+      handle
+        .createObjectStore('ops', { keyPath: 'id' })
+        .createIndex('by-ts', 'ts');
+      handle
+        .createObjectStore('snapshots', { keyPath: 'id' })
+        .createIndex('by-ts', 'ts');
+      handle.createObjectStore('meta', { keyPath: 'key' });
+    },
+  });
+  await database.put('pages', page);
+  await database.put('decks', deck);
+  await database.put('cards', card);
+  await database.put('meta', { key: 'settings', value: SETTINGS_DEFAULTS });
+  database.close();
+}
+
 beforeEach(() => {
   idSequence = 0;
 });
@@ -106,6 +134,44 @@ afterEach(async () => {
   const database = await openDeckDatabase(DATABASE_NAME);
   database.close();
   await deleteDB(DATABASE_NAME);
+  await deleteDB(LEGACY_DATABASE_NAME);
+});
+
+describe('database v1 to current migration', () => {
+  it('preserves records and stores a pre-upgrade snapshot', async () => {
+    await createLegacyDatabase();
+    const database = await openDeckDatabase(LEGACY_DATABASE_NAME);
+    expect(database.version).toBe(SCHEMA_VERSION);
+    expect(await database.getAll('pages')).toEqual([page]);
+    expect(await database.getAll('decks')).toEqual([deck]);
+    expect(await database.getAll('cards')).toEqual([card]);
+    const snapshots = await database.getAll('snapshots');
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0]?.schemaVersion).toBe(1);
+    const snapshot = snapshots[0];
+    if (!snapshot) throw new Error('Missing migration snapshot');
+    expect(migrateDocument(JSON.parse(snapshot.blob) as unknown).pages).toEqual(
+      [page],
+    );
+    database.close();
+  });
+
+  it('leaves the v1 database intact when the migration fails', async () => {
+    await createLegacyDatabase();
+    await expect(
+      openDeckDatabase(LEGACY_DATABASE_NAME, {
+        migrateDocument: () => {
+          throw new Error('injected v2 failure');
+        },
+      }),
+    ).rejects.toThrow('injected v2 failure');
+    const legacy = await openDB<DeckDatabase>(LEGACY_DATABASE_NAME, 1);
+    expect(legacy.version).toBe(1);
+    expect(await legacy.getAll('pages')).toEqual([page]);
+    expect(await legacy.getAll('decks')).toEqual([deck]);
+    expect(await legacy.getAll('cards')).toEqual([card]);
+    legacy.close();
+  });
 });
 
 describe('DeckRepository', () => {
@@ -140,18 +206,225 @@ describe('DeckRepository', () => {
     await repository.close();
     (await database).close();
   });
+
+  it('trashes a deck and its live cards together, then restores their positions', async () => {
+    const { repository, database } = await createServices();
+    try {
+      const alreadyTrashed = {
+        ...card,
+        id: 'card_old',
+        deletedAt: NOW - 100,
+      };
+      await repository.upsertMany({
+        pages: [page],
+        decks: [deck],
+        cards: [card, alreadyTrashed],
+      });
+
+      await repository.trashDeck(deck.id);
+      const exported = await repository.readDocument(NOW);
+      expect(exported.decks.find(({ id }) => id === deck.id)?.deletedAt).toBe(
+        NOW,
+      );
+      expect(exported.cards.find(({ id }) => id === card.id)?.deletedAt).toBe(
+        NOW,
+      );
+      expect(
+        exported.cards.find(({ id }) => id === alreadyTrashed.id)?.deletedAt,
+      ).toBe(NOW - 100);
+
+      await repository.restoreDeck(deck.id);
+      expect((await repository.listDecks())[0]?.deletedAt).toBeNull();
+      expect(
+        (await repository.listCards()).find(({ id }) => id === card.id),
+      ).toMatchObject({
+        order: card.order,
+        deletedAt: null,
+      });
+      expect(
+        (await repository.listCards()).find(
+          ({ id }) => id === alreadyTrashed.id,
+        )?.deletedAt,
+      ).toBe(NOW - 100);
+    } finally {
+      await repository.close();
+      (await database).close();
+    }
+  });
+
+  it('trashes and restores a page with its decks and cards', async () => {
+    const { repository, database } = await createServices();
+    try {
+      const inbox = { ...deck, id: 'deck_inbox', kind: 'inbox' as const };
+      const inboxCard = { ...card, id: 'card_inbox', deckId: inbox.id };
+      await repository.upsertMany({
+        pages: [page],
+        decks: [deck, inbox],
+        cards: [card, inboxCard],
+      });
+      await repository.trashPage(page.id);
+      expect((await repository.listPages())[0]?.deletedAt).toBe(NOW);
+      expect(
+        (await repository.listDecks()).find(({ id }) => id === deck.id)
+          ?.deletedAt,
+      ).toBe(NOW);
+      expect(
+        (await repository.listCards()).find(({ id }) => id === card.id)
+          ?.deletedAt,
+      ).toBe(NOW);
+      expect(
+        (await repository.listDecks()).find(({ id }) => id === inbox.id)
+          ?.deletedAt,
+      ).toBeNull();
+      expect(
+        (await repository.listCards()).find(({ id }) => id === inboxCard.id)
+          ?.deletedAt,
+      ).toBeNull();
+
+      await repository.restorePage(page.id);
+      expect((await repository.listPages())[0]?.deletedAt).toBeNull();
+      expect(
+        (await repository.listDecks()).every(
+          ({ deletedAt }) => deletedAt === null,
+        ),
+      ).toBe(true);
+      expect(
+        (await repository.listCards()).every(
+          ({ deletedAt }) => deletedAt === null,
+        ),
+      ).toBe(true);
+    } finally {
+      await repository.close();
+      (await database).close();
+    }
+  });
+
+  it('purges expired rows and ops without orphaning a live card', async () => {
+    const { repository, database } = await createServices();
+    try {
+      const expiredAt = NOW - PURGE_RETENTION_MS - 1;
+      await repository.upsertMany({
+        pages: [{ ...page, deletedAt: expiredAt }],
+        decks: [{ ...deck, deletedAt: expiredAt }],
+        cards: [card, { ...card, id: 'card_expired', deletedAt: expiredAt }],
+      });
+      const firstOp = (await repository.listOps())[0];
+      if (!firstOp) throw new Error('Missing seed operation');
+      const oldOp = {
+        ...firstOp,
+        id: 'op_expired',
+        ts: expiredAt,
+      };
+      await (await database).put('ops', oldOp);
+
+      expect(await repository.purge()).toBe(1);
+      expect((await repository.listCards()).map(({ id }) => id)).toEqual([
+        card.id,
+      ]);
+      expect(await repository.listDecks()).toHaveLength(1);
+      expect(await repository.listPages()).toHaveLength(1);
+      expect(
+        (await repository.listOps()).some(({ id }) => id === oldOp.id),
+      ).toBe(false);
+    } finally {
+      await repository.close();
+      (await database).close();
+    }
+  });
+
+  it('caps the oplog at the newest 5,000 entries', async () => {
+    const { repository, database } = await createServices();
+    try {
+      await repository.upsertPage(page);
+      const handle = await database;
+      const template = (await repository.listOps())[0];
+      if (!template) throw new Error('Missing seed operation');
+      const transaction = handle.transaction('ops', 'readwrite');
+      for (let index = 0; index < 5_001; index += 1) {
+        void transaction.store.put({
+          ...template,
+          id: `op_cap_${index}`,
+          ts: NOW + index,
+        });
+      }
+      await transaction.done;
+
+      await repository.purge();
+      const ops = await repository.listOps();
+      expect(ops).toHaveLength(5_000);
+      expect(ops.some(({ id }) => id === 'op_cap_0')).toBe(false);
+      expect(ops.some(({ id }) => id === 'op_cap_5000')).toBe(true);
+    } finally {
+      await repository.close();
+      (await database).close();
+    }
+  });
+
+  it('keeps the latest operation for each entity after the 30-day cutoff', async () => {
+    const { repository, database } = await createServices();
+    try {
+      await repository.upsertPage(page);
+      const handle = await database;
+      const [template] = await repository.listOps();
+      if (!template) throw new Error('Missing seed operation');
+      const oldTs = NOW - PURGE_RETENTION_MS - 1;
+      await handle.put('ops', {
+        ...template,
+        id: 'op_old_1',
+        entityId: 'page_old1',
+        ts: oldTs - 1,
+      });
+      await handle.put('ops', {
+        ...template,
+        id: 'op_old_2',
+        entityId: 'page_old1',
+        ts: oldTs,
+      });
+      await repository.purge();
+      const ids = (await repository.listOps()).map(({ id }) => id);
+      expect(ids).toContain('op_old_2');
+      expect(ids).not.toContain('op_old_1');
+    } finally {
+      await repository.close();
+      (await database).close();
+    }
+  });
 });
 
 describe('BackupService', () => {
   it('round-trips export, wipe, and replace import without losing data', async () => {
     const { repository, database, backups } = await createServices();
-    await repository.replaceDocument(populatedDocument());
+    await repository.replaceDocument({
+      ...populatedDocument(),
+      decks: [{ ...deck, note: '# Reading', isCollapsed: true }],
+      cards: [
+        {
+          ...card,
+          note: 'A saved note',
+          done: true,
+          pinned: true,
+          pinLabel: 'Read',
+        },
+      ],
+    });
     const original = await backups.exportData();
 
     await repository.replaceDocument(emptyDocument());
     await backups.importData(JSON.parse(original.json) as unknown, 'replace');
 
     expect((await backups.exportData()).document).toEqual(original.document);
+    await repository.close();
+    (await database).close();
+  });
+
+  it('restores the exact pre-import workspace using the returned snapshot ID', async () => {
+    const { repository, database, backups } = await createServices();
+    await repository.replaceDocument(populatedDocument());
+    const before = await repository.readDocument(NOW);
+    const { snapshotId } = await backups.importData(emptyDocument(), 'replace');
+    expect(await repository.listCards()).toHaveLength(0);
+    await backups.restoreSnapshot(snapshotId);
+    expect(await repository.readDocument(NOW)).toEqual(before);
     await repository.close();
     (await database).close();
   });
@@ -193,10 +466,16 @@ describe('BackupService', () => {
     const snapshot = await backups.createSnapshot();
     const handle = await database;
     await handle.put('cards', { ...card, url: 'not a URL' } as never);
+    const corruptSettings = { ...SETTINGS_DEFAULTS, ownerName: 42 };
+    await handle.put('meta', { key: 'settings', value: corruptSettings });
 
     await backups.restoreSnapshot(snapshot.id);
 
     expect(await repository.readDocument(NOW)).toEqual(populatedDocument());
+    expect(await handle.get('meta', 'quarantine:settings:settings')).toEqual({
+      key: 'quarantine:settings:settings',
+      value: corruptSettings,
+    });
     await repository.close();
     handle.close();
   });
@@ -286,6 +565,89 @@ describe('migrateDocument - refusals', () => {
 });
 
 describe('BackupService - snapshots and export fallbacks', () => {
+  it('keeps an independent snapshot and can export when IndexedDB cannot open', async () => {
+    const values: Record<string, unknown> = {};
+    const snapshotStorage = {
+      get: async (key: string) => ({ [key]: values[key] }),
+      set: async (items: Record<string, unknown>) => {
+        Object.assign(values, items);
+      },
+    };
+    const { repository, database } = await createServices();
+    await repository.replaceDocument(populatedDocument());
+    const backups = new BackupService(repository, database, {
+      now: () => NOW,
+      createId,
+      snapshotStorage,
+    });
+    const snapshot = await backups.createSnapshot();
+    const unavailable = new BackupService(
+      {
+        readDocument: async () => {
+          throw new Error('database unavailable');
+        },
+      } as unknown as DeckRepository,
+      Promise.reject(new Error('database unavailable')),
+      { now: () => NOW, createId, snapshotStorage },
+    );
+
+    expect((await unavailable.exportData()).document).toEqual(
+      populatedDocument(),
+    );
+    await unavailable.restoreToFreshDatabase(snapshot.id);
+    const restoredName = values[ACTIVE_DATABASE_KEY];
+    expect(restoredName).toMatch(/^deck-recovery-/);
+    const restored = new DeckRepository({ databaseName: String(restoredName) });
+    expect(await restored.readDocument(NOW)).toEqual(populatedDocument());
+
+    await restored.close();
+    await deleteDB(String(restoredName));
+    await repository.close();
+    (await database).close();
+  });
+
+  it('backfills the independent copy from a recent existing snapshot', async () => {
+    const { repository, database, backups } = await createServices();
+    await repository.replaceDocument(populatedDocument());
+    const snapshot = await backups.createSnapshot();
+    const values: Record<string, unknown> = {};
+    const upgraded = new BackupService(repository, database, {
+      now: () => NOW,
+      snapshotStorage: {
+        get: async (key) => ({ [key]: values[key] }),
+        set: async (items) => {
+          Object.assign(values, items);
+        },
+      },
+    });
+
+    expect(await upgraded.ensureDailySnapshot()).toBe(false);
+    expect(values.deckLatestSnapshot).toEqual(snapshot);
+
+    await repository.close();
+    (await database).close();
+  });
+
+  it('keeps invalid records in quarantine while live export remains strict', async () => {
+    const { repository, database } = await createServices();
+    await repository.replaceDocument(populatedDocument());
+    const handle = await database;
+    const corrupt = { ...card, title: 42 };
+    await handle.put('cards', corrupt as never);
+
+    expect(await repository.listCards()).toEqual([]);
+    expect(await repository.listCards()).toEqual([]);
+    expect(repository.getRecoveryIssueCount()).toBe(1);
+    expect(await handle.get('meta', `quarantine:cards:${card.id}`)).toEqual({
+      key: `quarantine:cards:${card.id}`,
+      value: corrupt,
+    });
+    await expect(repository.readDocument(NOW)).rejects.toThrow();
+
+    await repository.close();
+    handle.close();
+  });
+
   function servicesWithClock(clock: { now: number }) {
     const repository = new DeckRepository({
       databaseName: DATABASE_NAME,
@@ -312,6 +674,25 @@ describe('BackupService - snapshots and export fallbacks', () => {
     expect(await backups.listSnapshots()).toHaveLength(2);
     await repository.close();
     (await database).close();
+  });
+
+  it('takes a fresh v2 snapshot after a v1 upgrade snapshot', async () => {
+    const { repository, database, backups } = await createServices();
+    await repository.replaceDocument(populatedDocument());
+    const handle = await database;
+    await handle.put('snapshots', {
+      id: 'legacy_snapshot',
+      ts: NOW,
+      schemaVersion: 1,
+      blob: JSON.stringify({ ...populatedDocument(), schemaVersion: 1 }),
+    });
+
+    expect(await backups.ensureDailySnapshot()).toBe(true);
+    expect((await backups.listSnapshots())[0]?.schemaVersion).toBe(
+      SCHEMA_VERSION,
+    );
+    await repository.close();
+    handle.close();
   });
 
   it('skips a corrupt newest snapshot and exports the older valid one', async () => {
@@ -371,6 +752,30 @@ describe('BackupService - snapshots and export fallbacks', () => {
 });
 
 describe('BackupService - import', () => {
+  it('clamps future created and updated timestamps during import', async () => {
+    const { repository, database, backups } = await createServices();
+    const future = NOW + SNAPSHOT_INTERVAL_MS;
+    const incoming = {
+      ...populatedDocument(),
+      pages: [{ ...page, createdAt: future, updatedAt: future }],
+      decks: [{ ...deck, createdAt: future, updatedAt: future }],
+      cards: [{ ...card, createdAt: future, updatedAt: future }],
+    };
+
+    expect(await backups.previewImport(incoming, 'replace')).toMatchObject({
+      pages: 1,
+      decks: 1,
+      cards: 1,
+    });
+    expect(incoming.cards[0]?.updatedAt).toBe(future);
+    await backups.importData(incoming, 'replace');
+    expect((await repository.listPages())[0]?.updatedAt).toBe(NOW);
+    expect((await repository.listDecks())[0]?.createdAt).toBe(NOW);
+    expect((await repository.listCards())[0]?.updatedAt).toBe(NOW);
+    await repository.close();
+    (await database).close();
+  });
+
   it('previews a replace import as the incoming totals, writing nothing', async () => {
     const { repository, database, backups } = await createServices();
     await repository.replaceDocument(populatedDocument());
@@ -395,7 +800,13 @@ describe('BackupService - import', () => {
 
     const preview = await backups.importData(incoming, 'merge');
 
-    expect(preview).toEqual({ pages: 1, decks: 1, cards: 1, skipped: 0 });
+    expect(preview).toEqual({
+      pages: 1,
+      decks: 1,
+      cards: 1,
+      skipped: 0,
+      snapshotId: expect.any(String),
+    });
     expect((await repository.listPages())[0]?.title).toBe('Renamed');
     expect((await repository.listDecks())[0]?.title).toBe('Renamed deck');
     expect(await repository.listCards()).toEqual([card]);

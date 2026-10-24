@@ -1,0 +1,37 @@
+@layer components {
+  .deck-card__task-title {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  [data-deck='card-done'] {
+    border: 1px solid var(--deck-color-text-muted);
+    border-radius: 0.25rem;
+  }
+
+  [data-deck='card-done'][aria-checked='false'] svg {
+    visibility: hidden;
+  }
+
+  [data-deck='card-done'][aria-checked='true'] {
+    background: var(--deck-color-focus);
+    color: var(--deck-color-canvas);
+  }
+
+  :is(.deck-column[data-task-mode] .deck-card, .deck-card[data-kind='task'])
+    .deck-card__actions {
+    opacity: 1;
+  }
+
+  :is(
+      .deck-column[data-task-mode] .deck-card,
+      .deck-card[data-kind='task']
+    ):not(:hover, :focus-within)
+    .deck-card__actions
+    > button:not([data-deck='card-done']) {
+    opacity: 0;
+  }
+}
