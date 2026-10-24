@@ -1,7 +1,14 @@
 @layer components {
   .deck-section-nav {
     position: fixed;
-    inset-inline-start: var(--deck-space-2);
+    inset-inline-start: max(
+      var(--deck-space-3),
+      calc(
+        (100vi - var(--deck-workspace-max-inline)) / 2 - var(--deck-nav-width) -
+          var(--deck-space-3)
+      )
+    );
+    inline-size: var(--deck-nav-width);
     inset-block-start: 50%;
     z-index: 6;
     display: grid;
@@ -33,7 +40,8 @@
   }
 
   .deck-section-nav span {
-    font-size: 0.625rem;
+    font-size: var(--deck-font-label);
+    line-height: 1.2;
   }
 
   .deck-section-nav button:hover,
@@ -44,9 +52,10 @@
 
   .deck-section-nav button[aria-current] {
     color: var(--deck-color-focus);
+    background: var(--deck-color-selection);
   }
 
-  @media (width < 720px) {
+  @media (width < 900px) {
     .deck-section-nav {
       inset-block-start: var(--deck-space-1);
       inset-inline: 0;

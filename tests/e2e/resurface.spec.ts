@@ -9,6 +9,18 @@ const READY = 'html[data-deck-ready="true"]';
 const DAY_MS = 86_400_000;
 const NOW = new Date(2026, 9, 17, 12).getTime();
 
+async function surfacePositions(page: Page) {
+  return page.evaluate(() => {
+    const clock = document.querySelector('[data-deck="clock"]');
+    const line = document.querySelector('[data-deck="line"]');
+    if (!clock || !line) throw new Error('Missing clock or Line');
+    return {
+      clock: clock.getBoundingClientRect().y + scrollY,
+      line: line.getBoundingClientRect().y + scrollY,
+    };
+  });
+}
+
 async function readCards(page: Page) {
   return page.evaluate(async () => {
     const request = indexedDB.open('deck');
@@ -108,6 +120,36 @@ async function seed(page: Page) {
   await page.waitForSelector(READY);
 }
 
+test('optional daily review never shifts the clock or Line', async () => {
+  const context = await launchExtension();
+  try {
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.clock.setFixedTime(new Date(NOW));
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector(READY);
+    await seed(page);
+    const panel = page.locator('[data-deck="resurface"]');
+    await expect(panel).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const positions = await surfacePositions(page);
+    for (const isEnabled of [false, true]) {
+      await page.getByLabel('Settings', { exact: true }).click();
+      await page
+        .getByLabel('Resurface an unread link each day')
+        .setChecked(isEnabled);
+      await page.getByLabel('Close settings', { exact: true }).click();
+      await expect(panel).toHaveCount(isEnabled ? 1 : 0);
+      expect(await surfacePositions(page)).toEqual(positions);
+    }
+    await page.locator('[data-deck="line"] input').fill('TypeScript');
+    await expect(page.locator('[data-deck="line-results"]')).toBeVisible();
+    expect(await surfacePositions(page)).toEqual(positions);
+  } finally {
+    await context.close();
+  }
+});
+
 test('Resurface: one daily link across tabs, five-second Keep, tomorrow, Open, recoverable Trash and opt-out', async ({
   browserName,
 }, testInfo) => {
@@ -148,11 +190,31 @@ test('Resurface: one daily link across tabs, five-second Keep, tomorrow, Open, r
       await page.getByLabel('Close settings', { exact: true }).click();
       await expect(page.locator('[data-deck="toast"]')).toHaveCount(0);
       await page.setViewportSize({ width, height });
+      await page.evaluate(() => window.scrollTo(0, 0));
+      if (width < 900) {
+        const clock = await page.locator('[data-deck="clock"]').boundingBox();
+        const rail = await page
+          .locator('[data-deck="section-nav"]')
+          .boundingBox();
+        if (!clock || !rail)
+          throw new Error('Missing clock or navigation bounds');
+        expect(clock.y).toBeGreaterThanOrEqual(rail.y + rail.height);
+      }
       await panel.scrollIntoViewIfNeeded();
       const bounds = await panel.boundingBox();
       const pins = await page.locator('[data-deck="pins"]').boundingBox();
       expect(bounds).not.toBeNull();
       if (!bounds || !pins) throw new Error('Missing review or Pins bounds');
+      const navigation = await page
+        .locator('[data-deck="section-nav"]')
+        .boundingBox();
+      if (!navigation) throw new Error('Missing section navigation bounds');
+      expect(
+        bounds.x >= navigation.x + navigation.width ||
+          bounds.x + bounds.width <= navigation.x ||
+          bounds.y >= navigation.y + navigation.height ||
+          bounds.y + bounds.height <= navigation.y,
+      ).toBe(true);
       expect(bounds.y).toBeGreaterThan(pins.y + pins.height);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
       expect(bounds.y + bounds.height).toBeLessThanOrEqual(height);

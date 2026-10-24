@@ -14,22 +14,24 @@
   color-scheme: dark;
 
   /* Surface */
-  --deck-color-canvas: #0b0d12;
-  --deck-color-canvas-raised: #12151d;
+  --deck-color-canvas: #1b1a18;
+  --deck-color-canvas-raised: #292622;
   --deck-gradient-canvas:
-    radial-gradient(ellipse at 50% 42%, rgb(45 58 85 / 32%), transparent 52%),
-    linear-gradient(180deg, #10131a 0%, #0b0d12 55%, #090b0f 100%);
+    radial-gradient(ellipse at 26% 28%, rgb(151 108 69 / 24%), transparent 58%),
+    radial-gradient(ellipse at 82% 76%, rgb(83 104 83 / 16%), transparent 56%),
+    linear-gradient(160deg, #292522 0%, #1b1a18 55%, #141715 100%);
 
   /* Type */
-  --deck-color-text: #e8eaf0;
-  --deck-color-text-muted: #949bad;
+  --deck-color-text: #f5eee3;
+  --deck-color-text-muted: #c0b4a5;
 
   /* Glass, per MasterPlan section 3.4 */
-  --deck-color-glass: rgb(255 255 255 / 5.5%);
-  --deck-color-panel-glass: rgb(18 21 29 / 88%);
-  --deck-color-hairline: rgb(255 255 255 / 12%);
-  --deck-color-scrim: rgb(9 11 15 / 45%);
-  --deck-color-focus: #7aa2f7;
+  --deck-color-glass: rgb(247 231 211 / 6%);
+  --deck-color-panel-glass: rgb(37 34 30 / 94%);
+  --deck-color-hairline: rgb(247 231 211 / 14%);
+  --deck-color-scrim: rgb(24 22 19 / 35%);
+  --deck-color-focus: #edbd91;
+  --deck-color-selection: rgb(237 189 145 / 12%);
   --deck-color-shadow: rgb(0 0 0 / 24%);
   --deck-color-danger: #f38ba8;
   --deck-accent-slate: #aeb7c8;
@@ -50,30 +52,31 @@
 [data-theme='day'] {
   color-scheme: light;
 
-  --deck-color-canvas: #f5f6f8;
-  --deck-color-canvas-raised: #ffffff;
+  --deck-color-canvas: #f5f0e8;
+  --deck-color-canvas-raised: #fffcf7;
   --deck-gradient-canvas:
     radial-gradient(
       ellipse at 20% 22%,
-      rgb(225 233 245 / 80%),
+      rgb(232 214 188 / 65%),
       transparent 56%
     ),
     radial-gradient(
       ellipse at 80% 78%,
-      rgb(250 231 217 / 70%),
+      rgb(217 225 210 / 55%),
       transparent 52%
     ),
-    linear-gradient(180deg, #ffffff 0%, #f5f6f8 55%, #eef0f4 100%);
+    linear-gradient(180deg, #fffcf7 0%, #f5f0e8 55%, #eae4d8 100%);
 
-  --deck-color-text: #14161c;
-  --deck-color-text-muted: #5c6474;
+  --deck-color-text: #302b25;
+  --deck-color-text-muted: #6a5d50;
 
-  --deck-color-glass: rgb(255 255 255 / 55%);
-  --deck-color-panel-glass: rgb(255 255 255 / 82%);
-  --deck-color-hairline: rgb(0 0 0 / 18%);
-  --deck-color-scrim: rgb(255 255 255 / 45%);
-  --deck-color-focus: #2f5bd8;
-  --deck-color-shadow: rgb(20 22 28 / 14%);
+  --deck-color-glass: rgb(255 251 244 / 65%);
+  --deck-color-panel-glass: rgb(255 252 246 / 94%);
+  --deck-color-hairline: rgb(76 58 38 / 20%);
+  --deck-color-scrim: rgb(248 240 227 / 40%);
+  --deck-color-focus: #985329;
+  --deck-color-selection: rgb(152 83 41 / 9%);
+  --deck-color-shadow: rgb(58 41 23 / 14%);
   --deck-color-danger: #b4233f;
   --deck-accent-slate: #455267;
   --deck-accent-blue: #2459af;
@@ -94,30 +97,31 @@
   [data-theme='system'] {
     color-scheme: light;
 
-    --deck-color-canvas: #f5f6f8;
-    --deck-color-canvas-raised: #ffffff;
+    --deck-color-canvas: #f5f0e8;
+    --deck-color-canvas-raised: #fffcf7;
     --deck-gradient-canvas:
       radial-gradient(
         ellipse at 20% 22%,
-        rgb(225 233 245 / 80%),
+        rgb(232 214 188 / 65%),
         transparent 56%
       ),
       radial-gradient(
         ellipse at 80% 78%,
-        rgb(250 231 217 / 70%),
+        rgb(217 225 210 / 55%),
         transparent 52%
       ),
-      linear-gradient(180deg, #ffffff 0%, #f5f6f8 55%, #eef0f4 100%);
+      linear-gradient(180deg, #fffcf7 0%, #f5f0e8 55%, #eae4d8 100%);
 
-    --deck-color-text: #14161c;
-    --deck-color-text-muted: #5c6474;
+    --deck-color-text: #302b25;
+    --deck-color-text-muted: #6a5d50;
 
-    --deck-color-glass: rgb(255 255 255 / 55%);
-    --deck-color-panel-glass: rgb(255 255 255 / 82%);
-    --deck-color-hairline: rgb(0 0 0 / 18%);
-    --deck-color-scrim: rgb(255 255 255 / 45%);
-    --deck-color-focus: #2f5bd8;
-    --deck-color-shadow: rgb(20 22 28 / 14%);
+    --deck-color-glass: rgb(255 251 244 / 65%);
+    --deck-color-panel-glass: rgb(255 252 246 / 94%);
+    --deck-color-hairline: rgb(76 58 38 / 20%);
+    --deck-color-scrim: rgb(248 240 227 / 40%);
+    --deck-color-focus: #985329;
+    --deck-color-selection: rgb(152 83 41 / 9%);
+    --deck-color-shadow: rgb(58 41 23 / 14%);
     --deck-color-danger: #b4233f;
     --deck-accent-slate: #455267;
     --deck-accent-blue: #2459af;
@@ -149,16 +153,28 @@
     'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   /* 8-pt spacing scale (MasterPlan section 3.4) */
+  --deck-space-half: 0.25rem;
+  --deck-space-5: 2.5rem;
+  --deck-font-body: 0.9375rem;
+  --deck-font-label: 0.75rem;
+  --deck-workspace-max-inline: 68rem;
+  --deck-column-min-inline: 18rem;
+  --deck-workspace-max-block: 42rem;
+  --deck-workspace-content-start: 3rem;
+  --deck-nav-width: 4.75rem;
+  --deck-task-content-width: 42rem;
+  --deck-task-control-size: 2.75rem;
+  --deck-task-checkbox-size: 1.25rem;
   --deck-space-1: 0.5rem;
   --deck-space-2: 1rem;
   --deck-space-3: 1.5rem;
   --deck-space-4: 2rem;
 
-  --deck-radius-panel: 1rem;
+  --deck-radius-panel: 0.875rem;
   --deck-radius-pill: 999px;
-  --deck-radius-tile: 1.125rem;
+  --deck-radius-tile: 1.5rem;
   --deck-font-note-body: 0.9375rem;
-  --deck-font-note-h1: 1.5rem;
+  --deck-font-note-h1: 1.75rem;
   --deck-font-note-h2: 1.25rem;
   --deck-font-note-h3: 1.125rem;
 
@@ -170,29 +186,36 @@
   --deck-ease-hover: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* The Line and the surface column are one width (MasterPlan section 3.1). */
-  --deck-surface-column: 40rem;
-  --deck-clock-size: 4rem;
+  --deck-surface-column: 36rem;
+  --deck-surface-block-start: clamp(
+    var(--deck-workspace-block-start),
+    14dvb,
+    12rem
+  );
+  --deck-clock-size: 4.5rem;
+  --deck-clock-min-size: 3rem;
+  --deck-clock-fluid-size: 17vi;
   --deck-clock-width: 8ch;
-  --deck-control-size: 2.25rem;
-  --deck-nav-item-size: 3.25rem;
+  --deck-control-size: 2.5rem;
+  --deck-nav-item-size: 3.5rem;
   --deck-glass-blur: 1.25rem;
-  --deck-workspace-inline-start: 7rem;
-  --deck-workspace-block-start: 5rem;
+  --deck-workspace-inline-start: 7.5rem;
+  --deck-workspace-block-start: 5.5rem;
   --deck-resurface-width: 20rem;
   --deck-shelf-max-height: 35dvb;
   --deck-shelf-row-height: 2.75rem;
   --deck-resurface-surface-height: 54rem;
-  --deck-line-height: 3.5rem;
+  --deck-line-height: 3.75rem;
   --deck-results-max-block: min(60vh, 32rem);
   --deck-pin-size: 4rem;
   --deck-pin-gap: 1.5rem;
   --deck-pin-lift: -0.375rem;
   --deck-settings-width: 22rem;
   --deck-wallpaper-fade: 300ms;
-  --deck-drawer-rail: 13.75rem;
+  --deck-drawer-rail: 12rem;
   --deck-drawer-peek: 3rem;
   --deck-drawer-blur: 0.5rem;
-  --deck-drawer-scrim: rgb(0 0 0 / 40%);
+  --deck-drawer-scrim: rgb(0 0 0 / 20%);
   --deck-drawer-duration: 320ms;
   --deck-drawer-ease: cubic-bezier(0.2, 0.9, 0.25, 1);
 }

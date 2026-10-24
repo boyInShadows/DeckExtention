@@ -1,10 +1,4 @@
 @layer components {
-  .deck-surface:has([data-deck='shelf']) .deck-resurface {
-    position: static;
-    place-self: end start;
-    margin-block-start: var(--deck-space-3);
-  }
-
   .deck-shelf {
     --deck-color-text: var(--deck-color-panel-text);
     --deck-color-text-muted: var(--deck-color-panel-muted);
