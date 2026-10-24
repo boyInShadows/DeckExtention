@@ -577,7 +577,6 @@
     background: var(--deck-color-panel-glass);
     color: var(--deck-color-panel-text);
     box-shadow: 0 var(--deck-space-3) 3rem var(--deck-color-shadow);
-    backdrop-filter: blur(var(--deck-glass-blur));
     transform: translateY(100%);
     animation: deck-drawer-exit var(--deck-drawer-duration)
       var(--deck-drawer-ease) forwards;
