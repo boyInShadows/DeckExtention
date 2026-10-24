@@ -9,6 +9,18 @@ const READY = 'html[data-deck-ready="true"]';
 const DAY_MS = 86_400_000;
 const NOW = new Date(2026, 9, 17, 12).getTime();
 
+async function surfacePositions(page: Page) {
+  return page.evaluate(() => {
+    const clock = document.querySelector('[data-deck="clock"]');
+    const line = document.querySelector('[data-deck="line"]');
+    if (!clock || !line) throw new Error('Missing clock or Line');
+    return {
+      clock: clock.getBoundingClientRect().y + scrollY,
+      line: line.getBoundingClientRect().y + scrollY,
+    };
+  });
+}
+
 async function readCards(page: Page) {
   return page.evaluate(async () => {
     const request = indexedDB.open('deck');
@@ -107,6 +119,36 @@ async function seed(page: Page) {
   await page.reload();
   await page.waitForSelector(READY);
 }
+
+test('optional daily review never shifts the clock or Line', async () => {
+  const context = await launchExtension();
+  try {
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.clock.setFixedTime(new Date(NOW));
+    await page.goto('chrome://newtab/');
+    await page.waitForSelector(READY);
+    await seed(page);
+    const panel = page.locator('[data-deck="resurface"]');
+    await expect(panel).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const positions = await surfacePositions(page);
+    for (const isEnabled of [false, true]) {
+      await page.getByLabel('Settings', { exact: true }).click();
+      await page
+        .getByLabel('Resurface an unread link each day')
+        .setChecked(isEnabled);
+      await page.getByLabel('Close settings', { exact: true }).click();
+      await expect(panel).toHaveCount(isEnabled ? 1 : 0);
+      expect(await surfacePositions(page)).toEqual(positions);
+    }
+    await page.locator('[data-deck="line"] input').fill('TypeScript');
+    await expect(page.locator('[data-deck="line-results"]')).toBeVisible();
+    expect(await surfacePositions(page)).toEqual(positions);
+  } finally {
+    await context.close();
+  }
+});
 
 test('Resurface: one daily link across tabs, five-second Keep, tomorrow, Open, recoverable Trash and opt-out', async ({
   browserName,

@@ -187,6 +187,11 @@
 
   /* The Line and the surface column are one width (MasterPlan section 3.1). */
   --deck-surface-column: 36rem;
+  --deck-surface-block-start: clamp(
+    var(--deck-workspace-block-start),
+    14dvb,
+    12rem
+  );
   --deck-clock-size: 4.5rem;
   --deck-clock-min-size: 3rem;
   --deck-clock-fluid-size: 17vi;

@@ -11,14 +11,16 @@
     position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    align-content: center;
+
+    /* Optional content must not recenter the clock and Line. */
+    align-content: start;
     place-items: center;
     row-gap: var(--deck-space-3);
     min-block-size: 100dvb;
     inline-size: 100%;
     padding-inline: var(--deck-space-3);
-    padding-block: var(--deck-space-4);
-    padding-block-end: calc(var(--deck-control-size) + var(--deck-space-3));
+    padding-block: var(--deck-surface-block-start)
+      calc(var(--deck-control-size) + var(--deck-space-3));
   }
 
   .deck-wallpaper {
