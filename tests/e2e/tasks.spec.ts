@@ -182,20 +182,34 @@ test('tasks: quick entry, Notes editing, task-mode keyboard completion and safe 
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     await deck.getByRole('button', { name: 'Deck menu', exact: true }).click();
-    const before = new Set(context.pages());
-    await page.getByRole('menuitem', { name: 'Open all', exact: true }).click();
-    await expect
-      .poll(() => context.pages().filter((tab) => !before.has(tab)).length)
-      .toBe(total - 1);
-    expect((await readTask(page))?.url).toBeUndefined();
-    expect(
-      context
-        .pages()
-        .filter((tab) => !before.has(tab))
-        .every(
-          (tab) => !['about:blank', 'chrome://newtab/'].includes(tab.url()),
-        ),
-    ).toBe(true);
+    const session = await context.newCDPSession(page);
+    try {
+      // Page objects wait for navigation; native targets already include loading tabs.
+      const { targetInfos } = await session.send('Target.getTargets');
+      const before = new Set(targetInfos.map((target) => target.targetId));
+      await page
+        .getByRole('menuitem', { name: 'Open all', exact: true })
+        .click();
+      await expect
+        .poll(async () => {
+          const { targetInfos } = await session.send('Target.getTargets');
+          const opened = targetInfos.filter(
+            (target) => target.type === 'page' && !before.has(target.targetId),
+          );
+          return {
+            count: opened.length,
+            hasBlank: opened.some(
+              (target) =>
+                !target.url ||
+                ['about:blank', 'chrome://newtab/'].includes(target.url),
+            ),
+          };
+        })
+        .toEqual({ count: total - 1, hasBlank: false });
+      expect((await readTask(page))?.url).toBeUndefined();
+    } finally {
+      await session.detach();
+    }
   } finally {
     await context.close();
   }
