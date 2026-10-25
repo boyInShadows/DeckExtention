@@ -330,3 +330,82 @@ it('reports stale targets and supports the visible Save/Close controls', async (
   );
   expect(api.tabs.remove).not.toHaveBeenCalled();
 });
+
+it('accepts the next activation after switching while tab metadata is still refreshing', async () => {
+  const result = await mount();
+  await search(result, '>tabs alphatab');
+  await ready(result);
+  let finishRefresh: ((tabs: ReturnType<typeof tab>[]) => void) | undefined;
+  api.tabs.query.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishRefresh = resolve;
+      }),
+  );
+  try {
+    await result.view.act(() => {
+      keyDown(result.input, 'Enter');
+    });
+    await vi.waitFor(() => expect(finishRefresh).toBeDefined());
+    expect(api.windows.update).toHaveBeenCalledOnce();
+    await search(result, '>tabs betatab');
+    await ready(result);
+    await result.view.act(() => {
+      keyDown(result.input, 'Enter');
+    });
+    await vi.waitFor(() =>
+      expect(api.tabs.update).toHaveBeenCalledWith(2, { active: true }),
+    );
+  } finally {
+    finishRefresh?.([tab(1, 'AlphaTab'), tab(2, 'BetaTab')]);
+    await result.view.act(async () => {});
+  }
+});
+
+it.each([false, true])(
+  'queues a second activation while the first is pending (failure: %s)',
+  async (shouldFail) => {
+    const result = await mount();
+    await search(result, '>tabs alphatab');
+    await ready(result);
+    let finish: (() => void) | undefined;
+    api.tabs.update.mockImplementationOnce(
+      () =>
+        new Promise((resolve, reject) => {
+          finish = () =>
+            shouldFail ? reject(new Error('tab busy')) : resolve({});
+        }),
+    );
+    try {
+      await result.view.act(() => {
+        keyDown(result.input, 'Enter');
+      });
+      await vi.waitFor(() => expect(finish).toBeDefined());
+      await search(result, '>tabs betatab');
+      await ready(result);
+      await result.view.act(() => {
+        keyDown(result.input, 'Enter');
+      });
+      await vi.dynamicImportSettled();
+      expect(api.tabs.update).toHaveBeenCalledExactlyOnceWith(1, {
+        active: true,
+      });
+      finish?.();
+      await vi.waitFor(() =>
+        expect(api.tabs.update).toHaveBeenCalledWith(2, { active: true }),
+      );
+      await vi.waitFor(() =>
+        expect(api.windows.update).toHaveBeenLastCalledWith(2, {
+          focused: true,
+        }),
+      );
+      if (shouldFail)
+        expect(result.props.notify).toHaveBeenCalledWith(
+          `${strings.updateFailed} tab busy`,
+        );
+    } finally {
+      finish?.();
+      await result.view.act(async () => {});
+    }
+  },
+);

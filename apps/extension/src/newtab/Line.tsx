@@ -56,7 +56,7 @@ export function Line(props: LineProps) {
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
-  const isTabActionPending = useRef(false);
+  const pendingTabAction = useRef(Promise.resolve());
   const isTaskPending = useRef(false);
   const isActionPending = useRef(false);
   const isWebSearch = query[0] === '?';
@@ -160,22 +160,22 @@ export function Line(props: LineProps) {
     rows?.[index]?.focus();
   };
   const actOnTab = async (tab: OpenTab, action: TabAction) => {
-    if (isTabActionPending.current) return;
-    isTabActionPending.current = true;
-    if (action === 'close') inputRef.current?.focus();
-    try {
-      const { performTabAction } = await import('../tabs/openTabs');
-      const message = await performTabAction(props.repository, tab, action);
-      if (action !== 'close') props.onDataChange?.();
-      if (message) props.notifySuccess(message);
-    } catch (error) {
-      props.notify(
-        `${strings.updateFailed} ${error instanceof Error ? error.message : String(error)}`,
-      );
-    } finally {
-      await tabState.refresh();
-      isTabActionPending.current = false;
-    }
+    const pending = pendingTabAction.current.then(async () => {
+      if (action === 'close') inputRef.current?.focus();
+      try {
+        const { performTabAction } = await import('../tabs/openTabs');
+        const message = await performTabAction(props.repository, tab, action);
+        if (action !== 'close') props.onDataChange?.();
+        if (message) props.notifySuccess(message);
+      } catch (error) {
+        props.notify(
+          `${strings.updateFailed} ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    });
+    pendingTabAction.current = pending;
+    await pending;
+    await tabState.refresh();
   };
   const execute = async (
     isNewTab: boolean,
