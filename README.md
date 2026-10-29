@@ -9,6 +9,13 @@ workspace. The rail moves to the top in narrow windows.
 No account, telemetry, remote fonts or automatic runtime network requests.
 Data stays on your device. Explicit `?` searches use Chrome's search provider.
 
+![Deck's new-tab surface, captured from the unpacked extension](docs/artifacts/showcase/surface-desktop.png)
+
+![Tasks in Deck's workspace, using synthetic example tasks](docs/artifacts/showcase/tasks-night-1440.png)
+
+These are real captures of the production build in an isolated Chromium profile,
+not mockups. The task content is synthetic.
+
 ## Current state
 
 The surface, drawer, capture, bookmark import, sessions, open-tab search, daily
@@ -19,6 +26,9 @@ This is an unreleased working build. Owner visual review, physical Chrome shortc
 permission prompts, real-display checks and the field trial remain open. Strict
 startup acceptance is unfinished: the sub-60 ms warm target is a goal, not a guarantee
 for every load. Sync and ongoing bookmark mirroring are not implemented.
+
+Product owner: Kasra. This repository documents the working build, without a
+Chrome Web Store release or public rating claim.
 
 ## Features
 
@@ -37,6 +47,17 @@ for every load. Sync and ongoing bookmark mirroring are not implemented.
 - **Local recovery:** JSON export/import, seven daily snapshots, migration
   safeguards and snapshot fallback when the live database cannot be read.
   Export a backup before testing destructive changes.
+
+### Why recovery uses two local stores
+
+The [backup service](apps/extension/src/storage/backup.ts) keeps up to seven
+snapshots in IndexedDB and copies the latest snapshot to `chrome.storage.local`.
+Export tries the live document first, then the newest valid snapshot if reading
+the live document fails. The separate copy can still be read when the database
+cannot be opened; invalid snapshots are rejected rather than exported as valid
+data. This improves recovery from a database failure, but both stores belong to
+the same browser profile: they are not an off-device backup. Export JSON to a
+separate location before removing the extension or clearing browser data.
 
 ## Keyboard entry points
 
@@ -70,18 +91,24 @@ account, backend or analytics. Fonts are bundled; favicons use Chrome's local AP
 
 ## Development
 
-Requirements: Node.js 22+ and pnpm 9.15.9. Install Chromium for the extension tests.
+Requirements: Node.js 22+ and pnpm 9.15.9. No backend or account is required.
 
 ```bash
+git clone https://github.com/boyInShadows/DeckExtention.git
+cd DeckExtention
 corepack enable
 pnpm install --frozen-lockfile
-pnpm exec playwright install chromium
-pnpm dev
+pnpm build
 ```
 
-At `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select
-`apps/extension/dist`. For production, run `pnpm build` and reload the extension
-before opening a new tab.
+1. Open `chrome://extensions` and enable **Developer mode**.
+2. Choose **Load unpacked** and select this clone's `apps/extension/dist` folder.
+3. Open a new tab. Deck should show its clock, Line and workspace navigation.
+4. Open Settings and export a JSON backup before importing or deleting data.
+
+For development, run `pnpm dev`; after a production rebuild, reload Deck on the
+extensions page and open a new tab. To run browser tests, first install their
+browser with `pnpm exec playwright install chromium`.
 
 | Command              | Purpose                                               |
 | -------------------- | ----------------------------------------------------- |
@@ -117,7 +144,8 @@ Source and component tests stay together by feature; browser journeys stay in
 Test output goes to `docs/artifacts/test-results`; coverage goes to
 `docs/artifacts/coverage/{unit,e2e,merged}`. Historical experiments and reports are
 retained in `docs/archive`; current UI previews are in `docs/ui-concepts`.
-These local documents and artifacts are deliberately not published.
+Local planning documents and raw reports are deliberately not published. Only the
+two selected showcase captures above are included in this README.
 
 ### Stack and developer helpers
 
@@ -129,16 +157,19 @@ Repository tooling lives in `tools/` and is versioned. CodeBaseMemory, Graphify 
 are external development aids, not extension dependencies; the machine's external
 tools directory is not needed to run Deck.
 
-### Working with agents
+### Verification and limits
 
-Root `AGENTS.md` contains the owner's local instructions. The task queue and
-backlog are `docs/pending.md` and `docs/ideas.md`; `docs/INDEX.md` indexes the local
-documentation.
+The 2026-10-30 presentation review used the published `main` source at `ad2ff11`:
+frozen installation, lint, 726 unit/integration tests, production build and all
+three bundle budgets passed. An unpacked production build also passed the backup
+export/import, keyboard and responsive task journeys in Chromium 151.
 
-These working documents are intentionally ignored by Git. A fresh clone is incomplete
-for agent work: ask the owner for the instructions and task queue before making changes.
-Active work is on **`ramtin`**. The owner controls merges into `main`; do not
-force-push or rewrite shared history.
+One large tab-group browser test failed while waiting for Playwright's page count
+to match Chrome's tab count. Playwright 1.63 expects Chromium 153; downloading it
+locally was blocked with a regional HTTP 403. These checks do not establish full
+browser-suite, physical-shortcut, performance or field-trial acceptance. The
+[quality workflow](.github/workflows/quality.yml) retains its existing checks;
+consult the actual run result rather than treating the file as a passing badge.
 
 ## License
 
