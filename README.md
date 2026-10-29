@@ -27,8 +27,8 @@ permission prompts, real-display checks and the field trial remain open. Strict
 startup acceptance is unfinished: the sub-60 ms warm target is a goal, not a guarantee
 for every load. Sync and ongoing bookmark mirroring are not implemented.
 
-Product owner: Kasra. This repository documents the working build, without a
-Chrome Web Store release or public rating claim.
+Owner and sole developer: **Ramtin Farzane**. This repository documents the
+working build, without a Chrome Web Store release or public rating claim.
 
 ## Features
 
