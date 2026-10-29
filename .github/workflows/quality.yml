@@ -2,7 +2,9 @@ name: Deck quality
 
 on:
   push:
-    branches: [development, ramtin]
+    branches: [main, development, ramtin]
+  pull_request:
+    branches: [main]
 
 jobs:
   quality:
