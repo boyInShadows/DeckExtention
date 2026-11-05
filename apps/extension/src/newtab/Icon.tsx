@@ -40,8 +40,8 @@ const PATHS: Record<IconName, ReactNode> = {
   ),
   check: <path d="m4 12 5 5L20 6" />,
   note: <circle cx="12" cy="12" r="5" fill="currentColor" />,
-  inbox: <path d="M4 5h16v14H4zM4 14h5l2 3h2l2-3h5" />,
-  sessions: <path d="M8 4h12v12H8zM4 8v12h12" />,
+  inbox: <path d="M5 4h14l3 10v6H2v-6L5 4ZM2 14h6l2 3h4l2-3h6" />,
+  sessions: <path d="M3 11a9 9 0 1 1 2.6 7.4M3 4v7h7m2-4v5l3 2" />,
   trash: <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6" />,
 };
 
