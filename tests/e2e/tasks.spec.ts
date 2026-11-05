@@ -70,6 +70,7 @@ test('tasks: quick entry, Notes editing, task-mode keyboard completion and safe 
     await expect(page.locator('[data-deck="note-result"]')).toContainText(
       TITLE,
     );
+    await line.press('ArrowDown');
     await line.press('Enter');
     const note = page.locator('[data-deck="note"] textarea');
     await expect(note).toBeFocused();

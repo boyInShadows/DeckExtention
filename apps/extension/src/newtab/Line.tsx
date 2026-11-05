@@ -21,7 +21,8 @@ import type { CreatedWorkspace } from './lineWorkspace';
 
 const MAX_GROUP_ROWS = 8;
 const PLACEHOLDER_ROTATE_MS = 6_000;
-export type ResultGroup = 'cards' | 'notes' | 'actions' | 'tabs' | 'url';
+export type ResultGroup =
+  'web' | 'cards' | 'notes' | 'actions' | 'tabs' | 'url';
 
 interface LineProps {
   cards: Card[];
@@ -48,7 +49,7 @@ export function Line(props: LineProps) {
   const [selected, setSelected] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
   const [showHint, setShowHint] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<ResultGroup>('cards');
+  const [selectedGroup, setSelectedGroup] = useState<ResultGroup>('web');
   const search = useMemo(
     () =>
       buildSearchIndex(sourceCards.filter((card) => card.deletedAt === null)),
@@ -84,33 +85,32 @@ export function Line(props: LineProps) {
     isTabsCommand && tabState.hasAccess
       ? []
       : filterLineActions(query, isCommand);
+  const canSearchWeb =
+    isWebSearch || (!isCommand && Boolean(query.trim()) && !results.url);
   const groups = [
+    canSearchWeb && 'web',
+    results.url && 'url',
     results.cards.length && 'cards',
     results.notes.length && 'notes',
     actions.length && 'actions',
     tabs.length && 'tabs',
-    !results.cards.length &&
-      !results.notes.length &&
-      !actions.length &&
-      !tabs.length &&
-      results.url &&
-      'url',
   ].filter(Boolean) as ResultGroup[];
   const group = groups.includes(selectedGroup) ? selectedGroup : groups[0];
-  const itemCount = isWebSearch
-    ? 1
-    : Math.min(
-        MAX_GROUP_ROWS,
-        group === 'url'
-          ? 1
-          : group === 'cards'
-            ? results.cards.length
-            : group === 'notes'
-              ? results.notes.length
-              : group === 'tabs'
-                ? tabs.length
-                : actions.length,
-      );
+  const itemCount =
+    group === 'web'
+      ? 1
+      : Math.min(
+          MAX_GROUP_ROWS,
+          group === 'url'
+            ? 1
+            : group === 'cards'
+              ? results.cards.length
+              : group === 'notes'
+                ? results.notes.length
+                : group === 'tabs'
+                  ? tabs.length
+                  : actions.length,
+        );
   const activeIndex = itemCount > 0 ? Math.min(selected, itemCount - 1) : 0;
   useEffect(() => {
     if (isTabsCommand && tabState.hasAccess) inputRef.current?.focus();
@@ -188,12 +188,12 @@ export function Line(props: LineProps) {
         if (tab) await actOnTab(tab, 'activate');
         return;
       }
-      if (isWebSearch) {
-        const term = query.slice(1).trim();
+      if (targetGroup === 'web') {
+        const term = (isWebSearch ? query.slice(1) : query).trim();
         // "?" alone is help, not an empty web search (P2.S6).
         if (!term) return props.openHelp();
         const { searchWeb } = await import('./lineActions');
-        await searchWeb(term, props.settings, props.saveSettings);
+        await searchWeb(term, props.settings, isNewTab);
         return;
       }
       if (targetGroup === 'url' && results.url) {
@@ -293,13 +293,21 @@ export function Line(props: LineProps) {
     }
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setSelected(itemCount ? (activeIndex + 1) % itemCount : 0);
+      if (group === 'web' && groups[1]) {
+        setSelectedGroup(groups[1]);
+        setSelected(0);
+        if (groups[1] === 'tabs') focusTab(0);
+      } else setSelected(itemCount ? (activeIndex + 1) % itemCount : 0);
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       setSelected(itemCount ? (activeIndex - 1 + itemCount) % itemCount : 0);
     }
-    if (event.key === 'Tab' && groups.length) {
+    if (
+      event.key === 'Tab' &&
+      groups.length &&
+      !(groups.length === 1 && group === 'web')
+    ) {
       event.preventDefault();
       const nextGroup =
         groups[(groups.indexOf(group ?? 'cards') + 1) % groups.length];
@@ -322,7 +330,7 @@ export function Line(props: LineProps) {
           onChange={(event) => {
             setQuery(event.currentTarget.value);
             setSelected(0);
-            setSelectedGroup('cards');
+            setSelectedGroup('web');
           }}
           onKeyDown={onKeyDown}
           placeholder={
@@ -351,7 +359,7 @@ export function Line(props: LineProps) {
           tabs={tabs}
           onTabAction={(tab, action) => void actOnTab(tab, action)}
           onSearch={() => inputRef.current?.focus()}
-          isWebSearch={isWebSearch}
+          isWebSearch={canSearchWeb}
           activeGroup={group}
           activeIndex={activeIndex}
           onHover={(nextGroup, index) => {

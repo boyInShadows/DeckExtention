@@ -591,15 +591,6 @@ export default function SettingsPanel({
         <SettingsGroup title={strings.advanced}>
           <QuickSavePermission onError={showError} />
           <GrantedAccess onError={showError} />
-          {settings.searchPermission === 'declined' ? (
-            <button
-              type="button"
-              data-deck="search-permission-retry"
-              onClick={() => void update({ searchPermission: undefined })}
-            >
-              {strings.searchPermissionRetry}
-            </button>
-          ) : null}
           <label>
             {strings.searchEngine}
             <select

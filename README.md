@@ -7,7 +7,8 @@ Tasks, Inbox or Sessions from the icon rail, or press `Ctrl+J` to open the float
 workspace. The rail moves to the top in narrow windows.
 
 No account, telemetry, remote fonts or automatic runtime network requests.
-Data stays on your device. Explicit `?` searches use Chrome's search provider.
+Data stays on your device. Type a query and press Enter to search Google, or choose
+another engine in Settings. Searches navigate only when you submit them.
 
 ## Current state
 
@@ -22,8 +23,9 @@ for every load. Sync and ongoing bookmark mirroring are not implemented.
 
 ## Features
 
-- **The Line:** search links and notes, run `>` commands, or search the web with `?`.
-  Open-tab search asks for optional access.
+- **The Line:** Enter searches the web; Arrow Down or a click selects a saved result.
+  Typed URLs open directly, `>` runs commands, and `?query` also searches the web.
+  Shift+Enter opens in a new tab. Open-tab search asks for optional access.
 - **Links and Inbox:** organize pages, decks and cards with mouse or keyboard.
   Move, pin, rename and trash items; edit notes with Markdown preview.
 - **Tasks:** add with Enter, view open/completed tasks, complete or reopen them,
@@ -63,7 +65,7 @@ Install-time permissions are exactly `storage`, `unlimitedStorage`, `favicon` an
 | `tabs`                    | Stashing and searching/managing open tabs                |
 | `tabGroups`               | Opening a saved deck as a Chrome tab group               |
 | `bookmarks`               | One-shot import from Chrome bookmarks                    |
-| `search`                  | Explicit `?` web searches                                |
+| `search`                  | Legacy grant; current web search needs no permission     |
 
 Optional access is revocable from Settings. Deck has no persistent content script,
 account, backend or analytics. Fonts are bundled; favicons use Chrome's local API.

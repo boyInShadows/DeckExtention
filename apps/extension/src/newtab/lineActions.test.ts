@@ -247,75 +247,58 @@ describe('executeAction', () => {
 });
 
 describe('searchWeb', () => {
-  function stubChrome(isGranted: boolean, isAlreadyGranted = false) {
-    const contains = vi.fn(() => Promise.resolve(isAlreadyGranted));
-    const request = vi.fn(() => Promise.resolve(isGranted));
-    const query = vi.fn(() => Promise.resolve());
-    vi.stubGlobal('chrome', {
-      permissions: { contains, request },
-      search: { query },
-    });
-    return { contains, request, query };
-  }
-
-  it('runs Chrome search in this tab once the permission is granted', async () => {
-    const chromeApi = stubChrome(true);
+  it.each([
+    'javascript:alert("{query}")',
+    'data:text/html,{query}',
+    'file:///tmp/{query}',
+    'not a URL{query}',
+  ])('rejects unsafe search templates: %s', async (searchUrlTemplate) => {
     const assign = vi.spyOn(window.location, 'assign');
-    const saveSettings = vi.fn();
-    await searchWeb('deck tabs', SETTINGS_DEFAULTS, saveSettings);
-    expect(chromeApi.contains).toHaveBeenCalledWith({
-      permissions: ['search'],
-    });
-    expect(chromeApi.request).toHaveBeenCalledWith({
-      permissions: ['search'],
-    });
-    expect(chromeApi.query).toHaveBeenCalledWith({
-      text: 'deck tabs',
-      disposition: 'CURRENT_TAB',
-    });
+    await expect(
+      searchWeb('new query', { ...SETTINGS_DEFAULTS, searchUrlTemplate }),
+    ).rejects.toThrow();
     expect(assign).not.toHaveBeenCalled();
-    expect(saveSettings).not.toHaveBeenCalled();
   });
 
-  it('uses an existing search grant without asking again', async () => {
-    const chromeApi = stubChrome(false, true);
-    await searchWeb('deck tabs', SETTINGS_DEFAULTS, vi.fn());
-    expect(chromeApi.request).not.toHaveBeenCalled();
-    expect(chromeApi.query).toHaveBeenCalledOnce();
-  });
-
-  it('falls back to the search URL template, encoding the query', async () => {
-    const chromeApi = stubChrome(false);
+  it('opens Google with an encoded query without requesting access or using the browser provider', async () => {
     const assign = vi
       .spyOn(window.location, 'assign')
       .mockImplementation(() => undefined);
-    const settings = {
+    const request = vi.fn();
+    const query = vi.fn();
+    vi.stubGlobal('chrome', {
+      permissions: { contains: vi.fn().mockResolvedValue(true), request },
+      search: { query },
+    });
+    await searchWeb('cats & dogs فارسی', SETTINGS_DEFAULTS);
+    expect(assign).toHaveBeenCalledWith(
+      `https://www.google.com/search?q=${encodeURIComponent('cats & dogs فارسی')}`,
+    );
+    expect(request).not.toHaveBeenCalled();
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('uses the selected search engine even after a previous permission decline', async () => {
+    const assign = vi
+      .spyOn(window.location, 'assign')
+      .mockImplementation(() => undefined);
+    await searchWeb('a&b c', {
       ...SETTINGS_DEFAULTS,
-      searchUrlTemplate: 'https://search.example/?q={query}',
-    };
-    const saveSettings = vi.fn(() => Promise.resolve());
-    await searchWeb('a&b c', settings, saveSettings);
-    expect(chromeApi.query).not.toHaveBeenCalled();
-    expect(saveSettings).toHaveBeenCalledWith({
-      ...settings,
       searchPermission: 'declined',
+      searchUrlTemplate: 'https://search.example/?q={query}',
     });
     expect(assign).toHaveBeenCalledWith('https://search.example/?q=a%26b%20c');
   });
 
-  it('does not ask again after a decline', async () => {
-    const chromeApi = stubChrome(true);
-    const assign = vi
-      .spyOn(window.location, 'assign')
-      .mockImplementation(() => undefined);
-    const saveSettings = vi.fn();
-    await searchWeb(
-      'next',
-      { ...SETTINGS_DEFAULTS, searchPermission: 'declined' },
-      saveSettings,
+  it('opens Shift+Enter searches in a new tab', async () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const assign = vi.spyOn(window.location, 'assign');
+    await searchWeb('next', SETTINGS_DEFAULTS, true);
+    expect(open).toHaveBeenCalledWith(
+      'https://www.google.com/search?q=next',
+      '_blank',
+      'noopener',
     );
-    expect(chromeApi.request).not.toHaveBeenCalled();
-    expect(saveSettings).not.toHaveBeenCalled();
-    expect(assign).toHaveBeenCalledWith('https://www.google.com/search?q=next');
+    expect(assign).not.toHaveBeenCalled();
   });
 });

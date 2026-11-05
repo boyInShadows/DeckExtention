@@ -148,6 +148,9 @@ it('finds one of 40 live tabs and Enter switches and focuses its window', async 
     'Window 2',
   );
   await result.view.act(() => {
+    keyDown(result.input, 'ArrowDown');
+  });
+  await result.view.act(() => {
     keyDown(result.input, 'Enter');
   });
   await vi.waitFor(() =>
@@ -224,7 +227,7 @@ it('offers all four groups, focuses tabs through Tab, wraps row arrows, and Esca
     strings.actionsGroup,
     strings.openTabsGroup,
   ]);
-  for (let index = 0; index < 3; index += 1)
+  for (let index = 0; index < 4; index += 1)
     await result.view.act(() => {
       keyDown(result.input, 'Tab');
     });

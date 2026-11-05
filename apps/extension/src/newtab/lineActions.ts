@@ -1,4 +1,5 @@
 import type { Settings } from 'deck-schema';
+import { z } from 'zod';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from './bootstrap';
@@ -7,6 +8,10 @@ import type { ActionId } from './lineActionCatalog';
 import type { NoticeInput } from './ToastStack';
 import { startStash } from '../sessions/stashActions';
 import { createFromLine, type CreatedWorkspace } from './lineWorkspace';
+
+const SearchTargetSchema = z
+  .url()
+  .refine((value) => /^https?:$/.test(new URL(value).protocol));
 
 interface ActionContext {
   query: string;
@@ -68,24 +73,14 @@ export async function executeAction(
 export async function searchWeb(
   query: string,
   settings: Settings,
-  saveSettings: (settings: Settings) => Promise<void>,
+  isNewTab = false,
 ): Promise<void> {
-  const permission = {
-    permissions: ['search'] as chrome.runtime.ManifestOptionalPermission[],
-  };
-  let hasPermission = await chrome.permissions.contains(permission);
-  if (!hasPermission && settings.searchPermission !== 'declined') {
-    hasPermission = await chrome.permissions.request(permission);
-    if (!hasPermission)
-      await saveSettings({ ...settings, searchPermission: 'declined' });
-  }
-  if (hasPermission) {
-    await chrome.search.query({ text: query, disposition: 'CURRENT_TAB' });
-    return;
-  }
   const target = settings.searchUrlTemplate.replace(
     '{query}',
     encodeURIComponent(query),
   );
-  window.location.assign(target);
+  if (!SearchTargetSchema.safeParse(target).success)
+    throw new Error(strings.invalidUrl);
+  if (isNewTab) window.open(target, '_blank', 'noopener');
+  else window.location.assign(target);
 }

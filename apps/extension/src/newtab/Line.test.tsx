@@ -18,7 +18,7 @@ const lineActions = vi.hoisted(() => ({
   executeAction: vi.fn<(id: string, context: unknown) => Promise<void>>(),
   searchWeb:
     vi.fn<
-      (query: string, settings: unknown, saveSettings: unknown) => Promise<void>
+      (query: string, settings: unknown, isNewTab: boolean) => Promise<void>
     >(),
 }));
 vi.mock('./lineActions', () => lineActions);
@@ -119,6 +119,25 @@ beforeEach(() => {
   lineActions.searchWeb.mockReset().mockResolvedValue(undefined);
 });
 
+it('searches plain text even when a saved Archive link matches', async () => {
+  const test = setup(SETTINGS_DEFAULTS, [card('archive', 'Internet Archive')]);
+  const view = await test.render();
+  try {
+    await typeQuery(view, 'archive');
+    await press(view, 'Enter');
+    await vi.waitFor(() =>
+      expect(lineActions.searchWeb).toHaveBeenCalledWith(
+        'archive',
+        SETTINGS_DEFAULTS,
+        false,
+      ),
+    );
+    expect(markCardsOpened).not.toHaveBeenCalled();
+  } finally {
+    view.unmount();
+  }
+});
+
 it('focuses and searches immediately, before passive startup effects run', async () => {
   vi.useFakeTimers();
   const container = document.createElement('div');
@@ -214,6 +233,7 @@ it('finds a URL-free task in Notes and opens its editor on Enter', async () => {
     expect(
       view.query('[data-deck="line-results"] [data-deck="card"]'),
     ).toBeNull();
+    await press(view, 'ArrowDown');
     await press(view, 'Enter');
     expect(test.props.openNote).toHaveBeenCalledWith(task);
     expect(upsertCard).not.toHaveBeenCalled();
@@ -265,17 +285,23 @@ describe('Line results', () => {
       .map((item) => item.textContent);
     expect(titles).toEqual(['Alpha docs', 'Alpha beta']);
     expect(view.get('[data-deck="card"]').tagName).toBe('BUTTON');
-    expect(activeText(view)).toBe('Alpha docs');
+    expect(activeText(view)).toBe(strings.searchWebHint);
     view.unmount();
   });
 
-  it('explains how to search the web without searching a plain query', async () => {
+  it('searches a plain query without a prefix', async () => {
     const view = await setup().render();
     await typeQuery(view, 'weather tomorrow');
-    expect(view.container.textContent).toContain(strings.noResults);
+    expect(view.container.textContent).toContain(strings.searchWebHint);
     expect(view.query('[data-deck="card"]')).toBeNull();
     await press(view, 'Enter');
-    expect(lineActions.searchWeb).not.toHaveBeenCalled();
+    await vi.waitFor(() =>
+      expect(lineActions.searchWeb).toHaveBeenCalledWith(
+        'weather tomorrow',
+        SETTINGS_DEFAULTS,
+        false,
+      ),
+    );
     view.unmount();
   });
 
@@ -301,7 +327,7 @@ describe('Line results', () => {
       expect(lineActions.searchWeb).toHaveBeenCalledWith(
         'weather',
         SETTINGS_DEFAULTS,
-        expect.any(Function),
+        false,
       ),
     );
     view.unmount();
@@ -357,12 +383,13 @@ describe('Line keyboard selection', () => {
     await typeQuery(view, 'alpha');
     expect(view.getAll('[data-deck="line-group"]')).toHaveLength(2);
     await press(view, 'Tab');
+    await press(view, 'Tab');
     expect(activeText(view)).toBe('Alpha docs');
     expect(view.get('[data-deck="note-result"] small').textContent).toContain(
       'Alpha note',
     );
     await press(view, 'Tab');
-    expect(activeText(view)).toBe('Alpha docs');
+    expect(activeText(view)).toBe(strings.searchWebHint);
     view.unmount();
   });
   it('moves the selection with arrows and Tab, wrapping both ways', async () => {
@@ -370,19 +397,21 @@ describe('Line keyboard selection', () => {
     await typeQuery(view, 'alpha');
 
     expect((await press(view, 'ArrowDown')).defaultPrevented).toBe(true);
+    expect(activeText(view)).toBe('Alpha docs');
+    await press(view, 'ArrowDown');
     expect(activeText(view)).toBe('Alpha beta');
     await press(view, 'ArrowDown');
     expect(activeText(view)).toBe('Alpha docs');
     expect((await press(view, 'ArrowUp')).defaultPrevented).toBe(true);
     expect(activeText(view)).toBe('Alpha beta');
     expect((await press(view, 'Tab')).defaultPrevented).toBe(true);
-    expect(activeText(view)).toBe('Alpha docs');
+    expect(activeText(view)).toBe(strings.searchWebHint);
     view.unmount();
   });
 
-  it('keeps arrows harmless and lets Tab leave when nothing is listed', async () => {
+  it('keeps arrows harmless and lets Tab leave for an empty command', async () => {
     const view = await setup().render();
-    await typeQuery(view, 'zzz');
+    await typeQuery(view, '>zzz');
     expect((await press(view, 'ArrowDown')).defaultPrevented).toBe(true);
     expect((await press(view, 'ArrowUp')).defaultPrevented).toBe(true);
     expect((await press(view, 'Tab')).defaultPrevented).toBe(false);
@@ -395,7 +424,7 @@ describe('Line keyboard selection', () => {
     await typeQuery(view, 'alpha');
     await press(view, 'ArrowDown');
     await typeQuery(view, 'alpha ');
-    expect(activeText(view)).toBe('Alpha docs');
+    expect(activeText(view)).toBe(strings.searchWebHint);
     view.unmount();
   });
 });
@@ -439,6 +468,7 @@ describe('Line Enter', () => {
     const view = await setup().render();
     await typeQuery(view, 'alpha');
     await press(view, 'ArrowDown');
+    await press(view, 'ArrowDown');
 
     expect((await press(view, 'Enter')).defaultPrevented).toBe(true);
     await vi.waitFor(() =>
@@ -464,7 +494,7 @@ describe('Line Enter', () => {
     const { props, render: mount } = setup();
     const view = await mount();
     await press(view, 'Enter');
-    await typeQuery(view, 'zzz');
+    await typeQuery(view, '>zzz');
     await press(view, 'Enter');
     expect(assign).not.toHaveBeenCalled();
     expect(props.notify).not.toHaveBeenCalled();
@@ -561,7 +591,7 @@ describe('Line Enter', () => {
       expect(lineActions.searchWeb).toHaveBeenCalledWith(
         'cats',
         props.settings,
-        props.saveSettings,
+        false,
       ),
     );
     expect(props.openHelp).not.toHaveBeenCalled();

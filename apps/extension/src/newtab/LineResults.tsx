@@ -86,10 +86,11 @@ export default function LineResults({
             type="button"
             className="deck-result"
             data-deck="web-search-result"
-            data-active
-            onClick={() => onSelect('url', 0)}
+            data-active={activeGroup === 'web' || undefined}
+            onMouseEnter={() => onHover('web', 0)}
+            onClick={() => onSelect('web', 0)}
           >
-            {strings.searchPermissionReason}
+            <span>{strings.searchWebHint}</span>
           </button>
         </>
       ) : null}
