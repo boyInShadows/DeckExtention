@@ -52,31 +52,25 @@
 [data-theme='day'] {
   color-scheme: light;
 
-  --deck-color-canvas: #f5f0e8;
-  --deck-color-canvas-raised: #fffcf7;
-  --deck-gradient-canvas:
-    radial-gradient(
-      ellipse at 20% 22%,
-      rgb(232 214 188 / 65%),
-      transparent 56%
-    ),
-    radial-gradient(
-      ellipse at 80% 78%,
-      rgb(217 225 210 / 55%),
-      transparent 52%
-    ),
-    linear-gradient(180deg, #fffcf7 0%, #f5f0e8 55%, #eae4d8 100%);
+  --deck-color-canvas: #f4f6f8;
+  --deck-color-canvas-raised: #ffffff;
+  --deck-gradient-canvas: linear-gradient(
+    160deg,
+    #fafbfc 0%,
+    #f4f6f8 55%,
+    #eceff3 100%
+  );
 
-  --deck-color-text: #302b25;
-  --deck-color-text-muted: #6a5d50;
+  --deck-color-text: #272d36;
+  --deck-color-text-muted: #5d6570;
 
-  --deck-color-glass: rgb(255 251 244 / 65%);
-  --deck-color-panel-glass: rgb(255 252 246 / 94%);
-  --deck-color-hairline: rgb(76 58 38 / 20%);
-  --deck-color-scrim: rgb(248 240 227 / 40%);
+  --deck-color-glass: rgb(255 255 255 / 72%);
+  --deck-color-panel-glass: rgb(255 255 255 / 96%);
+  --deck-color-hairline: rgb(39 45 54 / 14%);
+  --deck-color-scrim: rgb(27 31 38 / 14%);
   --deck-color-focus: #985329;
   --deck-color-selection: rgb(152 83 41 / 9%);
-  --deck-color-shadow: rgb(58 41 23 / 14%);
+  --deck-color-shadow: rgb(22 30 42 / 9%);
   --deck-color-danger: #b4233f;
   --deck-accent-slate: #455267;
   --deck-accent-blue: #2459af;
@@ -97,31 +91,25 @@
   [data-theme='system'] {
     color-scheme: light;
 
-    --deck-color-canvas: #f5f0e8;
-    --deck-color-canvas-raised: #fffcf7;
-    --deck-gradient-canvas:
-      radial-gradient(
-        ellipse at 20% 22%,
-        rgb(232 214 188 / 65%),
-        transparent 56%
-      ),
-      radial-gradient(
-        ellipse at 80% 78%,
-        rgb(217 225 210 / 55%),
-        transparent 52%
-      ),
-      linear-gradient(180deg, #fffcf7 0%, #f5f0e8 55%, #eae4d8 100%);
+    --deck-color-canvas: #f4f6f8;
+    --deck-color-canvas-raised: #ffffff;
+    --deck-gradient-canvas: linear-gradient(
+      160deg,
+      #fafbfc 0%,
+      #f4f6f8 55%,
+      #eceff3 100%
+    );
 
-    --deck-color-text: #302b25;
-    --deck-color-text-muted: #6a5d50;
+    --deck-color-text: #272d36;
+    --deck-color-text-muted: #5d6570;
 
-    --deck-color-glass: rgb(255 251 244 / 65%);
-    --deck-color-panel-glass: rgb(255 252 246 / 94%);
-    --deck-color-hairline: rgb(76 58 38 / 20%);
-    --deck-color-scrim: rgb(248 240 227 / 40%);
+    --deck-color-glass: rgb(255 255 255 / 72%);
+    --deck-color-panel-glass: rgb(255 255 255 / 96%);
+    --deck-color-hairline: rgb(39 45 54 / 14%);
+    --deck-color-scrim: rgb(27 31 38 / 14%);
     --deck-color-focus: #985329;
     --deck-color-selection: rgb(152 83 41 / 9%);
-    --deck-color-shadow: rgb(58 41 23 / 14%);
+    --deck-color-shadow: rgb(22 30 42 / 9%);
     --deck-color-danger: #b4233f;
     --deck-accent-slate: #455267;
     --deck-accent-blue: #2459af;
@@ -149,6 +137,7 @@
   --deck-color-panel-muted: var(--deck-color-text-muted);
   --deck-color-panel-hairline: var(--deck-color-hairline);
   --deck-color-panel-hover: var(--deck-color-glass);
+  --deck-color-panel-focus: var(--deck-color-focus);
   --deck-color-nav-hover: color-mix(in srgb, currentcolor 8%, transparent);
   --deck-font-ui:
     'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;

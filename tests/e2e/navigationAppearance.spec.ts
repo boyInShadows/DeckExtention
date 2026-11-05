@@ -139,7 +139,7 @@ test('navigation stays transparent with distinct icons, hover, focus and selecti
   }
 });
 
-test('transparent navigation remains readable on light and dark local wallpapers', async ({
+test('local wallpapers keep surface text and opaque panels readable in both themes', async ({
   browserName,
 }, testInfo) => {
   expect(browserName).toBe('chromium');
@@ -151,7 +151,7 @@ test('transparent navigation remains readable on light and dark local wallpapers
     await page.waitForSelector('html[data-deck-ready="true"]');
     const nav = page.getByRole('navigation', { name: 'Workspace sections' });
     const surface = page.locator('[data-deck="surface"]');
-    for (const theme of ['Night', 'Day']) {
+    for (const theme of ['Day', 'Night']) {
       for (const color of ['white', 'black']) {
         const line = page.locator('[data-deck="line"] input');
         await line.fill('>settings');
@@ -183,6 +183,26 @@ test('transparent navigation remains readable on light and dark local wallpapers
           'data-loaded',
           'true',
         );
+        const panelColor = await page
+          .locator('body')
+          .evaluate((body) => getComputedStyle(body).color);
+        await expect(page.locator('[data-deck="clock"]')).toHaveCSS(
+          'color',
+          'rgb(255, 255, 255)',
+        );
+        await expect(page.locator('[data-deck="settings"]')).toHaveCSS(
+          'color',
+          panelColor,
+        );
+        await expect(page.locator('[data-deck="toast"]').first()).toHaveCSS(
+          'color',
+          panelColor,
+        );
+        const settingsScan = await new AxeBuilder({ page })
+          .include('[data-deck="settings"]')
+          .include('[data-deck="toast-stack"]')
+          .analyze();
+        expect(settingsScan.violations).toEqual([]);
         await page
           .getByRole('button', { name: 'Close settings', exact: true })
           .click();
@@ -200,6 +220,23 @@ test('transparent navigation remains readable on light and dark local wallpapers
           .analyze();
         expect(scan.violations).toEqual([]);
         await page.mouse.move(0, 0);
+        await nav
+          .getByRole('button', { name: 'Open Tasks', exact: true })
+          .click();
+        await expect(page.locator('[data-deck="drawer"]')).toHaveCSS(
+          'color',
+          panelColor,
+        );
+        const drawerScan = await new AxeBuilder({ page })
+          .include('[data-deck="drawer"]')
+          .analyze();
+        expect(drawerScan.violations).toEqual([]);
+        await page.screenshot({
+          path: testInfo.outputPath(`wallpaper-drawer-${theme}-${color}.png`),
+          animations: 'disabled',
+        });
+        await page.getByLabel('Close Deck drawer', { exact: true }).click();
+        await expect(page.locator('[data-deck="drawer"]')).toHaveCount(0);
       }
     }
   } finally {

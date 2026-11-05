@@ -21,6 +21,7 @@
     padding-inline: var(--deck-space-3);
     padding-block: var(--deck-surface-block-start)
       calc(var(--deck-control-size) + var(--deck-space-3));
+    color: var(--deck-color-text);
   }
 
   .deck-wallpaper {
@@ -53,11 +54,13 @@
     opacity: 1;
   }
 
-  .deck-surface[data-bright-wallpaper] {
+  .deck-surface[data-bright-wallpaper],
+  .deck-surface[data-wallpaper-kind='file'] {
     --deck-color-glass: rgb(0 0 0 / 52%);
     --deck-color-hairline: rgb(255 255 255 / 24%);
     --deck-color-text: var(--deck-color-on-bright);
     --deck-color-text-muted: var(--deck-color-on-bright-muted);
+    --deck-color-focus: var(--deck-color-on-bright);
   }
 
   .deck-surface__column {

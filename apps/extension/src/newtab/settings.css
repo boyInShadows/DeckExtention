@@ -3,7 +3,7 @@
     position: fixed;
     inset-block: 0;
     inset-inline-end: 0;
-    z-index: 5;
+    z-index: 8;
     overflow-y: auto;
     inline-size: min(100%, var(--deck-settings-width));
     padding: var(--deck-space-3);
@@ -17,7 +17,7 @@
   .deck-settings-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 4;
+    z-index: 7;
     border: 0;
     background: var(--deck-color-scrim);
   }
