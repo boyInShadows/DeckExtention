@@ -149,6 +149,7 @@
   --deck-color-panel-muted: var(--deck-color-text-muted);
   --deck-color-panel-hairline: var(--deck-color-hairline);
   --deck-color-panel-hover: var(--deck-color-glass);
+  --deck-color-nav-hover: color-mix(in srgb, currentcolor 8%, transparent);
   --deck-font-ui:
     'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 

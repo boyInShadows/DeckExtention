@@ -13,7 +13,7 @@
     z-index: 6;
     display: grid;
     gap: var(--deck-space-1);
-    padding: var(--deck-space-1);
+    padding-block: var(--deck-space-1);
     color: var(--deck-color-text);
     transform: translateY(-50%);
   }
@@ -25,8 +25,8 @@
     min-inline-size: var(--deck-nav-item-size);
     min-block-size: var(--deck-nav-item-size);
     padding: var(--deck-space-1);
-    border: 1px solid transparent;
-    border-radius: var(--deck-radius-panel);
+    border: 0;
+    border-radius: var(--deck-space-1);
     background: transparent;
     color: inherit;
     cursor: pointer;
@@ -39,9 +39,7 @@
   }
 
   .deck-section-nav button:is(:hover, :focus-visible) {
-    background: var(--deck-color-panel-glass);
-    color: var(--deck-color-panel-text);
-    border-color: var(--deck-color-panel-hairline);
+    background: var(--deck-color-nav-hover);
   }
 
   .deck-section-nav button[aria-current] span {
@@ -59,6 +57,7 @@
       inset-block-start: var(--deck-space-1);
       inset-inline: 0;
       grid-auto-flow: column;
+      grid-auto-columns: 1fr;
       inline-size: fit-content;
       max-inline-size: calc(100% - var(--deck-space-2));
       margin-inline: auto;

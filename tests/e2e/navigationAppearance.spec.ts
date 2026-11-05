@@ -61,6 +61,19 @@ test('navigation stays transparent with distinct icons, hover, focus and selecti
           const target = await button.boundingBox();
           expect(target?.width).toBeGreaterThanOrEqual(44);
           expect(target?.height).toBeGreaterThanOrEqual(44);
+          await button.hover();
+          const label = await button.locator('span').boundingBox();
+          if ((await button.getAttribute('title')) === 'Sessions') {
+            await page.screenshot({
+              path: testInfo.outputPath(`sessions-hover-${theme}-${width}.png`),
+              animations: 'disabled',
+            });
+          }
+          expect(label?.x).toBeGreaterThanOrEqual((target?.x ?? 0) + 8);
+          expect((label?.x ?? 0) + (label?.width ?? 0)).toBeLessThanOrEqual(
+            (target?.x ?? 0) + (target?.width ?? 0) - 8,
+          );
+          await page.mouse.move(0, 0);
         }
         await tasks.hover();
         await expect(tasks).not.toHaveCSS(
