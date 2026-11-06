@@ -31,6 +31,7 @@ import { BookmarkImport } from './BookmarkImport';
 import { GrantedAccess } from './GrantedAccess';
 import { KeymapEditor } from './KeymapEditor';
 import { QuickSavePermission } from './QuickSavePermission';
+import { GoogleSuggestionsSetting } from '../search/GoogleSuggestionsSetting';
 import type { NoticeInput } from './ToastStack';
 import { ShelfSettings, type SettingsChange } from '../shelf/ShelfSettings';
 
@@ -591,6 +592,7 @@ export default function SettingsPanel({
         <SettingsGroup title={strings.advanced}>
           <QuickSavePermission onError={showError} />
           <GrantedAccess onError={showError} />
+          <GoogleSuggestionsSetting onError={showError} />
           <label>
             {strings.searchEngine}
             <select

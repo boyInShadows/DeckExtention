@@ -12,6 +12,7 @@
 import type { ComponentChild } from 'preact';
 import { render as preactRender } from 'preact';
 import { act } from 'preact/test-utils';
+export { createElement } from 'preact';
 
 export interface RenderResult {
   container: HTMLElement;

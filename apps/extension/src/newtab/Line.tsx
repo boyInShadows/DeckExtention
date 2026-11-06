@@ -18,11 +18,12 @@ import type { NoticeInput } from './ToastStack';
 import { useOpenTabs } from '../tabs/useOpenTabs';
 import type { OpenTab, TabAction } from '../tabs/openTabs';
 import type { CreatedWorkspace } from './lineWorkspace';
+import { useGoogleSuggestions } from '../search/useGoogleSuggestions';
 
 const MAX_GROUP_ROWS = 8;
 const PLACEHOLDER_ROTATE_MS = 6_000;
 export type ResultGroup =
-  'web' | 'cards' | 'notes' | 'actions' | 'tabs' | 'url';
+  'web' | 'suggestions' | 'cards' | 'notes' | 'actions' | 'tabs' | 'url';
 
 interface LineProps {
   cards: Card[];
@@ -61,6 +62,7 @@ export function Line(props: LineProps) {
   const isTaskPending = useRef(false);
   const isActionPending = useRef(false);
   const isWebSearch = query[0] === '?';
+  const google = useGoogleSuggestions(query, isFocused);
   const isCommand = query[0] === '>';
   const isTabsCommand = /^>tabs(?:\s|$)/i.test(query);
   const tabState = useOpenTabs(
@@ -89,6 +91,7 @@ export function Line(props: LineProps) {
     isWebSearch || (!isCommand && Boolean(query.trim()) && !results.url);
   const groups = [
     canSearchWeb && 'web',
+    google.items.length && 'suggestions',
     results.url && 'url',
     results.cards.length && 'cards',
     results.notes.length && 'notes',
@@ -99,18 +102,20 @@ export function Line(props: LineProps) {
   const itemCount =
     group === 'web'
       ? 1
-      : Math.min(
-          MAX_GROUP_ROWS,
-          group === 'url'
-            ? 1
-            : group === 'cards'
-              ? results.cards.length
-              : group === 'notes'
-                ? results.notes.length
-                : group === 'tabs'
-                  ? tabs.length
-                  : actions.length,
-        );
+      : group === 'suggestions'
+        ? google.items.length
+        : Math.min(
+            MAX_GROUP_ROWS,
+            group === 'url'
+              ? 1
+              : group === 'cards'
+                ? results.cards.length
+                : group === 'notes'
+                  ? results.notes.length
+                  : group === 'tabs'
+                    ? tabs.length
+                    : actions.length,
+          );
   const activeIndex = itemCount > 0 ? Math.min(selected, itemCount - 1) : 0;
   useEffect(() => {
     if (isTabsCommand && tabState.hasAccess) inputRef.current?.focus();
@@ -194,6 +199,14 @@ export function Line(props: LineProps) {
         if (!term) return props.openHelp();
         const { searchWeb } = await import('./lineActions');
         await searchWeb(term, props.settings, isNewTab);
+        return;
+      }
+      if (targetGroup === 'suggestions') {
+        const term = google.items[index];
+        if (term) {
+          const { searchWeb } = await import('./lineActions');
+          await searchWeb(term, props.settings, isNewTab);
+        }
         return;
       }
       if (targetGroup === 'url' && results.url) {
@@ -360,6 +373,9 @@ export function Line(props: LineProps) {
           onTabAction={(tab, action) => void actOnTab(tab, action)}
           onSearch={() => inputRef.current?.focus()}
           isWebSearch={canSearchWeb}
+          webQuery={(isWebSearch ? query.slice(1) : query).trim()}
+          suggestions={google.items}
+          areSuggestionsUnavailable={google.isUnavailable}
           activeGroup={group}
           activeIndex={activeIndex}
           onHover={(nextGroup, index) => {

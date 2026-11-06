@@ -6,9 +6,12 @@ Open a new tab for the clock, The Line and up to twelve pinned links. Choose Lin
 Tasks, Inbox or Sessions from the icon rail, or press `Ctrl+J` to open the floating
 workspace. The rail moves to the top in narrow windows.
 
-No account, telemetry, remote fonts or automatic runtime network requests.
-Data stays on your device. Type a query and press Enter to search Google, or choose
-another engine in Settings. Searches navigate only when you submit them.
+No account, telemetry or remote fonts. Core features work offline.
+Type a query and press Enter to search Google, or choose another engine in Settings.
+Optional Google suggestions are off by default. Enabling them in Settings grants
+access to Google's dedicated suggestions host and sends typed search text there.
+Saved links, notes, tasks and Deck commands are not uploaded. Disable the setting
+to revoke access; ordinary web search and local results continue without it.
 
 ## Current state
 
@@ -66,6 +69,7 @@ Install-time permissions are exactly `storage`, `unlimitedStorage`, `favicon` an
 | `tabGroups`               | Opening a saved deck as a Chrome tab group               |
 | `bookmarks`               | One-shot import from Chrome bookmarks                    |
 | `search`                  | Legacy grant; current web search needs no permission     |
+| `https://suggestqueries.google.com/*` | Opt-in typed-query suggestions from Google |
 
 Optional access is revocable from Settings. Deck has no persistent content script,
 account, backend or analytics. Fonts are bundled; favicons use Chrome's local API.

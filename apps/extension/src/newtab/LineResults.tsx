@@ -14,6 +14,9 @@ export default function LineResults({
   fallbackUrl,
   actions,
   isWebSearch,
+  webQuery,
+  suggestions,
+  areSuggestionsUnavailable,
   activeGroup,
   activeIndex,
   maxRows,
@@ -28,6 +31,9 @@ export default function LineResults({
   fallbackUrl: string | null;
   actions: typeof LINE_ACTIONS;
   isWebSearch: boolean;
+  webQuery: string;
+  suggestions: string[];
+  areSuggestionsUnavailable: boolean;
   activeGroup: ResultGroup | undefined;
   activeIndex: number;
   maxRows: number;
@@ -90,9 +96,40 @@ export default function LineResults({
             onMouseEnter={() => onHover('web', 0)}
             onClick={() => onSelect('web', 0)}
           >
-            <span>{strings.searchWebHint}</span>
+            <span>{strings.searchFor(webQuery)}</span>
+            <small>{strings.searchSubmitKey}</small>
           </button>
         </>
+      ) : null}
+      {suggestions.length ? (
+        <div data-deck="line-group" data-group="google">
+          <h2>{strings.googleSuggestions}</h2>
+          {suggestions.map((suggestion, index) => (
+            <button
+              key={suggestion}
+              type="button"
+              className="deck-result"
+              data-deck="google-suggestion"
+              data-active={
+                (activeGroup === 'suggestions' && index === activeIndex) ||
+                undefined
+              }
+              aria-current={
+                (activeGroup === 'suggestions' && index === activeIndex) ||
+                undefined
+              }
+              onMouseEnter={() => onHover('suggestions', index)}
+              onClick={() => onSelect('suggestions', index)}
+            >
+              <span>{suggestion}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {areSuggestionsUnavailable ? (
+        <p data-deck="google-suggestions-status">
+          {strings.googleSuggestionsUnavailable}
+        </p>
       ) : null}
       {sections.map(({ group, label, rows }) => (
         <div key={group} data-deck="line-group">

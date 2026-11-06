@@ -109,6 +109,7 @@ function stubChrome(storageItems: Record<string, unknown> = {}) {
       request: vi.fn(() => Promise.resolve(true)),
       remove: vi.fn(() => Promise.resolve(true)),
       onRemoved: { addListener: vi.fn(), removeListener: vi.fn() },
+      onAdded: { addListener: vi.fn(), removeListener: vi.fn() },
     },
     tabs: { create: vi.fn(() => Promise.resolve()) },
     bookmarks: { getTree: vi.fn(() => Promise.resolve(BOOKMARK_TREE)) },

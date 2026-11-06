@@ -27,12 +27,23 @@ export const panelStrings = {
   unpin: 'Unpin',
   exampleHint: 'Examples — press x to remove one.',
   noResults: 'No matches.',
-  cardsGroup: 'Cards',
-  notesGroup: 'Notes',
+  cardsGroup: 'Saved links',
+  notesGroup: 'Notes and tasks',
   actionsGroup: 'Actions',
   moreResults: (count: number) => `and ${count} more…`,
   searchWeb: 'Search the web',
   searchWebHint: 'Enter to search the web. Select a saved result to open it.',
+  searchFor: (query: string) => `Search the web for “${query}”`,
+  searchSubmitKey: 'Enter',
+  googleSuggestions: 'Google suggestions',
+  googleSuggestionsReason:
+    'Send typed search text to Google for suggestions. Off by default; no saved Deck content is sent.',
+  googleSuggestionsDeclined:
+    'Google access was not granted. Suggestions remain off.',
+  googleSuggestionsRevokeFailed:
+    'Google access could not be removed. Try again.',
+  googleSuggestionsUnavailable:
+    'Google suggestions are unavailable. Enter still searches the web.',
   openUrl: 'Open URL',
   actionBlur: 'Toggle privacy blur',
   actionThemeNight: 'Use Night theme',

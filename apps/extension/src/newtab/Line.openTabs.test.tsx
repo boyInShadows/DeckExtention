@@ -42,7 +42,10 @@ function mockChrome() {
   return {
     runtime: { getURL: () => 'chrome-extension://deck/' },
     permissions: {
-      contains: vi.fn().mockResolvedValue(true),
+      contains: vi.fn(
+        async (permission: chrome.permissions.Permissions) =>
+          !permission.origins?.length,
+      ),
       request: vi.fn().mockResolvedValue(true),
       onAdded: event(),
       onRemoved: event(),

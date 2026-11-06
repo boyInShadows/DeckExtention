@@ -285,14 +285,16 @@ describe('Line results', () => {
       .map((item) => item.textContent);
     expect(titles).toEqual(['Alpha docs', 'Alpha beta']);
     expect(view.get('[data-deck="card"]').tagName).toBe('BUTTON');
-    expect(activeText(view)).toBe(strings.searchWebHint);
+    expect(activeText(view)).toBe(strings.searchFor('alpha'));
     view.unmount();
   });
 
   it('searches a plain query without a prefix', async () => {
     const view = await setup().render();
     await typeQuery(view, 'weather tomorrow');
-    expect(view.container.textContent).toContain(strings.searchWebHint);
+    expect(view.container.textContent).toContain(
+      strings.searchFor('weather tomorrow'),
+    );
     expect(view.query('[data-deck="card"]')).toBeNull();
     await press(view, 'Enter');
     await vi.waitFor(() =>
@@ -389,7 +391,7 @@ describe('Line keyboard selection', () => {
       'Alpha note',
     );
     await press(view, 'Tab');
-    expect(activeText(view)).toBe(strings.searchWebHint);
+    expect(activeText(view)).toBe(strings.searchFor('alpha'));
     view.unmount();
   });
   it('moves the selection with arrows and Tab, wrapping both ways', async () => {
@@ -405,7 +407,7 @@ describe('Line keyboard selection', () => {
     expect((await press(view, 'ArrowUp')).defaultPrevented).toBe(true);
     expect(activeText(view)).toBe('Alpha beta');
     expect((await press(view, 'Tab')).defaultPrevented).toBe(true);
-    expect(activeText(view)).toBe(strings.searchWebHint);
+    expect(activeText(view)).toBe(strings.searchFor('alpha'));
     view.unmount();
   });
 
@@ -424,7 +426,7 @@ describe('Line keyboard selection', () => {
     await typeQuery(view, 'alpha');
     await press(view, 'ArrowDown');
     await typeQuery(view, 'alpha ');
-    expect(activeText(view)).toBe(strings.searchWebHint);
+    expect(activeText(view)).toBe(strings.searchFor('alpha'));
     view.unmount();
   });
 });

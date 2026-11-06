@@ -24,6 +24,9 @@ vi.mock('../newtab/QuickSavePermission', () => ({
   QuickSavePermission: () => null,
 }));
 vi.mock('../newtab/GrantedAccess', () => ({ GrantedAccess: () => null }));
+vi.mock('../search/GoogleSuggestionsSetting', () => ({
+  GoogleSuggestionsSetting: () => null,
+}));
 vi.mock('../newtab/BookmarkImport', () => ({ BookmarkImport: () => null }));
 afterEach(() => vi.unstubAllGlobals());
 

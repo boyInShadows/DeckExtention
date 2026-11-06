@@ -245,6 +245,14 @@
     color: var(--deck-color-text-muted);
   }
 
+  [data-deck='google-suggestion'] span,
+  [data-deck='web-search-result'] span {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .deck-pins {
     position: relative;
     display: flex;
