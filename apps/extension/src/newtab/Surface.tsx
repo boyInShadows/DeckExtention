@@ -438,36 +438,44 @@ export function Surface({ initialData }: SurfaceProps) {
             offerUndo={offerUndo}
             notify={notify}
           />
-          {settings.showShelf && Shelf ? (
-            <Shelf
-              cards={cards}
-              decks={decks}
-              pages={pages}
-              selectedDeckIds={settings.shelfDeckIds}
-              repository={initialData.repository}
-              onDataChange={reloadWorkspace}
-              onError={notifyError}
-              onOpenNote={(card) => {
-                setRequestedNote(card);
-                openDrawer();
-              }}
-            />
-          ) : null}
+          <section
+            data-deck="surface-extras"
+            className="deck-surface__extras"
+            aria-label={strings.surfaceExtras}
+            tabIndex={0}
+          >
+            {settings.showShelf && Shelf ? (
+              <Shelf
+                cards={cards}
+                decks={decks}
+                pages={pages}
+                selectedDeckIds={settings.shelfDeckIds}
+                repository={initialData.repository}
+                onDataChange={reloadWorkspace}
+                onError={notifyError}
+                onOpenNote={(card) => {
+                  setRequestedNote(card);
+                  openDrawer();
+                }}
+              />
+            ) : null}
+            <Suspense>
+              {settings.showResurface && Resurface ? (
+                <Resurface
+                  repository={initialData.repository}
+                  cards={cards}
+                  decks={decks}
+                  pages={pages}
+                  now={now}
+                  isVisible={!isDrawerMounted && !isSettingsOpen && !isHelpOpen}
+                  onDataChange={reloadWorkspace}
+                  notify={notify}
+                />
+              ) : null}
+            </Suspense>
+          </section>
         </div>
-        <Suspense>
-          {settings.showResurface && Resurface ? (
-            <Resurface
-              repository={initialData.repository}
-              cards={cards}
-              decks={decks}
-              pages={pages}
-              now={now}
-              isVisible={!isDrawerMounted && !isSettingsOpen && !isHelpOpen}
-              onDataChange={reloadWorkspace}
-              notify={notify}
-            />
-          ) : null}
-        </Suspense>
+
         <nav data-deck="surface-controls" className="deck-surface-controls">
           <button
             type="button"

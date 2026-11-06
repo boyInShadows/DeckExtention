@@ -373,6 +373,20 @@ test('an unavailable IndexedDB opens recovery and exports the independent snapsh
 
     await page.reload();
     await expect(page.locator('[data-deck="recovery"]')).toBeVisible();
+    for (const [width, height] of [
+      [1280, 720],
+      [640, 360],
+      [375, 360],
+    ]) {
+      await page.setViewportSize({ width, height });
+      for (const button of await page
+        .locator('[data-deck="recovery"] button')
+        .all()) {
+        await button.focus();
+        await expect(button).toBeInViewport();
+      }
+      expect(await page.evaluate(() => scrollY)).toBe(0);
+    }
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Export now' }).click();
     expect((await downloadPromise).suggestedFilename()).toMatch(
@@ -382,6 +396,7 @@ test('an unavailable IndexedDB opens recovery and exports the independent snapsh
       .getByRole('button', { name: 'Restore this snapshot' })
       .first()
       .click({ noWaitAfter: true });
+    await page.setViewportSize({ width: 1280, height: 720 });
     await expect(page.locator('[data-deck="clock"]')).toBeVisible();
     const restored = await context.newPage();
     await restored.goto('chrome://newtab/');

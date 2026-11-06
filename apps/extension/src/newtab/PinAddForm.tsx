@@ -46,7 +46,13 @@ export default function PinAddForm({
     }
   };
   return (
-    <div ref={formRef} data-deck="pin-add-form" className="deck-pin-add-form">
+    <div
+      ref={formRef}
+      data-deck="pin-add-form"
+      className="deck-pin-add-form"
+      role="dialog"
+      aria-label={strings.addPin}
+    >
       <input
         className="deck-pin-url-input"
         ref={focusOnMount}

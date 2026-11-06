@@ -150,7 +150,12 @@ test('pins have inline editing, an anchored keyboard menu, and a letter fallback
       .locator('[data-deck="pin"]')
       .nth(1)
       .locator('[data-deck="site-icon"] span');
-    await expect(fallback).toHaveText('V');
+    await expect(fallback).toHaveAttribute('data-letter', 'V');
+    expect(
+      await fallback.evaluate(
+        (node) => getComputedStyle(node, '::before').content,
+      ),
+    ).toBe('"V"');
     await expect(fallback).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('pins.png') });
 

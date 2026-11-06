@@ -30,6 +30,11 @@ export const strings = {
   pinsEmptyHint: 'Pin a site · Space opens Deck',
   addPin: 'Add pin',
   pinLimit: '12 pins max',
+  previousLinks: 'Previous links',
+  moreLinks: 'More links',
+  surfaceExtras: 'Your workspace',
+  pinRange: (first: number, last: number, total: number) =>
+    `${first}-${last} of ${total}`,
   settings: 'Settings',
   blurMode: 'Blur',
   updateFailed: 'Action failed.',

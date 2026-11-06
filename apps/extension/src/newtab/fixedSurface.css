@@ -1,0 +1,196 @@
+@layer components {
+  html,
+  body {
+    overflow: clip;
+  }
+
+  .deck-surface {
+    block-size: 100dvb;
+    min-block-size: 0;
+    grid-template-rows: minmax(0, 1fr);
+    overflow: clip;
+  }
+
+  .deck-recovery {
+    block-size: 100dvb;
+    min-block-size: 0;
+  }
+
+  .deck-recovery__panel {
+    max-block-size: 100%;
+    overflow: auto;
+  }
+
+  .deck-surface__column {
+    display: flex;
+    flex-direction: column;
+    block-size: 100%;
+    min-block-size: 0;
+  }
+
+  .deck-surface__column > :not([data-deck='surface-extras']) {
+    flex-shrink: 0;
+  }
+
+  .deck-surface__extras {
+    flex: 1;
+    min-block-size: var(--deck-control-size);
+    overflow: auto;
+    scrollbar-width: thin;
+  }
+
+  .deck-surface__extras:empty {
+    display: none;
+  }
+
+  .deck-results {
+    max-block-size: min(
+      var(--deck-results-max-block),
+      calc(
+        100dvb - var(--deck-results-start, 50dvb) - var(--deck-control-size) -
+          var(--deck-space-3) * 2
+      )
+    );
+  }
+
+  .deck-surface .deck-resurface {
+    max-block-size: none;
+    margin-inline: auto;
+  }
+
+  .deck-pins {
+    display: grid;
+    justify-content: stretch;
+    gap: var(--deck-space-1);
+    min-block-size: 0;
+  }
+
+  .deck-pins__grid {
+    display: grid;
+    grid-template-columns: repeat(
+      min(var(--deck-pin-columns), var(--deck-pin-count)),
+      var(--deck-pin-size)
+    );
+    justify-content: center;
+    gap: var(--deck-pin-gap);
+  }
+
+  .deck-pins__controls,
+  [data-deck='pins-pages'] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--deck-space-1);
+    min-inline-size: 0;
+  }
+
+  .deck-pins__controls button {
+    min-block-size: var(--deck-pin-control-size);
+    padding-inline: var(--deck-space-1);
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-pill);
+    background: var(--deck-color-glass);
+    color: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+
+  .deck-pins__controls button:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  .deck-pins__controls .deck-pin-add {
+    display: flex;
+    gap: var(--deck-space-half);
+    inline-size: auto;
+    block-size: var(--deck-pin-control-size);
+    flex: none;
+  }
+
+  .deck-pins__controls .deck-pin-add span {
+    font-size: 1.25rem;
+  }
+
+  .deck-pins__controls .deck-pin-add small {
+    font: inherit;
+  }
+
+  [data-deck='pins-range'] {
+    color: var(--deck-color-text-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .deck-pin-add-form {
+    position: fixed;
+    inset-block-start: 50%;
+    inset-inline: 0;
+    z-index: 8;
+    margin-inline: auto;
+    max-inline-size: calc(100% - var(--deck-space-3));
+    max-block-size: calc(100dvb - var(--deck-space-3));
+    overflow: auto;
+    padding: var(--deck-space-2);
+    border: 1px solid var(--deck-color-hairline);
+    border-radius: var(--deck-radius-panel);
+    background: var(--deck-color-canvas-raised);
+    transform: translateY(-50%);
+  }
+
+  @media (width < 600px) {
+    .deck-surface {
+      --deck-pin-columns: 3;
+      --deck-pin-gap: var(--deck-space-1);
+    }
+
+    .deck-pins__controls .deck-pin-add small {
+      display: none;
+    }
+  }
+
+  @media (height < 700px) {
+    .deck-surface {
+      --deck-clock-size: 3rem;
+      --deck-pin-columns: 6;
+      --deck-pin-size: var(--deck-pin-control-size);
+      --deck-pin-gap: var(--deck-space-half);
+      --deck-line-height: 3rem;
+
+      padding-block-start: var(--deck-workspace-block-start);
+      row-gap: var(--deck-space-1);
+    }
+
+    .deck-pins {
+      margin-block-start: var(--deck-space-1);
+    }
+
+    .deck-greeting,
+    .deck-pin__label {
+      display: none;
+    }
+
+    [data-deck='date'] {
+      margin-block: var(--deck-space-half);
+    }
+  }
+
+  @media (height < 480px) {
+    .deck-surface {
+      --deck-pin-columns: 6;
+      --deck-pin-size: var(--deck-pin-control-size);
+      --deck-pin-gap: var(--deck-space-half);
+      --deck-line-height: var(--deck-pin-control-size);
+
+      padding-block: calc(var(--deck-nav-item-size) + var(--deck-space-2))
+        calc(var(--deck-control-size) + var(--deck-space-1));
+    }
+
+    .deck-clock,
+    .deck-greeting,
+    [data-deck='date'],
+    .deck-pin__label {
+      display: none;
+    }
+  }
+}

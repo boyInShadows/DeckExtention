@@ -128,18 +128,4 @@
   [data-deck='shelf-card'][data-done] span {
     text-decoration: line-through;
   }
-
-  @media (width <= 56rem) {
-    html:has([data-deck='shelf']) {
-      scroll-padding-block-end: calc(
-        var(--deck-control-size) + 2 * var(--deck-space-3)
-      );
-    }
-
-    .deck-surface:has([data-deck='shelf']) {
-      padding-block-end: calc(
-        var(--deck-control-size) + 2 * var(--deck-space-3)
-      );
-    }
-  }
 }

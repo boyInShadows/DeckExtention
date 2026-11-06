@@ -14,6 +14,7 @@
 @import '../drawer/workspace.css';
 @import '../newtab/help.css';
 @import './responsive.css';
+@import '../newtab/fixedSurface.css';
 
 /* Tailwind 4 scans for utilities from here; the extension source is one tree. */
 @source '../';
@@ -120,6 +121,7 @@ body {
   .deck-help,
   .deck-results,
   .deck-menu,
+  .deck-pin-add-form,
   .deck-pins-drop {
     --deck-color-text: var(--deck-color-panel-text);
     --deck-color-text-muted: var(--deck-color-panel-muted);

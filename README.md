@@ -2,7 +2,9 @@
 
 A calm Chrome new tab with a glass workspace for links, notes, tasks and saved sessions.
 
-Open a new tab for the clock, The Line and up to twelve pinned links. Choose Links,
+Open a new tab for the clock, The Line and six pinned links at a time. Use More
+links to reach the remaining pins. The page stays within the viewport; workspace
+panels scroll internally when needed. Choose Links,
 Tasks, Inbox or Sessions from the icon rail, or press `Ctrl+J` to open the floating
 workspace. The rail moves to the top in narrow windows.
 

@@ -88,10 +88,4 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-
-  @media (width <= 56rem) {
-    .deck-surface:has([data-deck='resurface']) {
-      min-block-size: max(100dvb, var(--deck-resurface-surface-height));
-    }
-  }
 }

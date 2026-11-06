@@ -363,7 +363,7 @@
     block-size: 1.25rem;
     overflow: hidden;
     border-radius: 25%;
-    color: var(--deck-color-text);
+    color: var(--deck-color-panel-text);
     font-size: 0.8em;
     font-weight: 700;
   }
@@ -376,6 +376,14 @@
   .deck-site-icon img {
     inline-size: 100%;
     block-size: 100%;
+  }
+
+  .deck-site-icon__letter::before {
+    content: attr(data-letter);
+  }
+
+  .deck-pin__emoji::before {
+    content: attr(data-icon);
   }
 
   .deck-pin__emoji {

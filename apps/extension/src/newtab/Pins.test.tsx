@@ -65,6 +65,28 @@ const DEFAULT_DECK_ID = 'deck_inbox';
 const EXTENSION_ORIGIN = 'chrome-extension://deck';
 const MAX_PINS = 12;
 
+it('shows six pins per group and reaches legacy overflow without rewriting records', async () => {
+  const cards = Array.from({ length: 19 }, (_, index) =>
+    makeCard(`p${index}`, { order: `a${String(index).padStart(2, '0')}` }),
+  );
+  const { view, upsertCard, onCardsChange } = await mountPins(cards);
+  expect(pinLabels(view)).toEqual(cards.slice(0, 6).map(({ title }) => title));
+  for (let page = 1; page < 4; page += 1) {
+    await view.act(() => click(view.getByLabel('More links')));
+    expect(pinLabels(view)).toEqual(
+      cards.slice(page * 6, page * 6 + 6).map(({ title }) => title),
+    );
+  }
+  expect(view.getByLabel<HTMLButtonElement>('More links').disabled).toBe(true);
+  await view.act(() => click(view.getByLabel('Previous links')));
+  expect(pinLabels(view)).toEqual(
+    cards.slice(12, 18).map(({ title }) => title),
+  );
+  expect(upsertCard).not.toHaveBeenCalled();
+  expect(onCardsChange).not.toHaveBeenCalled();
+  view.unmount();
+});
+
 function makeCard(id: string, overrides: Partial<Card> = {}): Card {
   return {
     id,
@@ -287,7 +309,7 @@ describe('Pins - strip', () => {
       makeCard('a', { order: 'a1', pinIcon: '📌' }),
       makeCard('b', { order: 'a2' }),
     ]);
-    expect(view.get('.deck-pin__emoji').textContent).toBe('📌');
+    expect(view.get('.deck-pin__emoji').getAttribute('data-icon')).toBe('📌');
     const images = view.getAll<HTMLImageElement>('.deck-pin__tile img');
     expect(images).toHaveLength(1);
     expect(nth(images).getAttribute('src')).toBe(
