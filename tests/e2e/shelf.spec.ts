@@ -1,15 +1,17 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { launchExtension } from './extension';
+import { localSite } from './localSite';
 
 const READY = 'html[data-deck-ready="true"]';
+const test = localSite(() => '<title>Saved reading</title>');
 const DECK_TITLE = 'Reading and reference material for the next quiet morning';
 const CARD_TITLE =
   'A very long saved title that remains readable when the category is expanded in a narrow window';
 
-async function seed(page: Page) {
+async function seed(page: Page, siteOrigin: string) {
   await page.evaluate(
-    async ({ deckTitle, cardTitle }) => {
+    async ({ deckTitle, cardTitle, origin }) => {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
         const request = indexedDB.open('deck');
         request.onsuccess = () => resolve(request.result);
@@ -62,8 +64,8 @@ async function seed(page: Page) {
           title: card.id,
           deckId: 'deck_shelf_0',
           order: `a${index}`,
-          url: 'http://shelf.test/read',
-          hostname: 'shelf.test',
+          url: `${origin}/read`,
+          hostname: new URL(origin).hostname,
           pinned: false,
           lastOpenedAt: null,
           ...card,
@@ -78,7 +80,7 @@ async function seed(page: Page) {
       });
       db.close();
     },
-    { deckTitle: DECK_TITLE, cardTitle: CARD_TITLE },
+    { deckTitle: DECK_TITLE, cardTitle: CARD_TITLE, origin: siteOrigin },
   );
   await page.reload();
   await page.waitForSelector(READY);
@@ -121,17 +123,12 @@ async function storedCard(page: Page, note?: string) {
 
 test('Shelf: opt-in selection, one accordion, native links, Notes, responsive contrast and durable opt-out', async ({
   browserName,
+  siteOrigin,
 }, testInfo) => {
   expect(browserName).toBe('chromium');
   test.setTimeout(120_000);
   const context = await launchExtension();
   try {
-    await context.route('http://shelf.test/**', (route) =>
-      route.fulfill({
-        contentType: 'text/html',
-        body: '<title>Saved reading</title>',
-      }),
-    );
     const page = await context.newPage();
     const chunks: string[] = [];
     page.on('request', (request) => {
@@ -142,7 +139,7 @@ test('Shelf: opt-in selection, one accordion, native links, Notes, responsive co
     const shelf = page.locator('[data-deck="shelf"]');
     await expect(shelf).toHaveCount(0);
     expect(chunks).toEqual([]);
-    await seed(page);
+    await seed(page, siteOrigin);
     await page.getByLabel('Settings', { exact: true }).click();
     const enabled = page.getByLabel('Show decks on the surface', {
       exact: true,
@@ -203,7 +200,8 @@ test('Shelf: opt-in selection, one accordion, native links, Notes, responsive co
       .locator('[data-deck="shelf-link"]')
       .click({ modifiers: ['Control'] });
     const opened = await newTab;
-    await expect(opened).toHaveURL('http://shelf.test/read');
+    await expect(opened).toHaveURL(`${siteOrigin}/read`);
+    await expect(opened).toHaveTitle('Saved reading');
     await opened.close();
     await page.bringToFront();
     expect(await storedCard(page)).toMatchObject({
@@ -217,7 +215,8 @@ test('Shelf: opt-in selection, one accordion, native links, Notes, responsive co
     ).toBe(false);
     await first.locator('[data-deck="shelf-link"]').focus();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL('http://shelf.test/read');
+    await expect(page).toHaveURL(`${siteOrigin}/read`);
+    await expect(page).toHaveTitle('Saved reading');
     await page.goto('chrome://newtab/');
     await page.waitForSelector(READY);
     await expect(shelf).toBeVisible();

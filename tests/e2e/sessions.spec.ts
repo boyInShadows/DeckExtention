@@ -1,11 +1,16 @@
-import { expect, test, type BrowserContext } from '@playwright/test';
+import { expect, type BrowserContext } from '@playwright/test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { launchExtension } from './extension';
+import { localSite } from './localSite';
 
 const TAB_COUNT = 30;
 const FIXTURE_BYTES = 4 * 1024 * 1024;
 const runFile = promisify(execFile);
+const test = localSite((pathname) => {
+  const key = pathname.slice(1);
+  return `<title>${key} research</title><p>${key}</p><script>globalThis.fixtureData=new Uint8Array(${FIXTURE_BYTES}).fill(42)</script>`;
+});
 
 async function memoryBytes(context: BrowserContext): Promise<number | null> {
   if (process.platform !== 'win32') return null;
@@ -33,18 +38,12 @@ async function memoryBytes(context: BrowserContext): Promise<number | null> {
 
 test('stash saves 30 tabs, preserves pinned/internal tabs, offers Undo, and keeps sessions searchable', async ({
   browserName,
+  siteOrigin,
 }, testInfo) => {
   expect(browserName).toBe('chromium');
   test.setTimeout(90_000);
   const context = await launchExtension();
   try {
-    await context.route('http://session.test/**', (route) => {
-      const key = new URL(route.request().url()).pathname.slice(1);
-      return route.fulfill({
-        contentType: 'text/html',
-        body: `<title>${key} research</title><p>${key}</p><script>globalThis.fixtureData=new Uint8Array(${FIXTURE_BYTES}).fill(42)</script>`,
-      });
-    });
     const deck = await context.newPage();
     await deck.goto('chrome://newtab/');
     await deck.waitForSelector('html[data-deck-ready="true"]');
@@ -53,7 +52,7 @@ test('stash saves 30 tabs, preserves pinned/internal tabs, offers Undo, and keep
       (await context.waitForEvent('serviceworker'));
     const fixtures: { id: number; url: string; title: string }[] = [];
     const pinned = await context.newPage();
-    await pinned.goto('http://session.test/pinned');
+    await pinned.goto(`${siteOrigin}/pinned`);
     await worker.evaluate(async () => {
       const [tab] = await chrome.tabs.query({
         active: true,
@@ -71,7 +70,7 @@ test('stash saves 30 tabs, preserves pinned/internal tabs, offers Undo, and keep
     );
     for (const key of keys) {
       const page = await context.newPage();
-      await page.goto(`http://session.test/${key}`);
+      await page.goto(`${siteOrigin}/${key}`);
       const id = await worker.evaluate(
         async () =>
           (await chrome.tabs.query({ active: true, currentWindow: true }))[0]
@@ -153,7 +152,24 @@ test('stash saves 30 tabs, preserves pinned/internal tabs, offers Undo, and keep
       .pages()
       .filter((page) => !existingPages.has(page))) {
       await restored.bringToFront();
-      await restored.waitForURL(/^http:\/\/session.test\/[a-z]{2}$/);
+      await restored.waitForURL(
+        (url) => url.origin === siteOrigin && /^\/[a-z]{2}$/.test(url.pathname),
+      );
+      await expect(restored).toHaveTitle(
+        `${new URL(restored.url()).pathname.slice(1)} research`,
+      );
+      expect(
+        await restored.evaluate(() => {
+          const data = (
+            globalThis as typeof globalThis & { fixtureData: Uint8Array }
+          ).fixtureData;
+          return {
+            bytes: data.byteLength,
+            first: data[0],
+            last: data[data.length - 1],
+          };
+        }),
+      ).toEqual({ bytes: FIXTURE_BYTES, first: 42, last: 42 });
     }
     await summary.bringToFront();
 
@@ -184,9 +200,16 @@ test('stash saves 30 tabs, preserves pinned/internal tabs, offers Undo, and keep
       ).toContainText(`${key} research`);
     }
     await summary.locator('[data-deck="line"] input').fill('az');
+    await summary
+      .locator('[data-deck="line-results"] [data-deck="card"]')
+      .filter({ hasText: 'az research' })
+      .first()
+      .hover();
     const opened = context.waitForEvent('page');
     await summary.locator('[data-deck="line"] input').press('Shift+Enter');
-    await (await opened).waitForURL('http://session.test/az');
+    const searchTab = await opened;
+    await searchTab.waitForURL(`${siteOrigin}/az`);
+    await expect(searchTab).toHaveTitle('az research');
   } finally {
     await context.close();
   }
