@@ -146,7 +146,7 @@
   --deck-space-half: 0.25rem;
   --deck-space-5: 2.5rem;
   --deck-font-body: 0.9375rem;
-  --deck-font-label: 0.75rem;
+  --deck-font-label: 0.8125rem;
   --deck-workspace-max-inline: 68rem;
   --deck-column-min-inline: 18rem;
   --deck-workspace-max-block: 42rem;
@@ -200,6 +200,7 @@
   --deck-pin-size: 4rem;
   --deck-pin-columns: 6;
   --deck-pin-control-size: 2.75rem;
+  --deck-pin-dialog-width: 24rem;
   --deck-pin-gap: 1.5rem;
   --deck-pin-lift: -0.375rem;
   --deck-settings-width: 22rem;

@@ -125,15 +125,13 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
     ).toHaveCount(0);
     await expect.poll(() => focusedCardId(page)).not.toBeNull();
 
-    // Switch through Trash, Tasks and Sessions to Inbox, then back.
-    await keys.press('[');
-    await expect(
-      page.getByRole('button', { name: 'Trash', exact: true }),
-    ).toHaveAttribute('data-selected', 'true');
-    await keys.press('[');
-    await expect(
-      page.getByRole('button', { name: 'Tasks', exact: true }),
-    ).toHaveAttribute('data-selected', 'true');
+    // Follow the displayed primary order from Links through Trash and back.
+    for (const section of ['Tasks', 'Inbox', 'Sessions', 'Trash']) {
+      await keys.press(']');
+      await expect(
+        page.getByRole('button', { name: section, exact: true }),
+      ).toHaveAttribute('data-selected', 'true');
+    }
     await keys.press('[');
     await expect(
       page.getByRole('button', { name: 'Sessions', exact: true }),
@@ -143,10 +141,14 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
       page.locator('[data-deck="page"][data-system][data-selected]'),
     ).toBeVisible();
     await expect(page.locator('[data-deck="inbox-zero"]')).toBeVisible();
-    await keys.press(']');
-    await keys.press(']');
-    await keys.press(']');
-    await keys.press(']');
+    await keys.press('[');
+    await expect(
+      page.getByRole('button', { name: 'Tasks', exact: true }),
+    ).toHaveAttribute('data-selected', 'true');
+    await keys.press('[');
+    await expect(
+      page.getByRole('button', { name: 'Links', exact: true }),
+    ).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('[data-deck="deck"]')).toHaveCount(2);
 
     // Open in a new tab.

@@ -84,25 +84,26 @@
     min-inline-size: 0;
   }
 
+  .deck-pins__controls {
+    flex-wrap: wrap;
+  }
+
   .deck-pins__controls button {
     min-block-size: var(--deck-pin-control-size);
-    padding-inline: var(--deck-space-1);
+    padding-inline: var(--deck-space-2);
     border: 1px solid var(--deck-color-hairline);
     border-radius: var(--deck-radius-pill);
     background: var(--deck-color-glass);
     color: inherit;
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
     cursor: pointer;
-  }
-
-  .deck-pins__controls button:disabled {
-    opacity: 0.55;
-    cursor: default;
   }
 
   .deck-pins__controls .deck-pin-add {
     display: flex;
-    gap: var(--deck-space-half);
+    align-items: center;
+    justify-content: center;
+    gap: var(--deck-space-1);
     inline-size: auto;
     block-size: var(--deck-pin-control-size);
     flex: none;
@@ -118,7 +119,7 @@
 
   [data-deck='pins-range'] {
     color: var(--deck-color-text-muted);
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
     white-space: nowrap;
   }
 
@@ -128,14 +129,62 @@
     inset-inline: 0;
     z-index: 8;
     margin-inline: auto;
-    max-inline-size: calc(100% - var(--deck-space-3));
-    max-block-size: calc(100dvb - var(--deck-space-3));
+    inline-size: min(
+      var(--deck-pin-dialog-width),
+      calc(100vi - var(--deck-space-2) * 2)
+    );
+    max-inline-size: none;
+    max-block-size: calc(100dvb - var(--deck-space-2) * 2);
     overflow: auto;
-    padding: var(--deck-space-2);
+    gap: var(--deck-space-2);
+    padding: var(--deck-space-3);
     border: 1px solid var(--deck-color-hairline);
     border-radius: var(--deck-radius-panel);
     background: var(--deck-color-canvas-raised);
     transform: translateY(-50%);
+  }
+
+  .deck-pin-add-form input,
+  .deck-pin-add-form button {
+    min-inline-size: 0;
+    min-block-size: var(--deck-pin-control-size);
+    font-size: var(--deck-font-body);
+  }
+
+  .deck-pin-add-form input {
+    inline-size: 100%;
+    padding-inline: var(--deck-space-2);
+  }
+
+  .deck-pin-add-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--deck-space-2);
+  }
+
+  .deck-pin-add-header h2 {
+    margin: 0;
+    font-size: var(--deck-font-body);
+  }
+
+  .deck-pin-add-header button {
+    display: grid;
+    place-items: center;
+    inline-size: var(--deck-pin-control-size);
+    padding: 0;
+    flex: none;
+  }
+
+  .deck-pins__controls button:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  /* Previous save confirmations must not cover the next pin's controls. */
+  body:has(.deck-pin-add-form)
+    .deck-toast[data-kind='success']:not(:has(button)) {
+    display: none;
   }
 
   @media (width < 600px) {
@@ -146,6 +195,11 @@
 
     .deck-pins__controls .deck-pin-add small {
       display: none;
+    }
+
+    .deck-pins__controls .deck-pin-add {
+      inline-size: var(--deck-pin-control-size);
+      padding: 0;
     }
   }
 

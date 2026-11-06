@@ -45,7 +45,7 @@
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
     cursor: pointer;
     transition: background-color var(--deck-motion-hover) var(--deck-ease-hover);
   }
@@ -68,7 +68,7 @@
   [data-deck='resurface-hint'],
   [data-deck='resurface-link'] small {
     color: var(--deck-color-text-muted);
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
   }
 
   [data-deck='resurface-hint'] {

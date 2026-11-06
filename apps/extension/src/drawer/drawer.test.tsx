@@ -236,7 +236,7 @@ function selectedTitle(view: RenderResult): string | undefined {
 }
 
 function inboxButton(view: RenderResult): HTMLElement {
-  return view.get('[data-deck="page"][data-system]');
+  return view.getByLabel(strings.inbox);
 }
 
 async function press(
@@ -578,11 +578,17 @@ describe('Drawer - rail', () => {
     view.unmount();
   });
 
-  it('lets ] reach the Inbox from an empty workspace', async () => {
+  it('lets ] follow the primary sections in an empty workspace', async () => {
     for (const { id } of PAGES.slice(0, 2))
       await repository.softDelete('page', id);
     const { view } = await mount();
     expect(inboxButton(view).dataset.selected).toBeUndefined();
+    await press(view, ']');
+    expect(
+      view.get('[data-deck="links-page"]').getAttribute('aria-current'),
+    ).toBe('page');
+    await press(view, ']');
+    expect(view.getByLabel(strings.tasks).dataset.selected).toBe('true');
     await press(view, ']');
     expect(inboxButton(view).dataset.selected).toBe('true');
     view.unmount();
@@ -825,44 +831,37 @@ describe('Drawer - keys', () => {
     view.unmount();
   });
 
-  it('walks the rail with ] and [, from the Inbox through the pages, clamped at both ends', async () => {
+  it('walks the shared primary section order and remaining user pages, clamped at both ends', async () => {
     const { view } = await mount();
-    const forward = await press(view, ']');
-    expect(forward.defaultPrevented).toBe(true);
-    expect(selectedTitle(view)).toBe('Home');
+    expect(selectedTitle(view)).toBe('Work');
+    for (const label of [
+      strings.tasks,
+      strings.inbox,
+      strings.sessions,
+      strings.trash,
+    ]) {
+      expect((await press(view, ']')).defaultPrevented).toBe(true);
+      expect(view.getByLabel(label).dataset.selected).toBe('true');
+    }
     await press(view, ']');
     expect(selectedTitle(view)).toBe('Home');
-
-    await press(view, '[');
-    await press(view, '[');
-    expect(
-      view.getByText(strings.trash).closest('button')?.dataset.selected,
-    ).toBe('true');
-    await press(view, '[');
-    expect(
-      view.getByText(strings.tasks).closest('button')?.dataset.selected,
-    ).toBe('true');
-    await press(view, '[');
-    expect(
-      view.getByText(strings.sessions).closest('button')?.dataset.selected,
-    ).toBe('true');
-    await press(view, '[');
-    expect(inboxButton(view).dataset.selected).toBe('true');
-    await press(view, '[');
-    expect(inboxButton(view).dataset.selected).toBe('true');
     await press(view, ']');
+    expect(selectedTitle(view)).toBe('Home');
+    for (const label of [
+      strings.trash,
+      strings.sessions,
+      strings.inbox,
+      strings.tasks,
+    ]) {
+      await press(view, '[');
+      expect(view.getByLabel(label).dataset.selected).toBe('true');
+    }
+    await press(view, '[');
+    expect(selectedTitle(view)).toBe('Work');
     expect(
-      view.getByText(strings.sessions).closest('button')?.dataset.selected,
-    ).toBe('true');
-    await press(view, ']');
-    expect(
-      view.getByText(strings.tasks).closest('button')?.dataset.selected,
-    ).toBe('true');
-    await press(view, ']');
-    expect(
-      view.getByText(strings.trash).closest('button')?.dataset.selected,
-    ).toBe('true');
-    await press(view, ']');
+      view.get('[data-deck="links-page"]').getAttribute('aria-current'),
+    ).toBe('page');
+    await press(view, '[');
     expect(selectedTitle(view)).toBe('Work');
     view.unmount();
   });

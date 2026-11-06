@@ -1,5 +1,6 @@
 import { strings } from '../i18n/strings';
 import { Icon } from './Icon';
+import { workspaceSections } from './sectionNavModel';
 import './sectionNav.css';
 
 export function SectionNav({
@@ -11,12 +12,7 @@ export function SectionNav({
   linksPageId: string;
   onOpen: (id: string) => void;
 }) {
-  const sections = [
-    { id: linksPageId, label: strings.links, icon: 'links' as const },
-    { id: 'tasks', label: strings.tasks, icon: 'tasks' as const },
-    { id: 'inbox', label: strings.inbox, icon: 'inbox' as const },
-    { id: 'sessions', label: strings.sessions, icon: 'sessions' as const },
-  ];
+  const sections = workspaceSections(linksPageId);
   return (
     <nav
       data-deck="section-nav"

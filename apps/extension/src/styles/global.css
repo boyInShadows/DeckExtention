@@ -91,6 +91,10 @@ body {
     font: inherit;
   }
 
+  small {
+    font-size: var(--deck-font-label);
+  }
+
   ::selection {
     background: var(--deck-color-focus);
     color: var(--deck-color-canvas);

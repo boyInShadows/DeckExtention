@@ -464,7 +464,9 @@ describe('Pins - adding', () => {
     await view.act(() =>
       type(view.get<HTMLInputElement>('.deck-pin-label-input'), 'Wiki'),
     );
-    await view.act(() => click(view.getByText(strings.addPin)));
+    await view.act(() =>
+      click(view.get('[data-deck="pin-add-form"] > button')),
+    );
     await vi.waitFor(() => expect(upsertCard).toHaveBeenCalledTimes(1));
     expect(upsertCard.mock.calls[0]?.[0]).toMatchObject({
       title: 'Wikipedia',

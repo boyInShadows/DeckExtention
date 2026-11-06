@@ -76,4 +76,12 @@
       inset-block-start: calc(var(--deck-control-size) + var(--deck-space-1));
     }
   }
+
+  @media (width < 360px) {
+    .deck-section-nav {
+      gap: 0;
+      inline-size: calc(100% - var(--deck-space-1));
+      max-inline-size: none;
+    }
+  }
 }

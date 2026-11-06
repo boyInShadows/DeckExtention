@@ -213,7 +213,7 @@
     margin: 0;
     padding: var(--deck-space-1) var(--deck-space-2);
     color: var(--deck-color-text-muted);
-    font-size: 0.6875rem;
+    font-size: var(--deck-font-label);
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -272,7 +272,7 @@
   [data-deck='pins-empty'] {
     margin: 0;
     color: var(--deck-color-text-muted);
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
   }
 
   .deck-pins[data-drag-over],
@@ -364,7 +364,7 @@
     overflow: hidden;
     border-radius: 25%;
     color: var(--deck-color-panel-text);
-    font-size: 0.8em;
+    font-size: var(--deck-font-label);
     font-weight: 700;
   }
 
@@ -392,7 +392,7 @@
 
   .deck-pin__label {
     overflow: hidden;
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -416,8 +416,6 @@
 
   .deck-pin-add-form {
     display: grid;
-    inline-size: 12rem;
-    gap: var(--deck-space-1);
   }
 
   .deck-pin-add-form button {

@@ -5,6 +5,7 @@ import { panelStrings as strings } from '../i18n/panelStrings';
 import { useDismissable } from '../hooks/useDismissable';
 import type { SurfaceData } from './bootstrap';
 import { focusOnMount } from './focusOnMount';
+import { Icon } from './Icon';
 import { createPin } from './pinUndo';
 import type { NoticeInput } from './ToastStack';
 
@@ -53,6 +54,19 @@ export default function PinAddForm({
       role="dialog"
       aria-label={strings.addPin}
     >
+      <header data-deck="pin-add-header" className="deck-pin-add-header">
+        <h2>{strings.addPin}</h2>
+        <button
+          type="button"
+          aria-label={strings.cancel}
+          onClick={() => {
+            onClose();
+            requestAnimationFrame(() => pinAddButton()?.focus());
+          }}
+        >
+          <Icon name="close" />
+        </button>
+      </header>
       <input
         className="deck-pin-url-input"
         ref={focusOnMount}

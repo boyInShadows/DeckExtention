@@ -81,7 +81,7 @@
   .deck-column [data-deck='example-hint'] {
     margin: var(--deck-space-1);
     color: var(--deck-color-text-muted);
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
   }
 
   .deck-column :where(button, input, select),
@@ -94,8 +94,11 @@
   .deck-column__title {
     flex: 1;
     min-inline-size: 0;
+    overflow: hidden;
     font-weight: 650;
     text-align: start;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .deck-column[data-color] .deck-column__title {
@@ -210,7 +213,7 @@
   .deck-menu :where(label) {
     display: grid;
     padding: var(--deck-space-1);
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
   }
 
   .deck-menu :where(button) {
@@ -232,7 +235,7 @@
 
   .deck-workspace-menu p {
     margin: var(--deck-space-1);
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
   }
 
   .deck-menu__swatches {
@@ -314,7 +317,7 @@
   .deck-note-panel__identity small,
   .deck-note-panel [data-deck='note-status'] {
     color: var(--deck-color-text-muted);
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
   }
 
   .deck-note-panel__action {
@@ -404,7 +407,7 @@
   .deck-inbox__hint {
     margin: 0 0 var(--deck-space-1);
     color: var(--deck-color-text-muted);
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
   }
 
   .deck-inbox__list {
@@ -429,7 +432,7 @@
 
   .deck-inbox__list .deck-card time {
     color: var(--deck-color-text-muted);
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
     white-space: nowrap;
   }
 
