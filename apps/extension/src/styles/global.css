@@ -111,3 +111,22 @@ body {
     }
   }
 }
+
+@layer components {
+  /* Solid panels keep theme colours when wallpaper changes the surface text. */
+  .deck-drawer,
+  .deck-settings,
+  .deck-toast,
+  .deck-help,
+  .deck-results,
+  .deck-menu,
+  .deck-pins-drop {
+    --deck-color-text: var(--deck-color-panel-text);
+    --deck-color-text-muted: var(--deck-color-panel-muted);
+    --deck-color-hairline: var(--deck-color-panel-hairline);
+    --deck-color-glass: var(--deck-color-panel-hover);
+    --deck-color-focus: var(--deck-color-panel-focus);
+
+    color: var(--deck-color-text);
+  }
+}

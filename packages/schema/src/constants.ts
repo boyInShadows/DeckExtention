@@ -21,6 +21,7 @@ export const SETTINGS_DEFAULTS: Settings = Object.freeze({
   use12HourClock: false,
   showResurface: true,
   showShelf: false,
+  showGoogleSuggestions: true,
   shelfDeckIds: [],
   isBlurred: false,
   canSpaceOpenDrawer: true,

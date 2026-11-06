@@ -31,6 +31,7 @@ import { BookmarkImport } from './BookmarkImport';
 import { GrantedAccess } from './GrantedAccess';
 import { KeymapEditor } from './KeymapEditor';
 import { QuickSavePermission } from './QuickSavePermission';
+import { GoogleSuggestionsSetting } from '../search/GoogleSuggestionsSetting';
 import type { NoticeInput } from './ToastStack';
 import { ShelfSettings, type SettingsChange } from '../shelf/ShelfSettings';
 
@@ -591,15 +592,12 @@ export default function SettingsPanel({
         <SettingsGroup title={strings.advanced}>
           <QuickSavePermission onError={showError} />
           <GrantedAccess onError={showError} />
-          {settings.searchPermission === 'declined' ? (
-            <button
-              type="button"
-              data-deck="search-permission-retry"
-              onClick={() => void update({ searchPermission: undefined })}
-            >
-              {strings.searchPermissionRetry}
-            </button>
-          ) : null}
+          <GoogleSuggestionsSetting
+            isEnabled={settings.showGoogleSuggestions}
+            onChange={(showGoogleSuggestions) =>
+              void update({ showGoogleSuggestions })
+            }
+          />
           <label>
             {strings.searchEngine}
             <select

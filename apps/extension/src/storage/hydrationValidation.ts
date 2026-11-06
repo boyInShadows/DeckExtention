@@ -47,6 +47,7 @@ const SETTINGS_FIELDS = [
   'use12HourClock',
   'showResurface',
   'showShelf',
+  'showGoogleSuggestions',
   'shelfDeckIds',
   'isBlurred',
   'canSpaceOpenDrawer',
@@ -184,6 +185,10 @@ export function isSettings(value: unknown): value is Settings {
     isOptional(value.use12HourClock, (item) => typeof item === 'boolean') &&
     isOptional(value.showResurface, (item) => typeof item === 'boolean') &&
     isOptional(value.showShelf, (item) => typeof item === 'boolean') &&
+    isOptional(
+      value.showGoogleSuggestions,
+      (item) => typeof item === 'boolean',
+    ) &&
     isOptional(
       value.shelfDeckIds,
       (items) => Array.isArray(items) && items.every(isId),

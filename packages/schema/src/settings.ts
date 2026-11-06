@@ -41,6 +41,7 @@ export const SettingsSchema = z.strictObject({
   use12HourClock: z.boolean().default(false),
   showResurface: z.boolean().default(true),
   showShelf: z.boolean().default(false),
+  showGoogleSuggestions: z.boolean().default(true),
   shelfDeckIds: z.array(IdSchema).default([]),
   /** The `B` blur toggle; persisted across tabs (P1.S5). */
   isBlurred: z.boolean(),

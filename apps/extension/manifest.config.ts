@@ -102,6 +102,7 @@ export default defineManifest({
 
   permissions: [...INSTALL_PERMISSIONS],
   optional_permissions: [...OPTIONAL_PERMISSIONS],
+  host_permissions: ['https://suggestqueries.google.com/*'],
 
   /** One shared instance, so an incognito tab sees the same decks. */
   incognito: 'spanning',

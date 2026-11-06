@@ -105,4 +105,9 @@ export default tseslint.config(
     files: ['**/test/fixtures/**'],
     rules: { 'deck/no-raw-hex': 'off' },
   },
+  {
+    // Owner-approved opt-in Google requests; all other modules retain the network ban.
+    files: ['apps/extension/src/search/googleSuggestions.ts'],
+    rules: { 'no-restricted-globals': 'off' },
+  },
 );

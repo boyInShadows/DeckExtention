@@ -16,7 +16,7 @@ function fingerprint(image: HTMLImageElement): string | null {
     const canvas = document.createElement('canvas');
     canvas.width = ICON_SIZE;
     canvas.height = ICON_SIZE;
-    const context = canvas.getContext('2d');
+    const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) return null;
     context.drawImage(image, 0, 0, ICON_SIZE, ICON_SIZE);
     return canvas.toDataURL();

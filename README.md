@@ -6,8 +6,13 @@ Open a new tab for the clock, The Line and up to twelve pinned links. Choose Lin
 Tasks, Inbox or Sessions from the icon rail, or press `Ctrl+J` to open the floating
 workspace. The rail moves to the top in narrow windows.
 
-No account, telemetry, remote fonts or automatic runtime network requests.
-Data stays on your device. Explicit `?` searches use Chrome's search provider.
+No account, telemetry or remote fonts. Core features work offline.
+Type a query and press Enter to search Google, or choose another engine in Settings.
+Google suggestions are on by default after Chrome grants access to the dedicated
+suggestions host during install/update. Typed search text is sent there; saved
+Deck content and commands are not attached. Turn suggestions off in Settings to
+stop requests; the off choice is remembered. Ordinary web search and local results
+remain available. Chrome host access is separate from this preference.
 
 ![Deck's new-tab surface, captured from the unpacked extension](docs/artifacts/showcase/surface-desktop.png)
 
@@ -32,8 +37,9 @@ working build, without a Chrome Web Store release or public rating claim.
 
 ## Features
 
-- **The Line:** search links and notes, run `>` commands, or search the web with `?`.
-  Open-tab search asks for optional access.
+- **The Line:** Enter searches the web; Arrow Down or a click selects a saved result.
+  Typed URLs open directly, `>` runs commands, and `?query` also searches the web.
+  Shift+Enter opens in a new tab. Open-tab search asks for optional access.
 - **Links and Inbox:** organize pages, decks and cards with mouse or keyboard.
   Move, pin, rename and trash items; edit notes with Markdown preview.
 - **Tasks:** add with Enter, view open/completed tasks, complete or reopen them,
@@ -84,9 +90,11 @@ Install-time permissions are exactly `storage`, `unlimitedStorage`, `favicon` an
 | `tabs`                    | Stashing and searching/managing open tabs                |
 | `tabGroups`               | Opening a saved deck as a Chrome tab group               |
 | `bookmarks`               | One-shot import from Chrome bookmarks                    |
-| `search`                  | Explicit `?` web searches                                |
+| `search`                  | Legacy grant; current web search needs no permission     |
 
-Optional access is revocable from Settings. Deck has no persistent content script,
+
+Google suggestions additionally declare required host access only to
+`https://suggestqueries.google.com/*`. Other optional access is revocable from Settings. Deck has no persistent content script,
 account, backend or analytics. Fonts are bundled; favicons use Chrome's local API.
 
 ## Development

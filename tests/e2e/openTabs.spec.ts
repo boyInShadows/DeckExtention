@@ -61,6 +61,8 @@ test('pregranted fixture: each of 40 tabs across two windows switches with Enter
       await expect(row.first()).toContainText(`Research ${key}`);
       const target = targets.find((tab) => tab.url.endsWith(key));
       if (!target) throw new Error('Missing target fixture');
+      await line.press('ArrowDown');
+      await line.focus();
       await line.press('Enter');
       await expect
         .poll(() =>

@@ -99,6 +99,7 @@ test('Line opens the intended card for ten queries in a 300-card workspace', asy
       await expect(page.locator('[data-deck="card"]').first()).toContainText(
         `Target ${index} reference`,
       );
+      await line.press('ArrowDown');
       await line.press('Enter');
       await expect(page).toHaveURL(`https://target${index}.example/`);
     }

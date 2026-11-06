@@ -109,6 +109,7 @@ function stubChrome(storageItems: Record<string, unknown> = {}) {
       request: vi.fn(() => Promise.resolve(true)),
       remove: vi.fn(() => Promise.resolve(true)),
       onRemoved: { addListener: vi.fn(), removeListener: vi.fn() },
+      onAdded: { addListener: vi.fn(), removeListener: vi.fn() },
     },
     tabs: { create: vi.fn(() => Promise.resolve()) },
     bookmarks: { getTree: vi.fn(() => Promise.resolve(BOOKMARK_TREE)) },
@@ -481,7 +482,7 @@ describe('SettingsPanel - keys and advanced', () => {
     view.unmount();
   });
 
-  it('offers four search engines and lets a declined search grant be retried', async () => {
+  it('offers four search engines without a search permission prompt', async () => {
     const { view, onChange } = await mount({
       ...SETTINGS_DEFAULTS,
       searchPermission: 'declined',
@@ -501,15 +502,7 @@ describe('SettingsPanel - keys and advanced', () => {
         searchUrlTemplate: 'https://duckduckgo.com/?q={query}',
       }),
     );
-    await clickAndSettle(
-      view,
-      view.get('[data-deck="search-permission-retry"]'),
-    );
-    expect(onChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        searchPermission: undefined,
-      }),
-    );
+    expect(view.query('[data-deck="search-permission-retry"]')).toBeNull();
     view.unmount();
   });
 
