@@ -62,7 +62,11 @@ export function Line(props: LineProps) {
   const isTaskPending = useRef(false);
   const isActionPending = useRef(false);
   const isWebSearch = query[0] === '?';
-  const google = useGoogleSuggestions(query, isFocused);
+  const google = useGoogleSuggestions(
+    query,
+    isFocused,
+    props.settings.showGoogleSuggestions,
+  );
   const isCommand = query[0] === '>';
   const isTabsCommand = /^>tabs(?:\s|$)/i.test(query);
   const tabState = useOpenTabs(

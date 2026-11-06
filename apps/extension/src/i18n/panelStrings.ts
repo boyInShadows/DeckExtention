@@ -37,11 +37,7 @@ export const panelStrings = {
   searchSubmitKey: 'Enter',
   googleSuggestions: 'Google suggestions',
   googleSuggestionsReason:
-    'Send typed search text to Google for suggestions. Off by default; no saved Deck content is sent.',
-  googleSuggestionsDeclined:
-    'Google access was not granted. Suggestions remain off.',
-  googleSuggestionsRevokeFailed:
-    'Google access could not be removed. Try again.',
+    'On by default. Typed search text is sent to Google for suggestions; saved Deck content is not attached. Turn off to stop these requests.',
   googleSuggestionsUnavailable:
     'Google suggestions are unavailable. Enter still searches the web.',
   openUrl: 'Open URL',

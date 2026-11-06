@@ -1,12 +1,11 @@
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
-import { GOOGLE_SUGGESTIONS_ORIGIN } from '../../apps/extension/src/search/googleSuggestionPolicy';
 
 const ROOT = resolve('docs/artifacts/permission-fixtures');
 const PREFIX = join(ROOT, 'deck-permission-');
 
 export async function createPermissionFixture(
-  permission: 'tabs' | 'tabGroups' | 'googleSuggestions',
+  permission: 'tabs' | 'tabGroups',
 ) {
   await mkdir(ROOT, { recursive: true });
   const path = await mkdtemp(PREFIX);
@@ -18,15 +17,10 @@ export async function createPermissionFixture(
   // copy pregrants access; production keeps the permission optional.
   const file = join(extensionPath, 'manifest.json');
   const manifest = JSON.parse(await readFile(file, 'utf8'));
-  if (permission === 'googleSuggestions') {
-    manifest.host_permissions = [GOOGLE_SUGGESTIONS_ORIGIN];
-    manifest.optional_host_permissions = [];
-  } else {
-    manifest.permissions = [...manifest.permissions, permission];
-    manifest.optional_permissions = manifest.optional_permissions.filter(
-      (value: string) => value !== permission,
-    );
-  }
+  manifest.permissions = [...manifest.permissions, permission];
+  manifest.optional_permissions = manifest.optional_permissions.filter(
+    (value: string) => value !== permission,
+  );
   await writeFile(file, JSON.stringify(manifest));
   return path;
 }

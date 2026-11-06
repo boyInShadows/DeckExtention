@@ -1,18 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 
 import { launchExtension } from './extension';
-import {
-  createPermissionFixture,
-  removePermissionFixture,
-} from './permissionFixture';
-
 const PROVIDER = 'https://suggestqueries.google.com/**';
 const NO_REQUEST_WINDOW_MS = 400;
 
-test('default Deck never requests Google suggestions and keeps a clear search action', async ({
+test('default Deck suggests immediately and remembers turning suggestions off', async ({
   browserName,
 }, testInfo) => {
   expect(browserName).toBe('chromium');
@@ -25,8 +19,8 @@ test('default Deck never requests Google suggestions and keeps a clear search ac
     'favicon',
     'contextMenus',
   ]);
-  expect(manifest.host_permissions).toBeUndefined();
-  expect(manifest.optional_host_permissions).toEqual([
+  expect(manifest.optional_host_permissions).toBeUndefined();
+  expect(manifest.host_permissions).toEqual([
     'https://suggestqueries.google.com/*',
   ]);
   const context = await launchExtension();
@@ -34,12 +28,18 @@ test('default Deck never requests Google suggestions and keeps a clear search ac
   try {
     await context.route(PROVIDER, (route) => {
       requests += 1;
-      return route.abort();
+      const query = new URL(route.request().url()).searchParams.get('q');
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify([query, [`${query} ideas`]]),
+      });
     });
     const page = await context.newPage();
     await page.goto('chrome://newtab/');
     await page.waitForSelector('html[data-deck-ready="true"]');
     const line = page.locator('[data-deck="line"] input');
+    await page.waitForTimeout(NO_REQUEST_WINDOW_MS);
+    expect(requests).toBe(0);
     await line.fill('something entirely new');
     await expect(page.locator('[data-deck="web-search-result"]')).toContainText(
       'something entirely new',
@@ -47,11 +47,15 @@ test('default Deck never requests Google suggestions and keeps a clear search ac
     await expect(page.locator('[data-deck="line-results"]')).not.toContainText(
       'No matches.',
     );
-    await page.waitForTimeout(NO_REQUEST_WINDOW_MS);
-    expect(requests).toBe(0);
+    await expect(page.locator('[data-deck="google-suggestion"]')).toHaveText([
+      'something entirely new ideas',
+    ]);
+    expect(requests).toBe(1);
     await line.fill('>settings');
     await line.press('Enter');
     const control = page.getByLabel('Google suggestions', { exact: true });
+    await expect(control).toBeChecked();
+    await control.uncheck();
     await expect(control).not.toBeChecked();
     await control.scrollIntoViewIfNeeded();
     const scan = await new AxeBuilder({ page })
@@ -59,21 +63,39 @@ test('default Deck never requests Google suggestions and keeps a clear search ac
       .analyze();
     expect(scan.violations).toEqual([]);
     await page.screenshot({
-      path: testInfo.outputPath('google-opt-in-off.png'),
+      path: testInfo.outputPath('google-preference-off.png'),
       animations: 'disabled',
     });
+    await page.reload();
+    await page.waitForSelector('html[data-deck-ready="true"]');
+    await page.locator('[data-deck="settings-toggle"]').click();
+    await expect(control).not.toBeChecked();
+    await page.keyboard.press('Escape');
+    const count = requests;
+    await line.fill('off after reload');
+    await page.waitForTimeout(NO_REQUEST_WINDOW_MS);
+    expect(requests).toBe(count);
+    await expect(page.locator('[data-deck="google-suggestion"]')).toHaveCount(
+      0,
+    );
+    const second = await context.newPage();
+    await second.goto('chrome://newtab/#settings');
+    await second.waitForSelector('html[data-deck-ready="true"]');
+    await expect(
+      second.getByLabel('Google suggestions', { exact: true }),
+    ).not.toBeChecked();
+    await second.close();
   } finally {
     await context.close();
   }
 });
 
-test('pregranted fixture: Google results, keyboard, clicks, safe text and offline fallback', async ({
+test('production Google results, keyboard, clicks, safe text and offline fallback', async ({
   browserName,
 }, testInfo) => {
   expect(browserName).toBe('chromium');
   test.setTimeout(60_000);
-  const fixture = await createPermissionFixture('googleSuggestions');
-  const context = await launchExtension(join(fixture, 'dist'));
+  const context = await launchExtension();
   const queries: string[] = [];
   try {
     await context.route(PROVIDER, (route) => {
@@ -174,6 +196,5 @@ test('pregranted fixture: Google results, keyboard, clicks, safe text and offlin
     expect(errors).toEqual([]);
   } finally {
     await context.close();
-    await removePermissionFixture(fixture);
   }
 });

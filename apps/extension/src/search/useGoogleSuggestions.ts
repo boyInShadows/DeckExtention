@@ -40,22 +40,27 @@ export function useGoogleAccess(isActive = true): Access {
   return access;
 }
 
-export function useGoogleSuggestions(raw: string, isFocused: boolean) {
+export function useGoogleSuggestions(
+  raw: string,
+  isFocused: boolean,
+  isEnabled = true,
+) {
   const query = suggestionQuery(raw);
-  const access = useGoogleAccess(isFocused && Boolean(query));
+  const access = useGoogleAccess(isEnabled && isFocused && Boolean(query));
   const [result, setResult] = useState<Suggestions>({
     query: '',
     items: [] as string[],
     isUnavailable: false,
   });
   useLayoutEffect(() => {
-    if (!query || !isFocused || access !== 'on') return;
+    if (!isEnabled || !query || !isFocused || access !== 'on') return;
     return observeSuggestions(query, setResult);
-  }, [query, isFocused, access]);
-  const isCurrent = access === 'on' && result.query === query;
+  }, [query, isFocused, access, isEnabled]);
+  const isCurrent = isEnabled && access === 'on' && result.query === query;
   return {
     items: isCurrent ? result.items : [],
     isUnavailable:
+      isEnabled &&
       Boolean(query) &&
       (access === 'unavailable' || (isCurrent && result.isUnavailable)),
   };

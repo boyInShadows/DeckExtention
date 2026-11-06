@@ -8,10 +8,11 @@ workspace. The rail moves to the top in narrow windows.
 
 No account, telemetry or remote fonts. Core features work offline.
 Type a query and press Enter to search Google, or choose another engine in Settings.
-Optional Google suggestions are off by default. Enabling them in Settings grants
-access to Google's dedicated suggestions host and sends typed search text there.
-Saved links, notes, tasks and Deck commands are not uploaded. Disable the setting
-to revoke access; ordinary web search and local results continue without it.
+Google suggestions are on by default after Chrome grants access to the dedicated
+suggestions host during install/update. Typed search text is sent there; saved
+Deck content and commands are not attached. Turn suggestions off in Settings to
+stop requests; the off choice is remembered. Ordinary web search and local results
+remain available. Chrome host access is separate from this preference.
 
 ## Current state
 
@@ -69,9 +70,10 @@ Install-time permissions are exactly `storage`, `unlimitedStorage`, `favicon` an
 | `tabGroups`               | Opening a saved deck as a Chrome tab group               |
 | `bookmarks`               | One-shot import from Chrome bookmarks                    |
 | `search`                  | Legacy grant; current web search needs no permission     |
-| `https://suggestqueries.google.com/*` | Opt-in typed-query suggestions from Google |
 
-Optional access is revocable from Settings. Deck has no persistent content script,
+
+Google suggestions additionally declare required host access only to
+`https://suggestqueries.google.com/*`. Other optional access is revocable from Settings. Deck has no persistent content script,
 account, backend or analytics. Fonts are bundled; favicons use Chrome's local API.
 
 ## Development

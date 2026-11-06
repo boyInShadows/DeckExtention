@@ -69,11 +69,13 @@ afterEach(() => {
 function Probe({
   query,
   focused = true,
+  enabled = true,
 }: {
   query: string;
   focused?: boolean;
+  enabled?: boolean;
 }) {
-  const result = useGoogleSuggestions(query, focused);
+  const result = useGoogleSuggestions(query, focused, enabled);
   return createElement(
     'p',
     null,
@@ -151,28 +153,37 @@ it('aborts in-flight queries immediately on revocation and shows a quiet failure
   );
 });
 
-it('enables and revokes only the dedicated host through the settings control', async () => {
-  const onError = vi.fn();
-  view = await render(createElement(GoogleSuggestionsSetting, { onError }));
-  const checkbox = view.get<HTMLInputElement>('input');
-  expect(checkbox.checked).toBe(false);
-  await view.act(() => click(checkbox));
-  await vi.waitFor(() => expect(checkbox.checked).toBe(true));
-  expect(request).toHaveBeenCalledWith({
-    origins: [GOOGLE_SUGGESTIONS_ORIGIN],
-  });
-  await view.act(() => click(checkbox));
-  await vi.waitFor(() => expect(checkbox.checked).toBe(false));
-  expect(remove).toHaveBeenCalledWith({ origins: [GOOGLE_SUGGESTIONS_ORIGIN] });
-  expect(onError).not.toHaveBeenCalled();
+it('stops in-flight work immediately when the preference is turned off', async () => {
+  isGranted = true;
+  provider.fetchGoogleSuggestions.mockReturnValue(new Promise(() => undefined));
+  view = await render(createElement(Probe, { query: 'new query' }));
+  await vi.waitFor(() =>
+    expect(provider.fetchGoogleSuggestions).toHaveBeenCalledOnce(),
+  );
+  const signal = provider.fetchGoogleSuggestions.mock
+    .calls[0]?.[1] as AbortSignal;
+  await view.rerender(
+    createElement(Probe, { query: 'new query', enabled: false }),
+  );
+  expect(signal.aborted).toBe(true);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  expect(provider.fetchGoogleSuggestions).toHaveBeenCalledOnce();
+  expect(view.container.textContent).toBe('');
 });
 
-it('keeps a declined grant off and reports failure', async () => {
-  request.mockResolvedValue(false);
-  const onError = vi.fn();
-  view = await render(createElement(GoogleSuggestionsSetting, { onError }));
+it('uses the persisted preference without requesting or removing host access', async () => {
+  const onChange = vi.fn();
+  view = await render(
+    createElement(GoogleSuggestionsSetting, { isEnabled: true, onChange }),
+  );
   const checkbox = view.get<HTMLInputElement>('input');
+  expect(checkbox.checked).toBe(true);
   await view.act(() => click(checkbox));
-  await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
+  expect(onChange).toHaveBeenCalledWith(false);
+  await view.rerender(
+    createElement(GoogleSuggestionsSetting, { isEnabled: false, onChange }),
+  );
   expect(checkbox.checked).toBe(false);
+  expect(request).not.toHaveBeenCalled();
+  expect(remove).not.toHaveBeenCalled();
 });

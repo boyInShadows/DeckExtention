@@ -592,7 +592,12 @@ export default function SettingsPanel({
         <SettingsGroup title={strings.advanced}>
           <QuickSavePermission onError={showError} />
           <GrantedAccess onError={showError} />
-          <GoogleSuggestionsSetting onError={showError} />
+          <GoogleSuggestionsSetting
+            isEnabled={settings.showGoogleSuggestions}
+            onChange={(showGoogleSuggestions) =>
+              void update({ showGoogleSuggestions })
+            }
+          />
           <label>
             {strings.searchEngine}
             <select
