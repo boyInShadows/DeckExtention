@@ -1,13 +1,13 @@
 import type { Card } from 'deck-schema';
 import { describe, expect, it } from 'vitest';
 
-import { captureStrings } from '../i18n/captureStrings';
-import { toastStylesheet } from './toast';
+import { captureStrings } from '../../src/i18n/captureStrings';
+import { toastStylesheet } from '../../src/capture/toast';
 import {
   buildToastModel,
   TOAST_DURATION_MS,
   TOAST_MESSAGE_TYPE,
-} from './toastModel';
+} from '../../src/capture/toastModel';
 
 const card = { id: 'card_1', title: 'A' } as Card;
 

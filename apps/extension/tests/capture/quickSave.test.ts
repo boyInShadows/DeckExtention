@@ -4,14 +4,14 @@ import { INBOX_DECK_ID, type Card, type Deck, type Page } from 'deck-schema';
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { DeckRepository } from '../storage/repository';
+import { DeckRepository } from '../../src/storage/repository';
 import {
   addNoteToCard,
   captureTarget,
   saveToInbox,
   undoSave,
   type SaveResult,
-} from './quickSave';
+} from '../../src/capture/quickSave';
 
 const NOW = 1_800_000_000_000;
 const DATABASE_NAME = 'deck-quick-save-test';

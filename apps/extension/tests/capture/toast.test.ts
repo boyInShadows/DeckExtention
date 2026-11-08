@@ -8,7 +8,7 @@ import {
   type ToastModel,
   type ToastOutcome,
   type ToastReply,
-} from './toast';
+} from '../../src/capture/toast';
 
 const DURATION_MS = 2_500;
 const CONFIRM_MS = 100;
