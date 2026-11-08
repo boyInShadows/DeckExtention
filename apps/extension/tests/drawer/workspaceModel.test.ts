@@ -6,7 +6,7 @@ import {
   activeDecks,
   parseCardUrl,
   replaceEntity,
-} from './workspaceModel';
+} from '../../src/drawer/workspaceModel';
 
 const decks: Deck[] = [
   {

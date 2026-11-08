@@ -1,9 +1,12 @@
 import type { Card, Deck, Page } from 'deck-schema';
 import { describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { dragId } from './dragIdentity';
-import { handleWorkspaceDrop, type WorkspaceDropState } from './workspaceDrop';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { dragId } from '../../src/drawer/dragIdentity';
+import {
+  handleWorkspaceDrop,
+  type WorkspaceDropState,
+} from '../../src/drawer/workspaceDrop';
 
 const page = (id: string, order: string): Page => ({
   id,
