@@ -8,7 +8,7 @@ import {
   pageIdFromHash,
   restoredScroll,
   selectedPageId,
-} from './drawerModel';
+} from '../../src/drawer/drawerModel';
 
 const pages: Page[] = [
   {

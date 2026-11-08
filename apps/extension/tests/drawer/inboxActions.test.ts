@@ -5,15 +5,15 @@ import { generateNKeysBetween } from 'fractional-indexing';
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { DeckRepository } from '../storage/repository';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { DeckRepository } from '../../src/storage/repository';
 import {
   markOpened,
   moveCards,
   openCard,
   pinCards,
   trashCards,
-} from './inboxActions';
+} from '../../src/drawer/inboxActions';
 
 const DATABASE_NAME = 'deck-inbox-actions-test';
 const NOW = 1_900_000_000_000;

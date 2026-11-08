@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { nextGridPosition } from './drawerKeys';
+import { nextGridPosition } from '../../src/drawer/drawerKeys';
 
 describe('nextGridPosition', () => {
   const counts = [3, 0, 2];

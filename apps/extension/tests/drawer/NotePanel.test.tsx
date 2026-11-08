@@ -2,11 +2,11 @@
 import type { Card, Deck } from 'deck-schema';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { strings as surfaceStrings } from '../i18n/strings';
-import type { SurfaceData } from '../newtab/bootstrap';
-import { click, keyDown, render, type } from '../testing/render';
-import { NotePanel } from './NotePanel';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { strings as surfaceStrings } from '../../src/i18n/strings';
+import type { SurfaceData } from '../../src/newtab/bootstrap';
+import { click, keyDown, render, type } from '../../src/testing/render';
+import { NotePanel } from '../../src/drawer/NotePanel';
 
 const CREATED_AT = 1;
 
