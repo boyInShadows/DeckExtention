@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { greetingForHour, shouldSpaceOpenDrawer } from './surfaceModel';
-import { buildSearchIndex, parseLineUrl, searchCards } from './lineSearch';
+import {
+  greetingForHour,
+  shouldSpaceOpenDrawer,
+} from '../../src/newtab/surfaceModel';
+import {
+  buildSearchIndex,
+  parseLineUrl,
+  searchCards,
+} from '../../src/newtab/lineSearch';
 
 const cards = [
   {
