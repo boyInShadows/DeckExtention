@@ -2,10 +2,10 @@ import 'fake-indexeddb/auto';
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DeckRepository } from '../storage/repository';
-import { stashWindow, undoStash } from './stash';
-import { SESSION_LIFETIME_MS } from './constants';
-import { saveToInbox } from '../capture/quickSave';
+import { DeckRepository } from '../../src/storage/repository';
+import { stashWindow, undoStash } from '../../src/sessions/stash';
+import { SESSION_LIFETIME_MS } from '../../src/sessions/constants';
+import { saveToInbox } from '../../src/capture/quickSave';
 
 const DATABASE = 'deck-stash-test';
 const NOW = new Date(2026, 8, 8, 14, 2).getTime();

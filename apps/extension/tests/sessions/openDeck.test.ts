@@ -2,11 +2,11 @@ import 'fake-indexeddb/auto';
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { generateNKeysBetween } from 'fractional-indexing';
-import { DeckRepository } from '../storage/repository';
-import { openDeck } from './openDeck';
-import { openDeckDatabase } from '../storage/database';
-import { changeTree } from '../storage/trashWrites';
-import { markCardsOpened } from '../storage/cardOpened';
+import { DeckRepository } from '../../src/storage/repository';
+import { openDeck } from '../../src/sessions/openDeck';
+import { openDeckDatabase } from '../../src/storage/database';
+import { changeTree } from '../../src/storage/trashWrites';
+import { markCardsOpened } from '../../src/storage/cardOpened';
 
 const DATABASE = 'deck-open-test';
 const NOW = 1_800_000_000_000;

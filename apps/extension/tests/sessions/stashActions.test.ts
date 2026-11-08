@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { startStash, sendStashMessage } from './stashActions';
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { TABS_PERMISSION_DECLINED_KEY } from '../permissions/keys';
-import type { NoticeInput } from '../newtab/ToastStack';
+import { startStash, sendStashMessage } from '../../src/sessions/stashActions';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { TABS_PERMISSION_DECLINED_KEY } from '../../src/permissions/keys';
+import type { NoticeInput } from '../../src/newtab/ToastStack';
 
 function setup(isGranted = false, wasDeclined = false) {
   const api = {
