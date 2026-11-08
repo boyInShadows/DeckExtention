@@ -74,7 +74,7 @@ export default tseslint.config(
   },
 
   {
-    files: ['apps/extension/src/**/*.{ts,tsx}'],
+    files: ['apps/extension/{src,tests}/**/*.{ts,tsx}'],
     languageOptions: {
       globals: { ...globals.browser, chrome: 'readonly' },
     },

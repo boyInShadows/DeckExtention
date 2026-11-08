@@ -8,7 +8,7 @@ import {
   overrideFor,
   resolveKeymap,
   withBinding,
-} from './keymap';
+} from '../../src/keys/keymap';
 
 const press = (key: string, modifiers: Partial<Record<string, boolean>> = {}) =>
   chordFromEvent({
