@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { springFrames } from './spring';
+import { springFrames } from '../../apps/extension/src/motion/spring';
 
 describe('springFrames', () => {
   it('starts and finishes at the requested positions with a spring overshoot', () => {
