@@ -2,12 +2,17 @@
 import type { Card, Deck, Page } from 'deck-schema';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import type { ChromeBookmarkNode } from '../import/bookmarkTree';
-import type { BackupService } from '../storage/backup';
-import type { DeckRepository } from '../storage/repository';
-import { click, render, trusted, type RenderResult } from '../testing/render';
-import { BookmarkImport } from './BookmarkImport';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import type { ChromeBookmarkNode } from '../../src/import/bookmarkTree';
+import type { BackupService } from '../../src/storage/backup';
+import type { DeckRepository } from '../../src/storage/repository';
+import {
+  click,
+  render,
+  trusted,
+  type RenderResult,
+} from '../../src/testing/render';
+import { BookmarkImport } from '../../src/newtab/BookmarkImport';
 
 const NOW = 1_800_000_000_000;
 const BOOKMARKS_PERMISSION = { permissions: ['bookmarks'] };

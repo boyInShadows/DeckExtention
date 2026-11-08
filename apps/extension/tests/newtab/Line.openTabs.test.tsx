@@ -4,17 +4,17 @@ import { deleteDB } from 'idb';
 import { useState } from 'react';
 import { SETTINGS_DEFAULTS, type Card } from 'deck-schema';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { DeckRepository } from '../storage/repository';
-import type { NoticeInput } from './ToastStack';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { DeckRepository } from '../../src/storage/repository';
+import type { NoticeInput } from '../../src/newtab/ToastStack';
 import {
   render,
   type,
   keyDown,
   click,
   type RenderResult,
-} from '../testing/render';
-import { Line } from './Line';
+} from '../../src/testing/render';
+import { Line } from '../../src/newtab/Line';
 
 const DATABASE = 'deck-line-open-tabs-test';
 let repository: DeckRepository;

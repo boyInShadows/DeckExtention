@@ -2,9 +2,14 @@
 import type { KeyBinding } from 'deck-schema';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { click, keyDown, render, type RenderResult } from '../testing/render';
-import { KeymapEditor } from './KeymapEditor';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import {
+  click,
+  keyDown,
+  render,
+  type RenderResult,
+} from '../../src/testing/render';
+import { KeymapEditor } from '../../src/newtab/KeymapEditor';
 
 const RECORDING = '[data-recording]';
 

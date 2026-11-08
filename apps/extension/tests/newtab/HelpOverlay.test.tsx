@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { click, keyDown, render } from '../testing/render';
-import HelpOverlay from './HelpOverlay';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { click, keyDown, render } from '../../src/testing/render';
+import HelpOverlay from '../../src/newtab/HelpOverlay';
 
 function stubCommands(getAll: () => Promise<chrome.commands.Command[]>) {
   vi.stubGlobal('chrome', {

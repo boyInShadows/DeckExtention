@@ -3,12 +3,12 @@ import {
   BOOKMARKS_PERMISSION_DECLINED_KEY,
   TABS_PERMISSION_DECLINED_KEY,
   TAB_GROUPS_PERMISSION_DECLINED_KEY,
-} from '../permissions/keys';
+} from '../../src/permissions/keys';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { click, render, type RenderResult } from '../testing/render';
-import { GrantedAccess } from './GrantedAccess';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { click, render, type RenderResult } from '../../src/testing/render';
+import { GrantedAccess } from '../../src/newtab/GrantedAccess';
 
 function stubPermissions(granted: chrome.permissions.Permissions) {
   const permissions = {
