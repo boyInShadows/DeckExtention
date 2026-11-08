@@ -1,10 +1,14 @@
 import 'fake-indexeddb/auto';
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { DeckRepository } from '../storage/repository';
-import { performTabAction, readOpenTabs, requestTabSearch } from './openTabs';
-import { TABS_PERMISSION_DECLINED_KEY } from '../permissions/keys';
-import type { NoticeInput } from '../newtab/ToastStack';
+import { DeckRepository } from '../../src/storage/repository';
+import {
+  performTabAction,
+  readOpenTabs,
+  requestTabSearch,
+} from '../../src/tabs/openTabs';
+import { TABS_PERMISSION_DECLINED_KEY } from '../../src/permissions/keys';
+import type { NoticeInput } from '../../src/newtab/ToastStack';
 
 const DATABASE = 'deck-open-tabs-test';
 const NOW = 1_800_000_000_000;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { observeOpenTabs } from './observeOpenTabs';
+import { observeOpenTabs } from '../../src/tabs/observeOpenTabs';
 
 function event() {
   const listeners = new Set<(...args: unknown[]) => void>();
