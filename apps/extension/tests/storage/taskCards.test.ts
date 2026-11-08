@@ -2,10 +2,13 @@ import 'fake-indexeddb/auto';
 import { openDB, deleteDB } from 'idb';
 import { afterEach, expect, it } from 'vitest';
 import { CardSchema, SETTINGS_DEFAULTS, SCHEMA_VERSION } from 'deck-schema';
-import { openDeckDatabase, type DeckDatabase } from './database';
-import { migrateDocument } from './documentMigration';
-import { DeckRepository } from './repository';
-import { BackupService } from './backup';
+import {
+  openDeckDatabase,
+  type DeckDatabase,
+} from '../../src/storage/database';
+import { migrateDocument } from '../../src/storage/documentMigration';
+import { DeckRepository } from '../../src/storage/repository';
+import { BackupService } from '../../src/storage/backup';
 
 const DATABASE = 'deck-task-migration';
 const ROLLBACK = 'deck-task-rollback';
