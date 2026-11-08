@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mergeOntoUnit } from './merge.mjs';
+import { mergeOntoUnit } from '../merge.mjs';
 
 const at = (line, column) => ({ line, column });
 const range = (startLine, startColumn, endLine, endColumn) => ({

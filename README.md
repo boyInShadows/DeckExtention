@@ -112,17 +112,21 @@ build when they finish, including after failures.
 ```text
 apps/extension/       Manifest, Vite configuration and extension source
   src/               Features: newtab, drawer, tasks, capture, sessions, storage...
+  tests/             Unit and component tests grouped by feature
   public/            Bundled extension icons
   dist/              Generated unpacked extension (ignored)
 packages/schema/     Shared Zod schemas, types, constants and fixtures
-tests/e2e/           Chromium extension journeys
+  tests/             Schema boundary tests and fixtures
+tests/               Shared unit, search, performance and Chromium journeys
 tools/               Repository-owned lint rules, icon generation and coverage
 docs/                Local planning, reports, previews, archives and artifacts
 .github/workflows/   Quality checks
 ```
 
-Source and component tests stay together by feature; browser journeys stay in
-`tests/e2e`. Font licensing and provenance stay beside the bundled font.
+Package unit and component tests live in each package's `tests/` folder, grouped
+by feature. Browser journeys stay in `tests/e2e`, and the coverage tool's self-test
+lives in `tools/test-coverage/tests`. Font licensing and provenance stay beside
+the bundled font.
 
 Test output goes to `docs/artifacts/test-results`; coverage goes to
 `docs/artifacts/coverage/{unit,e2e,merged}`. Historical experiments and reports are
@@ -147,8 +151,9 @@ documentation.
 
 These working documents are intentionally ignored by Git. A fresh clone is incomplete
 for agent work: ask the owner for the instructions and task queue before making changes.
-Active work is on **`ramtin`**. The owner controls merges into `main`; do not
-force-push or rewrite shared history.
+Active work is on **`development`**. Commit and push each completed, verified task
+there. The owner controls merges into `main`; do not force-push or rewrite shared
+history.
 
 ## License
 
