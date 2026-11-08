@@ -14,19 +14,19 @@ import type { ComponentChildren } from 'preact';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { resolveKeymap } from '../keys/keymap';
-import { DeckRepository } from '../storage/repository';
-import type { UndoAction } from './UndoAction';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { resolveKeymap } from '../../src/keys/keymap';
+import { DeckRepository } from '../../src/storage/repository';
+import type { UndoAction } from '../../src/drawer/UndoAction';
 import {
   click,
   keyDown,
   render,
   type,
   type RenderResult,
-} from '../testing/render';
-import { DeckWorkspace } from './DeckWorkspace';
-import { RECENT_TARGETS_KEY } from './inboxModel';
+} from '../../src/testing/render';
+import { DeckWorkspace } from '../../src/drawer/DeckWorkspace';
+import { RECENT_TARGETS_KEY } from '../../src/drawer/inboxModel';
 
 /*
  * dnd-kit is an external dependency, so Vitest loads it un-aliased against

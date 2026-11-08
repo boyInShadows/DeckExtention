@@ -4,12 +4,12 @@ import type * as DndCore from '@dnd-kit/core';
 import { SETTINGS_DEFAULTS, type Card } from 'deck-schema';
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { resolveKeymap } from '../keys/keymap';
-import { DeckRepository } from '../storage/repository';
-import { openDeckDatabase } from '../storage/database';
-import { click, render, type RenderResult } from '../testing/render';
-import { CardRow } from './CardRow';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { resolveKeymap } from '../../src/keys/keymap';
+import { DeckRepository } from '../../src/storage/repository';
+import { openDeckDatabase } from '../../src/storage/database';
+import { click, render, type RenderResult } from '../../src/testing/render';
+import { CardRow } from '../../src/drawer/CardRow';
 
 vi.mock('@dnd-kit/core', async (importOriginal) => ({
   ...(await importOriginal<typeof DndCore>()),
@@ -23,7 +23,7 @@ vi.mock('@dnd-kit/sortable', () => ({
     transform: null,
   }),
 }));
-vi.mock('../newtab/FaviconTile', () => ({ default: () => null }));
+vi.mock('../../src/newtab/FaviconTile', () => ({ default: () => null }));
 
 const DATABASE = 'deck-incognito-opening-test';
 const NOW = 1_900_000_000_000;

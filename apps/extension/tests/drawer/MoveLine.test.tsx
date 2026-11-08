@@ -1,10 +1,15 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { keyDown, render, type, type RenderResult } from '../testing/render';
-import type { MoveTarget } from './inboxModel';
-import { MoveLine } from './MoveLine';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import {
+  keyDown,
+  render,
+  type,
+  type RenderResult,
+} from '../../src/testing/render';
+import type { MoveTarget } from '../../src/drawer/inboxModel';
+import { MoveLine } from '../../src/drawer/MoveLine';
 
 const TARGETS: MoveTarget[] = [
   { deckId: 'deck_docs', label: 'Work › Docs' },

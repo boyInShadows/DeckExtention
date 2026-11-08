@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { render } from '../testing/render';
-import { MarkdownNote } from './MarkdownNote';
+import { render } from '../../src/testing/render';
+import { MarkdownNote } from '../../src/drawer/MarkdownNote';
 
 afterEach(() => document.body.replaceChildren());
 

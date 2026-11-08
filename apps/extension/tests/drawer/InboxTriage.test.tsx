@@ -8,12 +8,17 @@ import {
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { resolveKeymap } from '../keys/keymap';
-import type { SurfaceData } from '../newtab/bootstrap';
-import { click, keyDown, render, type RenderResult } from '../testing/render';
-import { InboxTriage } from './InboxTriage';
-import { RECENT_TARGETS_KEY } from './inboxModel';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { resolveKeymap } from '../../src/keys/keymap';
+import type { SurfaceData } from '../../src/newtab/bootstrap';
+import {
+  click,
+  keyDown,
+  render,
+  type RenderResult,
+} from '../../src/testing/render';
+import { InboxTriage } from '../../src/drawer/InboxTriage';
+import { RECENT_TARGETS_KEY } from '../../src/drawer/inboxModel';
 
 const KEYMAP = resolveKeymap([]);
 const STAMP = 1;
