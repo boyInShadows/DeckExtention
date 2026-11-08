@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { fromChromeTree, parseNetscapeBookmarks } from './bookmarkTree';
+import {
+  fromChromeTree,
+  parseNetscapeBookmarks,
+} from '../../src/import/bookmarkTree';
 
 const CHROME_EXPORT = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">

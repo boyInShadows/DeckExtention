@@ -4,14 +4,20 @@ import type { Card, Deck, Page } from 'deck-schema';
 import { deleteDB } from 'idb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DeckRepository } from '../storage/repository';
-import { applyBookmarkPlan, IMPORT_CHUNK_SIZE } from './bookmarkImport';
+import { DeckRepository } from '../../src/storage/repository';
+import {
+  applyBookmarkPlan,
+  IMPORT_CHUNK_SIZE,
+} from '../../src/import/bookmarkImport';
 import {
   normalizeUrl,
   planBookmarkImport,
   type ExistingWorkspace,
-} from './bookmarkPlan';
-import type { BookmarkFolder, BookmarkNode } from './bookmarkTree';
+} from '../../src/import/bookmarkPlan';
+import type {
+  BookmarkFolder,
+  BookmarkNode,
+} from '../../src/import/bookmarkTree';
 
 const NOW = 1_800_000_000_000;
 const EMPTY: ExistingWorkspace = { pages: [], decks: [], cards: [] };
