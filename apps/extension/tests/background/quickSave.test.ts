@@ -6,8 +6,8 @@ import {
 } from 'deck-schema';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { DeckRepository } from '../storage/repository';
-import { quickSave } from './quickSave';
+import type { DeckRepository } from '../../src/storage/repository';
+import { quickSave } from '../../src/background/quickSave';
 
 function stubChrome() {
   const stored: Record<string, unknown> = {};

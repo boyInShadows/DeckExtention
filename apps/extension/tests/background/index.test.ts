@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MAINTENANCE_MESSAGE } from 'deck-schema/constants';
-import { TOAST_MESSAGE_TYPE } from '../capture/toastModel';
+import { TOAST_MESSAGE_TYPE } from '../../src/capture/toastModel';
 
 const mocks = vi.hoisted(() => ({
   repository: vi.fn(),
@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   stash: vi.fn(),
 }));
 
-vi.mock('../storage/repository', () => ({
+vi.mock('../../src/storage/repository', () => ({
   DeckRepository: class {
     close = vi.fn();
     purge = mocks.purge;
@@ -23,11 +23,11 @@ vi.mock('../storage/repository', () => ({
     }
   },
 }));
-vi.mock('../storage/database', () => ({
+vi.mock('../../src/storage/database', () => ({
   ACTIVE_DATABASE_KEY: 'deckDb',
   openDeckDatabase: () => Promise.resolve({}),
 }));
-vi.mock('../storage/backup', () => ({
+vi.mock('../../src/storage/backup', () => ({
   BackupService: class {
     constructor() {
       mocks.backup();
@@ -35,11 +35,11 @@ vi.mock('../storage/backup', () => ({
     ensureDailySnapshot = mocks.maintenance;
   },
 }));
-vi.mock('./quickSave', () => ({
+vi.mock('../../src/background/quickSave', () => ({
   quickSave: vi.fn(),
   handleToastDecision: mocks.toastDecision,
 }));
-vi.mock('./stash', () => ({
+vi.mock('../../src/background/stash', () => ({
   handleStashMessage: mocks.stash,
   runStashCommand: vi.fn(),
 }));
@@ -63,7 +63,7 @@ describe('background database selection', () => {
       action: { onClicked: { addListener } },
       commands: { onCommand: { addListener } },
     });
-    await import('./index');
+    await import('../../src/background/index');
     const onChanged = mocks.onStorageChanged.mock.calls[0]?.[0] as
       ((changes: Record<string, unknown>, area: string) => void) | undefined;
     expect(onChanged).toBeTypeOf('function');
@@ -109,7 +109,7 @@ describe('background message replies', () => {
       action: { onClicked: event },
       commands: { onCommand: event },
     });
-    await import('./index');
+    await import('../../src/background/index');
     await vi.waitFor(() =>
       expect(chrome.storage.local.remove).toHaveBeenCalled(),
     );

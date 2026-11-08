@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { toggleDrawer } from './toggleDrawer';
+import { toggleDrawer } from '../../src/background/toggleDrawer';
 
 const sendMessage = vi.fn<(message: unknown) => Promise<unknown>>();
 const create =

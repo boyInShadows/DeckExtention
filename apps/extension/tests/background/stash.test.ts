@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DeckRepository } from '../storage/repository';
-import { handleStashMessage, runStashCommand } from './stash';
+import type { DeckRepository } from '../../src/storage/repository';
+import {
+  handleStashMessage,
+  runStashCommand,
+} from '../../src/background/stash';
 
 const mocks = vi.hoisted(() => ({ stashWindow: vi.fn(), undoStash: vi.fn() }));
-vi.mock('../sessions/stash', () => mocks);
+vi.mock('../../src/sessions/stash', () => mocks);
 const repository = {} as DeckRepository;
 const URL = 'chrome-extension://deck/src/newtab/index.html';
 const tab = { id: 5, windowId: 7 } as chrome.tabs.Tab;
