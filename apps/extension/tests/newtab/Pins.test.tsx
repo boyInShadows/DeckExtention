@@ -5,12 +5,12 @@ import type * as DndSortable from '@dnd-kit/sortable';
 import type { ComponentChildren } from 'preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { dragId } from '../drawer/dragIdentity';
-import { compareOrder } from '../drawer/workspaceModel';
-import { WORKSPACE_DROP_EVENT } from '../drawer/WorkspaceDnd';
-import { panelStrings as strings } from '../i18n/panelStrings';
-import type { UndoAction } from '../drawer/UndoAction';
-import type { DeckRepository } from '../storage/repository';
+import { dragId } from '../../src/drawer/dragIdentity';
+import { compareOrder } from '../../src/drawer/workspaceModel';
+import { WORKSPACE_DROP_EVENT } from '../../src/drawer/WorkspaceDnd';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import type { UndoAction } from '../../src/drawer/UndoAction';
+import type { DeckRepository } from '../../src/storage/repository';
 import {
   click,
   keyDown,
@@ -18,8 +18,8 @@ import {
   trusted,
   type,
   type RenderResult,
-} from '../testing/render';
-import { Pins } from './Pins';
+} from '../../src/testing/render';
+import { Pins } from '../../src/newtab/Pins';
 
 /*
  * dnd-kit is an external dependency, so Vitest loads it un-aliased against

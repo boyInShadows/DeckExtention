@@ -15,8 +15,8 @@ import {
   type Mock,
 } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import type { DeckRepository } from '../storage/repository';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import type { DeckRepository } from '../../src/storage/repository';
 import {
   click,
   keyDown,
@@ -24,9 +24,9 @@ import {
   trusted,
   type,
   type RenderResult,
-} from '../testing/render';
-import SettingsPanel from './SettingsPanel';
-import type { NoticeInput } from './ToastStack';
+} from '../../src/testing/render';
+import SettingsPanel from '../../src/newtab/SettingsPanel';
+import type { NoticeInput } from '../../src/newtab/ToastStack';
 
 /*
  * The panel builds its own BackupService on IndexedDB; the service has its
@@ -45,7 +45,7 @@ const processWallpaper = vi.hoisted(() =>
   vi.fn<(blob: Blob) => Promise<{ gradient: string; luminance: number }>>(),
 );
 
-vi.mock('../storage/backup', () => ({
+vi.mock('../../src/storage/backup', () => ({
   BackupService: class {
     listSnapshots = backups.listSnapshots;
     exportData = backups.exportData;
@@ -55,10 +55,10 @@ vi.mock('../storage/backup', () => ({
     createSnapshot = backups.createSnapshot;
   },
 }));
-vi.mock('../storage/database', () => ({
+vi.mock('../../src/storage/database', () => ({
   openDeckDatabase: () => new Promise(() => undefined),
 }));
-vi.mock('../wallpaper/processWallpaper', () => ({ processWallpaper }));
+vi.mock('../../src/wallpaper/processWallpaper', () => ({ processWallpaper }));
 
 const NOW = 1_800_000_000_000;
 const SNAPSHOT: Snapshot = {

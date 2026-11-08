@@ -3,31 +3,31 @@ import { SETTINGS_DEFAULTS } from 'deck-schema';
 import { render as renderImmediately, type ComponentChildren } from 'preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { strings } from '../i18n/strings';
-import { keyDown, render } from '../testing/render';
-import type { SurfaceData } from './bootstrap';
-import { Surface } from './Surface';
+import { strings } from '../../src/i18n/strings';
+import { keyDown, render } from '../../src/testing/render';
+import type { SurfaceData } from '../../src/newtab/bootstrap';
+import { Surface } from '../../src/newtab/Surface';
 
 /*
  * Its own file because the drawer chunk must fail to load here, while
  * Surface.test.tsx needs it to load. Pins and the dnd-kit provider are
  * passed through for the same reason as there.
  */
-vi.mock('../drawer/drawer', () => {
+vi.mock('../../src/drawer/drawer', () => {
   throw new Error('chunk missing');
 });
-vi.mock('./Pins', () => ({ Pins: () => null }));
-vi.mock('../resurface/Resurface', () => ({
+vi.mock('../../src/newtab/Pins', () => ({ Pins: () => null }));
+vi.mock('../../src/resurface/Resurface', () => ({
   get default() {
     throw new Error('Resurface chunk missing');
   },
 }));
-vi.mock('../shelf/Shelf', () => ({
+vi.mock('../../src/shelf/Shelf', () => ({
   get default() {
     throw new Error('Shelf chunk missing');
   },
 }));
-vi.mock('../drawer/WorkspaceDnd', () => ({ WorkspaceDnd: PassThrough }));
+vi.mock('../../src/drawer/WorkspaceDnd', () => ({ WorkspaceDnd: PassThrough }));
 
 function PassThrough({ children }: { children: ComponentChildren }) {
   return <>{children}</>;

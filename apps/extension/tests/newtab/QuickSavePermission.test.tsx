@@ -5,9 +5,9 @@ import {
 } from 'deck-schema';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { click, render, type RenderResult } from '../testing/render';
-import { QuickSavePermission } from './QuickSavePermission';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { click, render, type RenderResult } from '../../src/testing/render';
+import { QuickSavePermission } from '../../src/newtab/QuickSavePermission';
 
 const PERMISSIONS = { permissions: [...CAPTURE_PERMISSIONS] };
 

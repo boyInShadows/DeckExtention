@@ -3,16 +3,16 @@ import { SETTINGS_DEFAULTS, type Card, type Settings } from 'deck-schema';
 import { render as renderImmediately } from 'preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
 import {
   click,
   keyDown,
   render,
   type,
   type RenderResult,
-} from '../testing/render';
-import type { SurfaceData } from './bootstrap';
-import { Line } from './Line';
+} from '../../src/testing/render';
+import type { SurfaceData } from '../../src/newtab/bootstrap';
+import { Line } from '../../src/newtab/Line';
 
 const lineActions = vi.hoisted(() => ({
   executeAction: vi.fn<(id: string, context: unknown) => Promise<void>>(),
@@ -21,9 +21,9 @@ const lineActions = vi.hoisted(() => ({
       (query: string, settings: unknown, isNewTab: boolean) => Promise<void>
     >(),
 }));
-vi.mock('./lineActions', () => lineActions);
+vi.mock('../../src/newtab/lineActions', () => lineActions);
 const taskCreator = vi.hoisted(() => ({ createTask: vi.fn() }));
-vi.mock('../tasks/quickTask', () => taskCreator);
+vi.mock('../../src/tasks/quickTask', () => taskCreator);
 
 const upsertCard = vi.fn((value: Card) => Promise.resolve(value));
 const markCardsOpened = vi.fn(async (ids: string[]) =>
