@@ -3,8 +3,8 @@ import { deleteDB } from 'idb';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Deck, Card } from 'deck-schema';
 
-import { DeckRepository } from './repository';
-import { SESSION_LIFETIME_MS } from '../sessions/constants';
+import { DeckRepository } from '../../src/storage/repository';
+import { SESSION_LIFETIME_MS } from '../../src/sessions/constants';
 
 const DATABASE = 'deck-session-expiry-test';
 const NOW = 1_800_000_000_000;
@@ -106,8 +106,8 @@ it('preserves a session when its user page is trashed and restores its links fro
 });
 
 it('aborts expiry without touching stored links when creating a delete operation fails', async () => {
-  const { expireSessions } = await import('./sessionExpiry');
-  const { openDeckDatabase } = await import('./database');
+  const { expireSessions } = await import('../../src/storage/sessionExpiry');
+  const { openDeckDatabase } = await import('../../src/storage/database');
   const database = await openDeckDatabase(DATABASE);
   const before = await repository.readDocument(NOW);
   await expect(

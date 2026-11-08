@@ -2,9 +2,9 @@ import 'fake-indexeddb/auto';
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { SETTINGS_DEFAULTS, type Card, type Deck } from 'deck-schema';
-import { DeckRepository } from './repository';
-import { openDeckDatabase } from './database';
-import { resolveResurface } from './resurface';
+import { DeckRepository } from '../../src/storage/repository';
+import { openDeckDatabase } from '../../src/storage/database';
+import { resolveResurface } from '../../src/storage/resurface';
 
 const DATABASE = 'deck-resurface-test';
 const DAY_MS = 86_400_000;

@@ -10,14 +10,18 @@ import {
 import { deleteDB, openDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { BackupService, migrateDocument, SNAPSHOT_INTERVAL_MS } from './backup';
+import {
+  BackupService,
+  migrateDocument,
+  SNAPSHOT_INTERVAL_MS,
+} from '../../src/storage/backup';
 import {
   ACTIVE_DATABASE_KEY,
   openDeckDatabase,
   type DeckDatabase,
-} from './database';
-import { parseDocument, type DeckDocument } from './document';
-import { DeckRepository } from './repository';
+} from '../../src/storage/database';
+import { parseDocument, type DeckDocument } from '../../src/storage/document';
+import { DeckRepository } from '../../src/storage/repository';
 
 const NOW = 1_800_000_000_000;
 const PURGE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;

@@ -13,7 +13,7 @@ import {
   isDeck,
   isPage,
   isSettings,
-} from './hydrationValidation';
+} from '../../src/storage/hydrationValidation';
 
 const page = {
   id: 'page_test',

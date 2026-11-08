@@ -3,7 +3,10 @@ import 'fake-indexeddb/auto';
 import { deleteDB } from 'idb';
 import { afterEach, expect, it, vi } from 'vitest';
 
-import { ACTIVE_DATABASE_KEY, openDeckDatabase } from './database';
+import {
+  ACTIVE_DATABASE_KEY,
+  openDeckDatabase,
+} from '../../src/storage/database';
 
 const RECOVERY_DATABASE = 'deck-recovery-opening-test';
 
