@@ -1,7 +1,10 @@
 import type { Card } from 'deck-schema';
 import { describe, expect, it, vi } from 'vitest';
 
-import { runTriageJob, type TriageSnapshot } from './useTriageQueue';
+import {
+  runTriageJob,
+  type TriageSnapshot,
+} from '../../src/drawer/useTriageQueue';
 
 const INBOX = 'deck_inbox';
 

@@ -6,12 +6,12 @@ import { deleteDB } from 'idb';
 import { useRef, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { resolveKeymap } from '../keys/keymap';
-import { DeckRepository } from '../storage/repository';
-import { keyDown, render, type RenderResult } from '../testing/render';
-import { useWorkspaceKeys } from './useWorkspaceKeys';
-import type { UndoAction } from './UndoAction';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { resolveKeymap } from '../../src/keys/keymap';
+import { DeckRepository } from '../../src/storage/repository';
+import { keyDown, render, type RenderResult } from '../../src/testing/render';
+import { useWorkspaceKeys } from '../../src/drawer/useWorkspaceKeys';
+import type { UndoAction } from '../../src/drawer/UndoAction';
 
 const NOW = 1_800_000_000_000;
 const DATABASE_NAME = 'deck-workspace-keys-test';

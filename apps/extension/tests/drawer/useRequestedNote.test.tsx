@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { expect, it, vi } from 'vitest';
 import type { Card, Deck } from 'deck-schema';
-import type { DeckRepository } from '../storage/repository';
-import { render } from '../testing/render';
-import { useRequestedNote } from './useRequestedNote';
-import { INBOX_PAGE_ID } from './drawerModel';
+import type { DeckRepository } from '../../src/storage/repository';
+import { render } from '../../src/testing/render';
+import { useRequestedNote } from '../../src/drawer/useRequestedNote';
+import { INBOX_PAGE_ID } from '../../src/drawer/drawerModel';
 
 const card: Card = {
   id: 'card_task',

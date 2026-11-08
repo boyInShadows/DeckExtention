@@ -11,7 +11,7 @@ import {
   rememberTarget,
   selectionOf,
   type MoveTarget,
-} from './inboxModel';
+} from '../../src/drawer/inboxModel';
 
 const page = (id: string, title: string, order: string): Page => ({
   id,

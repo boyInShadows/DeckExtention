@@ -1,9 +1,9 @@
 import type { Card, Deck } from 'deck-schema';
 import { describe, expect, it } from 'vitest';
 
-import { moveCard, moveDeck } from './workspaceDndModel';
-import { dragId, parseDragId } from './dragIdentity';
-import { fractionalOrderForMove } from './fractionalOrder';
+import { moveCard, moveDeck } from '../../src/drawer/workspaceDndModel';
+import { dragId, parseDragId } from '../../src/drawer/dragIdentity';
+import { fractionalOrderForMove } from '../../src/drawer/fractionalOrder';
 
 const deck = (id: string, pageId: string, order: string): Deck => ({
   id,
