@@ -4,10 +4,15 @@ import { deleteDB } from 'idb';
 import { afterEach, expect, it, vi } from 'vitest';
 import { useState } from 'react';
 import type { Card } from 'deck-schema';
-import { DeckRepository } from '../storage/repository';
-import { click, render, type, type RenderResult } from '../testing/render';
-import { createTask } from './quickTask';
-import { TaskManager } from './TaskManager';
+import { DeckRepository } from '../../src/storage/repository';
+import {
+  click,
+  render,
+  type,
+  type RenderResult,
+} from '../../src/testing/render';
+import { createTask } from '../../src/tasks/quickTask';
+import { TaskManager } from '../../src/tasks/TaskManager';
 
 const DATABASE = 'deck-task-manager';
 const repository = new DeckRepository({ databaseName: DATABASE });

@@ -2,10 +2,10 @@ import 'fake-indexeddb/auto';
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { NOTE_MAX_LENGTH, TITLE_MAX_LENGTH } from 'deck-schema';
-import { DeckRepository } from '../storage/repository';
-import { createTask } from './quickTask';
-import { buildSearchIndex } from '../newtab/lineSearch';
-import { pinCards } from '../drawer/inboxActions';
+import { DeckRepository } from '../../src/storage/repository';
+import { createTask } from '../../src/tasks/quickTask';
+import { buildSearchIndex } from '../../src/newtab/lineSearch';
+import { pinCards } from '../../src/drawer/inboxActions';
 
 const DATABASE = 'deck-quick-task';
 let repository: DeckRepository;
