@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it, vi } from 'vitest';
 import type { Card, Deck, Page } from 'deck-schema';
-import { click, keyDown, render } from '../testing/render';
-import type { DeckRepository } from '../storage/repository';
-import Shelf from './Shelf';
-import { shelfDecks } from './shelfModel';
+import { click, keyDown, render } from '../../src/testing/render';
+import type { DeckRepository } from '../../src/storage/repository';
+import Shelf from '../../src/shelf/Shelf';
+import { shelfDecks } from '../../src/shelf/shelfModel';
 
 const page: Page = {
   id: 'page_shelf',

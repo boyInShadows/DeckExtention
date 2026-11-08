@@ -6,28 +6,32 @@ import {
   type Page,
   type Settings,
 } from 'deck-schema';
-import type { DeckRepository } from '../storage/repository';
-import SettingsPanel from '../newtab/SettingsPanel';
-import { render, click } from '../testing/render';
+import type { DeckRepository } from '../../src/storage/repository';
+import SettingsPanel from '../../src/newtab/SettingsPanel';
+import { render, click } from '../../src/testing/render';
 
 // The settings queue is real; unrelated panels and backup I/O have their own suites.
-vi.mock('../storage/backup', () => ({
+vi.mock('../../src/storage/backup', () => ({
   BackupService: class {
     listSnapshots = async () => [];
   },
 }));
-vi.mock('../storage/database', () => ({
+vi.mock('../../src/storage/database', () => ({
   openDeckDatabase: () => new Promise(() => undefined),
 }));
-vi.mock('../newtab/KeymapEditor', () => ({ KeymapEditor: () => null }));
-vi.mock('../newtab/QuickSavePermission', () => ({
+vi.mock('../../src/newtab/KeymapEditor', () => ({ KeymapEditor: () => null }));
+vi.mock('../../src/newtab/QuickSavePermission', () => ({
   QuickSavePermission: () => null,
 }));
-vi.mock('../newtab/GrantedAccess', () => ({ GrantedAccess: () => null }));
-vi.mock('../search/GoogleSuggestionsSetting', () => ({
+vi.mock('../../src/newtab/GrantedAccess', () => ({
+  GrantedAccess: () => null,
+}));
+vi.mock('../../src/search/GoogleSuggestionsSetting', () => ({
   GoogleSuggestionsSetting: () => null,
 }));
-vi.mock('../newtab/BookmarkImport', () => ({ BookmarkImport: () => null }));
+vi.mock('../../src/newtab/BookmarkImport', () => ({
+  BookmarkImport: () => null,
+}));
 afterEach(() => vi.unstubAllGlobals());
 
 const page: Page = {
