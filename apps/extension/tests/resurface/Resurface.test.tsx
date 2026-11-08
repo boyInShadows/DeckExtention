@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Card } from 'deck-schema';
-import type { DeckRepository } from '../storage/repository';
-import type { DailyResurface } from '../storage/resurface';
-import { panelStrings as strings } from '../i18n/panelStrings';
-import { click, render, type RenderResult } from '../testing/render';
-import Resurface from './Resurface';
+import type { DeckRepository } from '../../src/storage/repository';
+import type { DailyResurface } from '../../src/storage/resurface';
+import { panelStrings as strings } from '../../src/i18n/panelStrings';
+import { click, render, type RenderResult } from '../../src/testing/render';
+import Resurface from '../../src/resurface/Resurface';
 
 const NOW = new Date(2026, 9, 17, 12);
 const CARD: Card = {
