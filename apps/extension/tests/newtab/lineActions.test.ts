@@ -9,11 +9,11 @@ import {
 import { deleteDB } from 'idb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { panelStrings } from '../i18n/panelStrings';
-import { DeckRepository } from '../storage/repository';
-import { executeAction, searchWeb } from './lineActions';
-import { hydrateSurface } from './bootstrap';
-import { DRAWER_PAGE_KEY } from '../drawer/drawerModel';
+import { panelStrings } from '../../src/i18n/panelStrings';
+import { DeckRepository } from '../../src/storage/repository';
+import { executeAction, searchWeb } from '../../src/newtab/lineActions';
+import { hydrateSurface } from '../../src/newtab/bootstrap';
+import { DRAWER_PAGE_KEY } from '../../src/drawer/drawerModel';
 
 const TEST_DATABASE = 'deck-line-actions-test';
 const FIXED_NOW = new Date('2026-03-04T05:06:07Z');

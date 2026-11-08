@@ -13,33 +13,33 @@ import {
 import type { ComponentChildren } from 'preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { strings } from '../i18n/strings';
+import { strings } from '../../src/i18n/strings';
 import {
   click,
   keyDown,
   render,
   type,
   type RenderResult,
-} from '../testing/render';
-import type { SurfaceData } from './bootstrap';
-import { Surface } from './Surface';
+} from '../../src/testing/render';
+import type { SurfaceData } from '../../src/newtab/bootstrap';
+import { Surface } from '../../src/newtab/Surface';
 
 /*
  * The lazy chunks and Pins are other components' concerns; these stand-ins
  * expose exactly the callbacks Surface hands them, so the tests can drive
  * Surface the way those components would.
  */
-vi.mock('./Pins', () => ({ Pins: StubPins }));
-vi.mock('../resurface/Resurface', () => ({ default: () => null }));
-vi.mock('./SettingsPanel', () => ({ default: StubSettings }));
-vi.mock('./HelpOverlay', () => ({ default: StubHelp }));
-vi.mock('../drawer/drawer', () => ({ default: StubDrawer }));
+vi.mock('../../src/newtab/Pins', () => ({ Pins: StubPins }));
+vi.mock('../../src/resurface/Resurface', () => ({ default: () => null }));
+vi.mock('../../src/newtab/SettingsPanel', () => ({ default: StubSettings }));
+vi.mock('../../src/newtab/HelpOverlay', () => ({ default: StubHelp }));
+vi.mock('../../src/drawer/drawer', () => ({ default: StubDrawer }));
 /*
  * dnd-kit is externalised by Vitest, so it resolves the real `react` instead
  * of the Preact alias and cannot render here. The context provider adds no
  * surface behaviour, so it is passed through.
  */
-vi.mock('../drawer/WorkspaceDnd', () => ({ WorkspaceDnd: StubDnd }));
+vi.mock('../../src/drawer/WorkspaceDnd', () => ({ WorkspaceDnd: StubDnd }));
 
 const DRAWER_EXIT_MS = 480;
 const CLOCK_TICK_MS = 1_000;

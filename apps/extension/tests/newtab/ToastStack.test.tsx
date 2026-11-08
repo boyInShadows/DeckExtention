@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it, vi } from 'vitest';
 
-import { keyDown, render } from '../testing/render';
-import ToastStack, { type Notice } from './ToastStack';
+import { keyDown, render } from '../../src/testing/render';
+import ToastStack, { type Notice } from '../../src/newtab/ToastStack';
 
 afterEach(() => vi.useRealTimers());
 

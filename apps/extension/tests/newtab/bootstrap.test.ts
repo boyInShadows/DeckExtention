@@ -10,9 +10,9 @@ import {
 import { deleteDB } from 'idb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DeckRepository } from '../storage/repository';
-import { openDeckDatabase } from '../storage/database';
-import { hydrateSurface } from './bootstrap';
+import { DeckRepository } from '../../src/storage/repository';
+import { openDeckDatabase } from '../../src/storage/database';
+import { hydrateSurface } from '../../src/newtab/bootstrap';
 
 const DATABASE_NAME = 'deck-bootstrap-test';
 let repository: DeckRepository | undefined;
