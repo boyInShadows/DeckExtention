@@ -160,6 +160,10 @@ test('local wallpapers keep surface text and opaque panels readable in both them
           .getByRole('group', { name: 'Theme', exact: true })
           .getByRole('button', { name: theme, exact: true })
           .click();
+        await expect(page.locator('html')).toHaveAttribute(
+          'data-theme',
+          theme.toLowerCase(),
+        );
         const image = await page.evaluate((fill) => {
           const canvas = document.createElement('canvas');
           canvas.width = 64;
@@ -183,9 +187,9 @@ test('local wallpapers keep surface text and opaque panels readable in both them
           'data-loaded',
           'true',
         );
-        const panelColor = await page
-          .locator('body')
-          .evaluate((body) => getComputedStyle(body).color);
+        const panelColor =
+          theme === 'Day' ? 'rgb(39, 45, 54)' : 'rgb(245, 238, 227)';
+        await expect(page.locator('body')).toHaveCSS('color', panelColor);
         await expect(page.locator('[data-deck="clock"]')).toHaveCSS(
           'color',
           'rgb(255, 255, 255)',
