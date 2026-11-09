@@ -66,6 +66,38 @@ export function observeDatabaseTransactions() {
   };
 }
 
+export function observeDatabaseReads() {
+  const profile = (window.__deckStartupProfile ??= {
+    spans: [],
+    renderMs: null,
+  });
+  function observe<T>(request: IDBRequest<T>, store: string, startMs: number) {
+    const finish = (event: Event) =>
+      profile.spans.push({
+        kind: 'request:read',
+        startMs,
+        endMs: performance.now(),
+        stores: [store],
+        isFailure: event.type === 'error',
+      });
+    request.addEventListener('success', finish, { once: true });
+    request.addEventListener('error', finish, { once: true });
+    return request;
+  }
+  const get = IDBObjectStore.prototype.get;
+  IDBObjectStore.prototype.get = function (...args: Parameters<typeof get>) {
+    const startMs = performance.now();
+    return observe(get.apply(this, args), this.name, startMs);
+  };
+  const getAll = IDBObjectStore.prototype.getAll;
+  IDBObjectStore.prototype.getAll = function (
+    ...args: Parameters<typeof getAll>
+  ) {
+    const startMs = performance.now();
+    return observe(getAll.apply(this, args), this.name, startMs);
+  };
+}
+
 export function observeSurfaceRender() {
   const profile = (window.__deckStartupProfile ??= {
     spans: [],

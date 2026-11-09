@@ -10,9 +10,11 @@ import { writeFile } from 'node:fs/promises';
 import { launchExtension } from './extension';
 import {
   observeDatabaseOpen,
+  observeDatabaseReads,
   observeDatabaseTransactions,
   observeSurfaceRender,
 } from './startupProbe';
+import { observeStartupScripts } from './startupScripts';
 
 const READY = 'html[data-deck-ready="true"]';
 const WARM_SAMPLES = 20;
@@ -88,14 +90,18 @@ async function recordSamples(
   testInfo: TestInfo,
 ) {
   const samples = [];
+  let scripts: Awaited<ReturnType<typeof observeStartupScripts>> | undefined;
   for (let index = 0; index < WARM_SAMPLES + TRACED_SAMPLES; index += 1) {
     const isTraced = index >= WARM_SAMPLES;
-    if (isTraced)
+    if (isTraced) {
+      scripts ??= await observeStartupScripts(session);
+      await scripts.start();
       await session.send('Tracing.start', {
         categories:
           'devtools.timeline,blink.user_timing,v8,disabled-by-default-devtools.timeline',
         transferMode: 'ReturnAsStream',
       });
+    }
     await page.reload();
     await page.waitForSelector(READY);
     await page.waitForFunction(
@@ -104,13 +110,31 @@ async function recordSamples(
       { timeout: PAINT_TIMEOUT_MS },
     );
     samples.push(await startupSample(page, isTraced));
-    if (isTraced)
+    if (isTraced && scripts) {
+      await saveScriptProfile(
+        scripts,
+        testInfo.outputPath(`startup-${index}.scripts.json`),
+      );
       await finishTrace(
         session,
         testInfo.outputPath(`startup-${index}.trace.json`),
       );
+    }
   }
   return samples;
+}
+
+async function saveScriptProfile(
+  scripts: Awaited<ReturnType<typeof observeStartupScripts>>,
+  path: string,
+) {
+  const scriptProfile = await scripts.stop();
+  await writeFile(path, JSON.stringify(scriptProfile));
+  expect(scriptProfile.profile.samples?.length).toBeGreaterThan(0);
+  expect(scriptProfile.metadata.some((script) => script.isDeck)).toBe(true);
+  expect(
+    scriptProfile.metadata.some((script) => script.isPlaywrightInjected),
+  ).toBe(true);
 }
 
 function assertSamples(samples: Awaited<ReturnType<typeof recordSamples>>) {
@@ -131,6 +155,14 @@ function assertSamples(samples: Awaited<ReturnType<typeof recordSamples>>) {
             span.startMs < sample.renderMs,
         ),
       ).toBe(true);
+    for (const store of ['pages', 'decks', 'cards', 'meta']) {
+      const reads = sample.spans.filter(
+        (span) =>
+          span.kind.startsWith('request:') && span.stores.includes(store),
+      );
+      expect(reads.length).toBeGreaterThan(0);
+      expect(reads.some((span) => span.endMs <= sample.renderMs)).toBe(true);
+    }
     expect(
       sample.spans.every(
         (span) => !span.isFailure && span.endMs >= span.startMs,
@@ -148,6 +180,7 @@ test('startup diagnostics: database, render and frame stages (instrumented, not 
   try {
     await context.addInitScript(observeDatabaseOpen);
     await context.addInitScript(observeDatabaseTransactions);
+    await context.addInitScript(observeDatabaseReads);
     await context.addInitScript(observeSurfaceRender);
     const page = await context.newPage();
     await page.goto('chrome://newtab/');
@@ -160,6 +193,8 @@ test('startup diagnostics: database, render and frame stages (instrumented, not 
         instrumented: true,
         isAcceptanceReport: false,
         isCoverageInstrumented: process.env.DECK_COVERAGE === '1',
+        browserVersion: context.browser()?.version(),
+        tracedSamplesHaveDebuggerAndCpuProfiler: true,
         fixture:
           'one persisted pin and completed export, matching phase1 warm setup',
         samples,
@@ -172,36 +207,54 @@ test('startup diagnostics: database, render and frame stages (instrumented, not 
   }
 });
 
+async function abortRead() {
+  const request = indexedDB.open('deck');
+  const database = await new Promise<IDBDatabase>((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  try {
+    const tx = database.transaction('cards');
+    const aborted = new Promise<boolean>((resolve) => {
+      tx.onabort = () => resolve(true);
+    });
+    const request = tx.objectStore('cards').getAll();
+    const failed = new Promise<string | undefined>((resolve) => {
+      request.onerror = () => resolve(request.error?.name);
+    });
+    tx.abort();
+    return {
+      didAbort: await aborted,
+      requestError: await failed,
+      isNativeRequest: request instanceof IDBRequest,
+      requestSpan: window.__deckStartupProfile?.spans.find(
+        (span) => span.kind === 'request:read' && span.isFailure,
+      ),
+      span: window.__deckStartupProfile?.spans.find(
+        (span) => span.kind === 'transaction:readonly' && span.isFailure,
+      ),
+    };
+  } finally {
+    database.close();
+  }
+}
+
 test('startup observer preserves native transaction aborts and reports them', async () => {
   const context = await launchExtension();
   try {
     await context.addInitScript(observeDatabaseTransactions);
+    await context.addInitScript(observeDatabaseReads);
     const page = await context.newPage();
     await page.goto('chrome://newtab/');
     await page.waitForSelector(READY);
-    const outcome = await page.evaluate(async () => {
-      const request = indexedDB.open('deck');
-      const database = await new Promise<IDBDatabase>((resolve, reject) => {
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-      try {
-        const tx = database.transaction('cards');
-        const aborted = new Promise<boolean>((resolve) => {
-          tx.onabort = () => resolve(true);
-        });
-        tx.abort();
-        return {
-          didAbort: await aborted,
-          span: window.__deckStartupProfile?.spans.find(
-            (span) => span.isFailure,
-          ),
-        };
-      } finally {
-        database.close();
-      }
-    });
+    const outcome = await page.evaluate(abortRead);
     expect(outcome.didAbort).toBe(true);
+    expect(outcome.requestError).toBe('AbortError');
+    expect(outcome.isNativeRequest).toBe(true);
+    expect(outcome.requestSpan).toMatchObject({
+      stores: ['cards'],
+      isFailure: true,
+    });
     expect(outcome.span).toMatchObject({
       kind: 'transaction:readonly',
       stores: ['cards'],
