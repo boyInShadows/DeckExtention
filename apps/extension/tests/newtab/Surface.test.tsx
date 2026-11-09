@@ -224,8 +224,15 @@ type MessageListener = (
   sendResponse: (response: boolean) => void,
 ) => boolean | undefined;
 let messageListeners: MessageListener[] = [];
+type StorageListener = Parameters<
+  typeof chrome.storage.onChanged.addListener
+>[0];
+let storageListeners: StorageListener[] = [];
 let storageGet = vi.fn(() => Promise.resolve<Record<string, unknown>>({}));
 const storageRemove = vi.fn(() => Promise.resolve());
+const runtimeSendMessage = vi.fn<() => Promise<{ error: string | null }>>(() =>
+  Promise.resolve({ error: null }),
+);
 const cancelIdle = vi.fn((handle: number) => idles.delete(handle));
 const cancelFrame = vi.fn((handle: number) => frames.delete(handle));
 
@@ -242,9 +249,20 @@ function stubBrowser(): void {
   vi.stubGlobal('cancelIdleCallback', cancelIdle);
   vi.stubGlobal('chrome', {
     tabs: { getCurrent: () => Promise.resolve({ id: 7 }) },
-    storage: { local: { get: storageGet, remove: storageRemove } },
+    storage: {
+      local: { get: storageGet, remove: storageRemove },
+      onChanged: {
+        addListener: (listener: StorageListener) =>
+          storageListeners.push(listener),
+        removeListener: (listener: StorageListener) => {
+          storageListeners = storageListeners.filter(
+            (item) => item !== listener,
+          );
+        },
+      },
+    },
     runtime: {
-      sendMessage: vi.fn(() => Promise.resolve({ error: null })),
+      sendMessage: runtimeSendMessage,
       onMessage: {
         addListener: (listener: MessageListener) => {
           messageListeners = [...messageListeners, listener];
@@ -330,8 +348,11 @@ beforeEach(() => {
   frames.clear();
   idles.clear();
   messageListeners = [];
+  storageListeners = [];
   storageGet = vi.fn(() => Promise.resolve<Record<string, unknown>>({}));
   storageRemove.mockClear();
+  runtimeSendMessage.mockReset();
+  runtimeSendMessage.mockResolvedValue({ error: null });
   cancelIdle.mockClear();
   cancelFrame.mockClear();
   stubBrowser();
@@ -524,6 +545,43 @@ describe('Surface hand-over from Quick Save', () => {
     expect(alertText(view)).toContain('quota');
     expect(storageRemove).not.toHaveBeenCalled();
     view.unmount();
+  });
+
+  it('removes a resolved backup warning and preserves an unrelated error', async () => {
+    storageGet = vi.fn(() =>
+      Promise.resolve<Record<string, unknown>>({
+        [BACKUP_ERROR_KEY]: { message: 'old backup failure', occurredAt: 1 },
+        [DRAWER_COMMAND_ERROR_KEY]: {
+          message: 'distinct drawer failure',
+          occurredAt: 1,
+        },
+      }),
+    );
+    stubBrowser();
+    runtimeSendMessage.mockResolvedValue({
+      error: 'old backup failure',
+    });
+    const view = await mount(surfaceData());
+    expect(view.container.textContent).toContain('old backup failure');
+    expect(view.container.textContent).toContain('distinct drawer failure');
+    await view.act(() => {
+      for (const listener of storageListeners)
+        listener(
+          {
+            [BACKUP_ERROR_KEY]: {
+              oldValue: { message: 'old backup failure', occurredAt: 1 },
+            },
+          },
+          'local',
+        );
+    });
+    await settle(view);
+    await flushFrames(view);
+    await flushIdle(view);
+    expect(view.container.textContent).not.toContain('old backup failure');
+    expect(view.container.textContent).toContain('distinct drawer failure');
+    view.unmount();
+    expect(storageListeners).toHaveLength(0);
   });
 
   it('ignores a malformed notice', async () => {

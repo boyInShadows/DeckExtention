@@ -30,6 +30,7 @@ const RELOAD_DECK_ACTION = {
 
 export function backupFailureNotice(message: string): NoticeInput {
   const failure: NoticeInput = {
+    source: 'backup',
     kind: 'error',
     text: `${strings.backupFailed} ${message}`,
   };
@@ -38,7 +39,7 @@ export function backupFailureNotice(message: string): NoticeInput {
       OlderSettingsErrorSchema.safeParse(JSON.parse(message) as unknown).success
     )
       return {
-        kind: 'error',
+        ...failure,
         text: strings.backupReloadRequired,
         action: RELOAD_DECK_ACTION,
       };
@@ -46,6 +47,46 @@ export function backupFailureNotice(message: string): NoticeInput {
     return failure;
   }
   return failure;
+}
+
+export function watchBackupNotices(
+  notify: (notice: NoticeInput) => void,
+  clear: () => void,
+): () => void {
+  let revision = 0;
+  const replace = (value: unknown) => {
+    clear();
+    if (value === undefined) return;
+    const result = BackgroundErrorSchema.safeParse(value);
+    notify(
+      backupFailureNotice(
+        result.success ? result.data.message : result.error.message,
+      ),
+    );
+  };
+  const onChanged = (
+    changes: Record<string, chrome.storage.StorageChange>,
+    area: string,
+  ) => {
+    if (area !== 'local' || !Object.hasOwn(changes, BACKUP_ERROR_KEY)) return;
+    revision += 1;
+    replace(changes[BACKUP_ERROR_KEY]?.newValue);
+  };
+  chrome.storage.onChanged.addListener(onChanged);
+  const initialRevision = revision;
+  void chrome.storage.local.get(BACKUP_ERROR_KEY).then(
+    (items) => {
+      if (revision === initialRevision) replace(items[BACKUP_ERROR_KEY]);
+    },
+    (error: unknown) => {
+      if (revision === initialRevision)
+        notify({ kind: 'error', text: String(error) });
+    },
+  );
+  return () => {
+    revision += 1;
+    chrome.storage.onChanged.removeListener(onChanged);
+  };
 }
 
 export async function readPendingNotices(
@@ -59,7 +100,6 @@ export async function readPendingNotices(
     CAPTURE_NOTICE_KEY,
     SETTINGS_NOTICE_KEY,
     DRAWER_COMMAND_ERROR_KEY,
-    BACKUP_ERROR_KEY,
     STASH_NOTICE_KEY,
   ]);
   const stash = StashNoticeSchema.safeParse(items[STASH_NOTICE_KEY]);
@@ -83,7 +123,6 @@ export async function readPendingNotices(
   const drawerError = BackgroundErrorSchema.safeParse(
     items[DRAWER_COMMAND_ERROR_KEY],
   );
-  const backupError = BackgroundErrorSchema.safeParse(items[BACKUP_ERROR_KEY]);
   if (notice.success)
     notify({ kind: notice.data.kind ?? 'error', text: notice.data.message });
   if (settingsNotice.success)
@@ -96,8 +135,6 @@ export async function readPendingNotices(
       kind: 'error',
       text: `${strings.drawerCommandFailed} ${drawerError.data.message}`,
     });
-  if (backupError.success)
-    notify(backupFailureNotice(backupError.data.message));
   const consumed = [
     ...(stash.success ? [STASH_NOTICE_KEY] : []),
     ...(notice.success ? [CAPTURE_NOTICE_KEY] : []),

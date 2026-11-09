@@ -247,12 +247,26 @@ export function Surface({ initialData }: SurfaceProps) {
 
   // Quick Save hands over here when its toast could not show (P2.S4).
   useEffect(() => {
+    let isCurrent = true;
+    let stopWatching: (() => void) | undefined;
     // Consumed once: a reload of this tab should start calm again.
     if (location.hash === OPEN_SETTINGS_HASH)
       history.replaceState(null, '', location.pathname);
     void import('./pendingNotices')
-      .then(({ readPendingNotices }) => readPendingNotices(notify))
+      .then(({ readPendingNotices, watchBackupNotices }) => {
+        if (!isCurrent) return;
+        stopWatching = watchBackupNotices(notify, () => {
+          setNotices((current) =>
+            current.filter((notice) => notice.source !== 'backup'),
+          );
+        });
+        return readPendingNotices(notify);
+      })
       .catch((noticeError: unknown) => notifyError(String(noticeError)));
+    return () => {
+      isCurrent = false;
+      stopWatching?.();
+    };
   }, [notify, notifyError]);
 
   useLayoutEffect(() => {
@@ -270,11 +284,6 @@ export function Surface({ initialData }: SurfaceProps) {
           .catch(notifyFailure);
         void chrome.runtime
           .sendMessage({ type: MAINTENANCE_MESSAGE })
-          .then(async (reply: { error: string | null }) => {
-            if (!reply.error) return;
-            const { backupFailureNotice } = await import('./pendingNotices');
-            notify(backupFailureNotice(reply.error));
-          })
           .catch(notifyFailure);
       });
     });
@@ -283,7 +292,7 @@ export function Surface({ initialData }: SurfaceProps) {
       if (idle !== null) window.cancelIdleCallback(idle);
       clearTimeout(drawerExitTimer.current);
     };
-  }, [notify, notifyFailure]);
+  }, [notifyFailure]);
 
   useLayoutEffect(() => {
     if (!tabId.current)
