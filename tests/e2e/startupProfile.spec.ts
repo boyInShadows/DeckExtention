@@ -15,6 +15,7 @@ import {
   observeSurfaceRender,
 } from './startupProbe';
 import { observeStartupScripts } from './startupScripts';
+import { observeStartupMetadata } from './startupMetadata';
 
 const READY = 'html[data-deck-ready="true"]';
 const WARM_SAMPLES = 20;
@@ -149,6 +150,16 @@ function assertSamples(samples: Awaited<ReturnType<typeof recordSamples>>) {
     if (!opened) throw new Error('Database opening was not observed');
     expect(opened.startMs).toBeGreaterThanOrEqual(sample.mainMs);
     expect(opened.endMs).toBeLessThanOrEqual(sample.renderMs);
+    for (const kind of ['metadata:storage', 'metadata:databases']) {
+      expect(
+        sample.spans.some(
+          (span) =>
+            span.kind === kind &&
+            span.startMs >= sample.mainMs &&
+            span.endMs <= opened.startMs,
+        ),
+      ).toBe(true);
+    }
     expect(sample.renderMs).toBeGreaterThanOrEqual(sample.mainMs);
     expect(sample.readyMs).toBeGreaterThanOrEqual(sample.renderMs);
     for (const store of ['pages', 'decks', 'cards', 'meta'])
@@ -184,6 +195,7 @@ test('startup diagnostics: database, render and frame stages (instrumented, not 
   const context = await launchExtension();
   try {
     await context.addInitScript(observeDatabaseOpen);
+    await context.addInitScript(observeStartupMetadata);
     await context.addInitScript(observeDatabaseTransactions);
     await context.addInitScript(observeDatabaseReads);
     await context.addInitScript(observeSurfaceRender);
