@@ -16,6 +16,9 @@ describe('Line action catalogue', () => {
       '>new deck',
       '>stash',
       '>tabs',
+      '>help',
+      '>keys',
+      '>shortcuts',
     ]);
   });
 });

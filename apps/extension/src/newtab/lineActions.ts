@@ -27,7 +27,7 @@ interface ActionContext {
 }
 
 export async function executeAction(
-  id: ActionId,
+  id: Exclude<ActionId, 'help' | 'keys' | 'shortcuts'>,
   context: ActionContext,
 ): Promise<void> {
   if (id === 'blur') {

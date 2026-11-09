@@ -609,6 +609,22 @@ describe('Line Enter', () => {
     expect(lineActions.searchWeb).not.toHaveBeenCalled();
     view.unmount();
   });
+
+  it.each(['>help', '>keys', '>shortcuts', '>HELP'])(
+    'opens existing help on Enter for %s without losing the input',
+    async (query) => {
+      const { props, render: mount } = setup();
+      const view = await mount();
+      await typeQuery(view, query);
+      expect(props.openHelp).not.toHaveBeenCalled();
+      await press(view, 'Enter');
+      expect(props.openHelp).toHaveBeenCalledTimes(1);
+      expect(input(view).value).toBe(query);
+      expect(lineActions.executeAction).not.toHaveBeenCalled();
+      expect(lineActions.searchWeb).not.toHaveBeenCalled();
+      view.unmount();
+    },
+  );
 });
 
 describe('Line focus keys', () => {

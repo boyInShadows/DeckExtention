@@ -11,7 +11,10 @@ export type ActionId =
   | 'new-page'
   | 'new-deck'
   | 'stash'
-  | 'tabs';
+  | 'tabs'
+  | 'help'
+  | 'keys'
+  | 'shortcuts';
 
 export const LINE_ACTIONS: { id: ActionId; command: string; label: string }[] =
   [
@@ -34,6 +37,9 @@ export const LINE_ACTIONS: { id: ActionId; command: string; label: string }[] =
     { id: 'new-deck', command: '>new deck', label: strings.actionNewDeck },
     { id: 'stash', command: '>stash', label: strings.actionStash },
     { id: 'tabs', command: '>tabs', label: strings.actionTabs },
+    { id: 'help', command: '>help', label: strings.keyboard },
+    { id: 'keys', command: '>keys', label: strings.keyboard },
+    { id: 'shortcuts', command: '>shortcuts', label: strings.keyboard },
   ];
 
 export function filterLineActions(query: string, isCommand: boolean) {

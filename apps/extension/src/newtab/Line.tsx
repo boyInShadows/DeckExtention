@@ -220,6 +220,12 @@ export function Line(props: LineProps) {
       }
       const action = targetGroup === 'actions' ? actions[index] : undefined;
       if (action) {
+        if (
+          action.id === 'help' ||
+          action.id === 'keys' ||
+          action.id === 'shortcuts'
+        )
+          return props.openHelp();
         if (isActionPending.current) return;
         isActionPending.current = true;
         try {
