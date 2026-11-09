@@ -17,6 +17,7 @@ vi.mock('../../src/drawer/drawer', () => {
   throw new Error('chunk missing');
 });
 vi.mock('../../src/newtab/Pins', () => ({ Pins: () => null }));
+vi.mock('../../src/focus/FocusMonitor', () => ({ default: () => null }));
 vi.mock('../../src/resurface/Resurface', () => ({
   get default() {
     throw new Error('Resurface chunk missing');

@@ -6,5 +6,6 @@ export function workspaceSections(linksPageId: string) {
     { id: 'tasks', label: strings.tasks, icon: 'tasks' as const },
     { id: 'inbox', label: strings.inbox, icon: 'inbox' as const },
     { id: 'sessions', label: strings.sessions, icon: 'sessions' as const },
+    { id: 'focus', label: strings.focus, icon: 'focus' as const },
   ];
 }

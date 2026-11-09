@@ -26,7 +26,7 @@ test('navigation stays transparent with distinct icons, hover, focus and selecti
           .locator('svg')
           .evaluateAll((icons) => icons.map((icon) => icon.innerHTML)),
       ).size,
-    ).toBe(4);
+    ).toBe(5);
 
     for (const theme of ['night', 'day']) {
       await page.evaluate((value) => {
@@ -83,7 +83,7 @@ test('navigation stays transparent with distinct icons, hover, focus and selecti
         await page.mouse.move(0, 0);
         await page.keyboard.press('Tab');
         await buttons.first().focus();
-        for (let index = 0; index < 4; index += 1) {
+        for (let index = 0; index < 5; index += 1) {
           const button = buttons.nth(index);
           await expect(button).toBeFocused();
           await expect(button).toHaveCSS('outline-style', 'solid');
@@ -92,7 +92,7 @@ test('navigation stays transparent with distinct icons, hover, focus and selecti
             'background-color',
             'rgba(0, 0, 0, 0)',
           );
-          if (index < 3) await page.keyboard.press('Tab');
+          if (index < 4) await page.keyboard.press('Tab');
         }
         await tasks.focus();
         await page.keyboard.press('Enter');

@@ -15,6 +15,7 @@ import {
 
 import type { DeckDatabaseHandle } from './database';
 import type { DeckDocument } from './document';
+import { broadcastFocus } from '../focus/storage';
 
 type MakeOp = (
   entity: OpEntity,
@@ -98,4 +99,5 @@ export async function replaceDocument(
     .objectStore('ops')
     .put(makeOp('settings', SETTINGS_ENTITY_ID, 'upsert', document.settings));
   await transaction.done;
+  broadcastFocus();
 }

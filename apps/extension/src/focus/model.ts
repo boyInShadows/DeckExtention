@@ -122,7 +122,7 @@ function finishFocus(
   const endedAt =
     isCompleted && session.runningSince !== null
       ? session.runningSince + session.durationMs - session.elapsedMs
-      : Math.max(now, session.startedAt);
+      : Math.max(now, session.startedAt + elapsedMs);
   const { id, task, startedAt, durationMs } = session;
   return {
     ...state,
@@ -144,6 +144,28 @@ function finishFocus(
   };
 }
 
+function startFocus(
+  state: FocusState,
+  minutes: number,
+  now: number,
+  id: string | undefined,
+  task: FocusTask | null,
+): FocusState {
+  if (state.active) throw new Error(strings.focusAlreadyRunning);
+  return FocusStateSchema.parse({
+    ...state,
+    minutes: MinutesSchema.parse(minutes),
+    active: {
+      id,
+      task,
+      startedAt: now,
+      durationMs: minutes * FOCUS_MINUTE_MS,
+      elapsedMs: 0,
+      runningSince: now,
+    },
+  });
+}
+
 export function transitionFocus(
   stored: FocusState,
   action: FocusAction,
@@ -159,22 +181,8 @@ export function transitionFocus(
   )
     state = finishFocus(state, state.active, now);
   if (action.type === 'sync') return state;
-  if (action.type === 'start') {
-    if (state.active) throw new Error(strings.focusAlreadyRunning);
-    const minutes = MinutesSchema.parse(action.minutes);
-    return FocusStateSchema.parse({
-      ...state,
-      minutes,
-      active: {
-        id,
-        task,
-        startedAt: now,
-        durationMs: minutes * FOCUS_MINUTE_MS,
-        elapsedMs: 0,
-        runningSince: now,
-      },
-    });
-  }
+  if (action.type === 'start')
+    return startFocus(state, action.minutes, now, id, task);
   const session = state.active;
   if (!session && state.history.some((entry) => entry.id === action.id))
     return state;
@@ -188,7 +196,9 @@ export function transitionFocus(
       ...session,
       elapsedMs,
       runningSince:
-        action.type === 'pause' ? null : Math.max(now, session.startedAt),
+        action.type === 'pause'
+          ? null
+          : Math.max(now, session.startedAt + elapsedMs),
     },
   };
 }
@@ -207,8 +217,21 @@ export function focusSummary(state: FocusState, now: number) {
     date.setDate(date.getDate() - 1);
   }
   const activeMs = state.active ? focusElapsed(state.active, now) : 0;
+  const totals = new Map<string, { task: FocusTask; elapsedMs: number }>();
+  const sessions = [
+    ...state.history,
+    ...(state.active ? [{ ...state.active, elapsedMs: activeMs }] : []),
+  ];
+  for (const { task, elapsedMs } of sessions) {
+    if (task)
+      totals.set(task.id, {
+        task,
+        elapsedMs: (totals.get(task.id)?.elapsedMs ?? 0) + elapsedMs,
+      });
+  }
   return {
     streak,
+    byTask: [...totals.values()],
     totalMs: state.history.reduce(
       (total, entry) => total + entry.elapsedMs,
       activeMs,

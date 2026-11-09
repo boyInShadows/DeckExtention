@@ -54,13 +54,20 @@ test('reload repairs an older backup validator and preserves saved data', async 
 async function launchOlderWorker(testInfo: TestInfo) {
   const extension = testInfo.outputPath('older-worker');
   await cp(resolve('apps/extension/dist'), extension, { recursive: true });
-  const settingsFile = (await readdir(`${extension}/assets`)).find((name) =>
-    /^settings-.*\.js$/.test(name),
-  );
-  if (!settingsFile) throw new Error('Settings validator chunk not found');
-  const path = `${extension}/assets/${settingsFile}`;
-  const current = await readFile(path, 'utf8');
   const setting = /showGoogleSuggestions:\s*\w+\(\)\.default\((?:!0|true)\),?/g;
+  const assets = await Promise.all(
+    (await readdir(`${extension}/assets`))
+      .filter((name) => name.endsWith('.js'))
+      .map(async (name) => {
+        const path = `${extension}/assets/${name}`;
+        return { path, current: await readFile(path, 'utf8') };
+      }),
+  );
+  const candidates = assets.filter(({ current }) => current.match(setting));
+  expect(candidates).toHaveLength(1);
+  const validator = candidates[0];
+  if (!validator) throw new Error('Settings validator chunk not found');
+  const { path, current } = validator;
   expect(current.match(setting)).toHaveLength(1);
   await writeFile(path, current.replace(setting, ''));
   const context = await launchExtension(extension);

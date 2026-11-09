@@ -1,0 +1,166 @@
+@layer components {
+  .deck-focus {
+    min-inline-size: 0;
+    overflow: auto;
+    padding: var(--deck-space-3);
+    color: var(--deck-color-panel-text);
+  }
+
+  .deck-focus > * {
+    max-inline-size: var(--deck-task-content-width);
+    margin-inline: auto;
+  }
+
+  body:has([data-deck='focus'])
+    .deck-toast[data-kind='success']:not(:has(button)) {
+    display: none;
+  }
+
+  .deck-focus header h2 {
+    margin-block: 0 var(--deck-space-1);
+  }
+
+  .deck-focus__timer {
+    padding-block: var(--deck-space-4);
+    text-align: center;
+  }
+
+  .deck-focus__timer output {
+    display: block;
+    font-size: var(--deck-focus-countdown-size);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .deck-focus__timer p {
+    margin-block: var(--deck-space-1);
+    overflow-wrap: anywhere;
+  }
+
+  .deck-focus__hint,
+  .deck-focus__history p,
+  .deck-focus > header p {
+    color: var(--deck-color-panel-muted);
+  }
+
+  .deck-focus form,
+  .deck-focus fieldset,
+  .deck-focus__field,
+  .deck-focus label {
+    display: grid;
+    gap: var(--deck-space-1);
+  }
+
+  .deck-focus fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-inline-size: 0;
+    grid-template-columns: 1fr 2fr;
+  }
+
+  .deck-focus label {
+    min-inline-size: 0;
+  }
+
+  .deck-focus :is(input, select, button) {
+    min-inline-size: 0;
+    min-block-size: var(--deck-task-control-size);
+    border: 1px solid var(--deck-color-panel-hairline);
+    border-radius: var(--deck-space-1);
+    padding: var(--deck-space-1) var(--deck-space-2);
+    background: var(--deck-color-canvas-raised);
+    color: inherit;
+    font: inherit;
+  }
+
+  .deck-focus :is(input, select) {
+    inline-size: 100%;
+  }
+
+  .deck-focus button {
+    cursor: pointer;
+  }
+
+  .deck-focus :is(input, select, button):focus-visible {
+    outline: 2px solid var(--deck-color-panel-focus);
+    outline-offset: 2px;
+  }
+
+  .deck-focus :disabled {
+    opacity: 0.65;
+    cursor: default;
+  }
+
+  .deck-focus__controls {
+    display: flex;
+    gap: var(--deck-space-1);
+    margin-block-start: var(--deck-space-1);
+  }
+
+  .deck-focus__controls button {
+    flex: 1;
+  }
+
+  .deck-focus button:hover:not(:disabled) {
+    background: var(--deck-color-panel-hover);
+  }
+
+  .deck-focus__hint {
+    margin-block: var(--deck-space-2);
+    font-size: var(--deck-font-label);
+  }
+
+  .deck-focus__history {
+    padding-block-start: var(--deck-space-2);
+    border-block-start: 1px solid var(--deck-color-panel-hairline);
+  }
+
+  .deck-focus dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--deck-space-3);
+  }
+
+  .deck-focus dt {
+    color: var(--deck-color-panel-muted);
+  }
+
+  .deck-focus dd {
+    margin: 0;
+    font-size: var(--deck-font-note-h3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .deck-focus ul {
+    padding: 0;
+    list-style: none;
+  }
+
+  .deck-focus li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--deck-space-2);
+    padding-block: var(--deck-space-1);
+  }
+
+  .deck-focus li span {
+    overflow-wrap: anywhere;
+    min-inline-size: 0;
+  }
+
+  .deck-focus li strong {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (width < 600px) {
+    .deck-focus {
+      padding: var(--deck-space-2);
+    }
+
+    .deck-focus fieldset {
+      grid-template-columns: 1fr;
+    }
+  }
+}

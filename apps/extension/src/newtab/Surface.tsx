@@ -30,6 +30,8 @@ import type ResurfacePanel from '../resurface/Resurface';
 import type ShelfPanel from '../shelf/Shelf';
 import type { Card } from 'deck-schema';
 import type { CreatedWorkspace } from './lineWorkspace';
+import type FocusMonitorPanel from '../focus/FocusMonitor';
+import type { FocusEntry } from '../focus/model';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
 const HelpOverlay = lazy(() => import('./HelpOverlay'));
@@ -70,6 +72,9 @@ export function Surface({ initialData }: SurfaceProps) {
   const [Resurface, setResurface] = useState<typeof ResurfacePanel | null>(
     null,
   );
+  const [FocusMonitor, setFocusMonitor] = useState<
+    typeof FocusMonitorPanel | null
+  >(null);
   const keymap = useMemo(
     () => new Map(settings.keymap.map(({ action, chord }) => [action, chord])),
     [settings.keymap],
@@ -149,6 +154,34 @@ export function Surface({ initialData }: SurfaceProps) {
     }, DRAWER_EXIT_MS);
     return true;
   }, []);
+
+  const openWorkspacePage = useCallback(
+    async (pageId: string) => {
+      if ((await beforeDrawerClose.current?.()) === false) return;
+      setCreatedWorkspace(null);
+      setNavigationRequest({ pageId });
+      openDrawer();
+    },
+    [openDrawer],
+  );
+
+  const focusCompleted = useCallback(
+    (entry: FocusEntry) => {
+      void import('../i18n/panelStrings')
+        .then(({ panelStrings }) =>
+          notify({
+            kind: 'info',
+            text: panelStrings.focusCompleted(entry.task?.title),
+            action: {
+              label: panelStrings.focusView,
+              run: () => openWorkspacePage('focus'),
+            },
+          }),
+        )
+        .catch(notifyFailure);
+    },
+    [notify, notifyFailure, openWorkspacePage],
+  );
 
   const saveSettings = useCallback(
     async (next: typeof settings) => {
@@ -232,6 +265,9 @@ export function Surface({ initialData }: SurfaceProps) {
       }
       idle = window.requestIdleCallback(() => {
         void loadDrawer().catch(notifyFailure);
+        void import('../focus/FocusMonitor')
+          .then((module) => setFocusMonitor(() => module.default))
+          .catch(notifyFailure);
         void chrome.runtime
           .sendMessage({ type: MAINTENANCE_MESSAGE })
           .then(async (reply: { error: string | null }) => {
@@ -391,12 +427,7 @@ export function Surface({ initialData }: SurfaceProps) {
               )[0]?.id ?? 'links'
           }
           onOpen={(id) => {
-            void (async () => {
-              if ((await beforeDrawerClose.current?.()) === false) return;
-              setCreatedWorkspace(null);
-              setNavigationRequest({ pageId: id });
-              openDrawer();
-            })().catch(notifyFailure);
+            void openWorkspacePage(id).catch(notifyFailure);
           }}
         />
         <div data-deck="surface-column" className="deck-surface__column">
@@ -577,6 +608,13 @@ export function Surface({ initialData }: SurfaceProps) {
           ) : null}
         </Suspense>
         <Suspense>
+          {FocusMonitor ? (
+            <FocusMonitor
+              repository={initialData.repository}
+              onError={notifyError}
+              onComplete={focusCompleted}
+            />
+          ) : null}
           {isHelpOpen ? (
             <HelpOverlay
               keymapOverrides={settings.keymap}

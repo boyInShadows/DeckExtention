@@ -8,6 +8,7 @@ export const strings = {
   links: 'Links',
   tasks: 'Tasks',
   sessions: 'Sessions',
+  focus: 'Focus',
   sections: 'Workspace sections',
   openSection: (label: string) => `Open ${label}`,
   taskSaved: 'Task saved to Inbox',

@@ -13,7 +13,7 @@ import {
   type FocusEntry,
 } from './model';
 
-function broadcastFocus(): void {
+export function broadcastFocus(): void {
   if (typeof BroadcastChannel === 'undefined') return;
   const channel = new BroadcastChannel(FOCUS_CHANNEL);
   channel.postMessage(null);

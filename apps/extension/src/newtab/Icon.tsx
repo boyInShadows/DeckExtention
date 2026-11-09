@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 type IconName =
   | 'links'
   | 'tasks'
+  | 'focus'
   | 'close'
   | 'menu'
   | 'edit'
@@ -14,6 +15,12 @@ type IconName =
   | 'chevron';
 
 const PATHS: Record<IconName, ReactNode> = {
+  focus: (
+    <>
+      <circle cx="12" cy="13" r="8" />
+      <path d="M9 2h6m-3 0v3m6 1 2-2m-8 5v5l3 2" />
+    </>
+  ),
   links: (
     <path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" />
   ),

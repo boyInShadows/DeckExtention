@@ -126,12 +126,16 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
     await expect.poll(() => focusedCardId(page)).not.toBeNull();
 
     // Follow the displayed primary order from Links through Trash and back.
-    for (const section of ['Tasks', 'Inbox', 'Sessions', 'Trash']) {
+    for (const section of ['Tasks', 'Inbox', 'Sessions', 'Focus', 'Trash']) {
       await keys.press(']');
       await expect(
         page.getByRole('button', { name: section, exact: true }),
       ).toHaveAttribute('data-selected', 'true');
     }
+    await keys.press('[');
+    await expect(
+      page.getByRole('button', { name: 'Focus', exact: true }),
+    ).toHaveAttribute('data-selected', 'true');
     await keys.press('[');
     await expect(
       page.getByRole('button', { name: 'Sessions', exact: true }),

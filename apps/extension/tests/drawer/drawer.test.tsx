@@ -838,6 +838,7 @@ describe('Drawer - keys', () => {
       strings.tasks,
       strings.inbox,
       strings.sessions,
+      strings.focus,
       strings.trash,
     ]) {
       expect((await press(view, ']')).defaultPrevented).toBe(true);
@@ -849,6 +850,7 @@ describe('Drawer - keys', () => {
     expect(selectedTitle(view)).toBe('Home');
     for (const label of [
       strings.trash,
+      strings.focus,
       strings.sessions,
       strings.inbox,
       strings.tasks,

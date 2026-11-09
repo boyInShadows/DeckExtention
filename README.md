@@ -1,11 +1,11 @@
 # Deck
 
-A calm Chrome new tab with a glass workspace for links, notes, tasks and saved sessions.
+A calm Chrome new tab with a glass workspace for links, notes, tasks, saved sessions and focus timers.
 
 Open a new tab for the clock, The Line and six pinned links at a time. Use More
 links to reach the remaining pins. The page stays within the viewport; workspace
 panels scroll internally when needed. Choose Links,
-Tasks, Inbox or Sessions from the icon rail, or press `Ctrl+J` to open the floating
+Tasks, Inbox, Sessions or Focus from the icon rail, or press `Ctrl+J` to open the floating
 workspace. The rail moves to the top in narrow windows.
 
 No account, telemetry or remote fonts. Core features work offline.
@@ -19,8 +19,7 @@ remain available. Chrome host access is separate from this preference.
 ## Current state
 
 The surface, drawer, capture, bookmark import, sessions, open-tab search, daily
-resurfacing, tasks and optional Shelf are implemented. Glass navigation and the
-dedicated Tasks view are the latest first edit.
+resurfacing, tasks, focus timers and optional Shelf are implemented.
 
 This is an unreleased working build. Owner visual review, physical Chrome shortcuts,
 permission prompts, real-display checks and the field trial remain open. Strict
@@ -36,6 +35,10 @@ for every load. Sync and ongoing bookmark mirroring are not implemented.
   Move, pin, rename and trash items; edit notes with Markdown preview.
 - **Tasks:** add with Enter, view open/completed tasks, complete or reopen them,
   edit notes, and recover deletions through Trash or Undo.
+- **Focus:** choose an editable 25-minute countdown, with pause/resume and an optional
+  task link. Stopped sessions retain focused time; completed countdowns count toward
+  one daily streak. Countdowns continue while Deck is closed, with a completion notice
+  on return. Focus time and task totals are included in JSON backups.
 - **Capture and sessions:** Quick Save sends a page to Inbox without a destination
   picker. Stash saves eligible tabs; saved decks can reopen as tabs or tab groups.
 - **Appearance:** Night, Day and System themes, local wallpapers, privacy blur,

@@ -34,6 +34,7 @@ vi.mock('../../src/resurface/Resurface', () => ({ default: () => null }));
 vi.mock('../../src/newtab/SettingsPanel', () => ({ default: StubSettings }));
 vi.mock('../../src/newtab/HelpOverlay', () => ({ default: StubHelp }));
 vi.mock('../../src/drawer/drawer', () => ({ default: StubDrawer }));
+vi.mock('../../src/focus/FocusMonitor', () => ({ default: () => null }));
 /*
  * dnd-kit is externalised by Vitest, so it resolves the real `react` instead
  * of the Preact alias and cannot render here. The context provider adds no

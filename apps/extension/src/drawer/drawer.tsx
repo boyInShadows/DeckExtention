@@ -53,6 +53,7 @@ import type { DrawerProps } from './DrawerProps';
 import { PageDeleteSheet } from './PageDeleteSheet';
 import { TaskManager } from '../tasks/TaskManager';
 import { TASKS_PAGE_ID } from '../tasks/constants';
+import FocusPanel from '../focus/FocusPanel';
 
 function currentTimestamp(): number {
   return Date.now();
@@ -660,7 +661,16 @@ export default function Drawer({
           +
         </button>
       </aside>
-      {selectedId === TASKS_PAGE_ID ? (
+      {selectedId === 'focus' ? (
+        <FocusPanel
+          isOpen={isOpen}
+          repository={data.repository}
+          cards={cards}
+          decks={decks}
+          pages={pages}
+          onError={onError}
+        />
+      ) : selectedId === TASKS_PAGE_ID ? (
         <TaskManager
           isOpen={isOpen}
           cards={cards}

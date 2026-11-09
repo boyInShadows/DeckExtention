@@ -181,7 +181,13 @@ test('primary section order and readable controls stay consistent when the drawe
       const closedOrder = await nav
         .locator('[data-deck="section-label"]')
         .allTextContents();
-      expect(closedOrder).toEqual(['Links', 'Tasks', 'Inbox', 'Sessions']);
+      expect(closedOrder).toEqual([
+        'Links',
+        'Tasks',
+        'Inbox',
+        'Sessions',
+        'Focus',
+      ]);
       await nav
         .getByRole('button', { name: 'Open Inbox', exact: true })
         .click();
@@ -192,7 +198,7 @@ test('primary section order and readable controls stay consistent when the drawe
         .getByRole('button')
         .evaluateAll((buttons) =>
           buttons
-            .slice(0, 4)
+            .slice(0, 5)
             .map((button) => button.getAttribute('aria-label')),
         );
       await page.screenshot({

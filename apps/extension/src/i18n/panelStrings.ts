@@ -6,6 +6,32 @@ import { strings } from './strings';
  */
 export const panelStrings = {
   ...strings,
+  focusDescription: 'One thing at a time.',
+  focusDuration: 'Minutes',
+  focusTask: 'Task (optional)',
+  focusStandalone: 'On my own',
+  focusStart: 'Start focus',
+  focusPause: 'Pause focus',
+  focusResume: 'Resume focus',
+  focusStop: 'Stop focus',
+  focusRemaining: 'Time remaining',
+  focusReady: 'Ready when you are.',
+  focusRunning: 'Focus in progress',
+  focusPaused: 'Focus paused',
+  focusAccounting:
+    'Stop keeps your focused time. Only a completed countdown counts toward your streak.',
+  focusTotals: 'Your focus time',
+  focusTotal: 'Focused time',
+  focusDailyStreak: 'Daily streak',
+  focusByTask: 'Time by task',
+  focusNoTaskTime: 'Task-linked focus time will appear here.',
+  focusMinutes: (minutes: number) => `${minutes} min`,
+  focusStreak: (days: number) => `${days} ${days === 1 ? 'day' : 'days'}`,
+  focusCompleted: (title: string | undefined) =>
+    title
+      ? `Focus complete: ${title}.`
+      : 'Focus complete. A little further along.',
+  focusView: 'View focus',
   focusAlreadyRunning:
     'A focus session is already active. Pause or stop it first.',
   focusChanged:

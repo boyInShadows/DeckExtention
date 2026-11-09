@@ -64,6 +64,7 @@ describe('focus countdown', () => {
     expect(focusSummary(stopped, START + 11 * MINUTE)).toMatchObject({
       totalMs: 2 * MINUTE,
       streak: 0,
+      byTask: [{ task, elapsedMs: 2 * MINUTE }],
     });
     expect(started.active?.elapsedMs).toBe(0);
   });
@@ -168,5 +169,31 @@ describe('focus countdown', () => {
       FocusStateSchema.safeParse({ ...emptyFocus(), unreadId: 'missing_1' })
         .success,
     ).toBe(false);
+  });
+
+  it('keeps completion valid if the system clock moves backward during a pause', () => {
+    const paused = transitionFocus(
+      begin(),
+      { type: 'pause', id: 'focus_1' },
+      START + 20 * MINUTE,
+    );
+    const stopped = transitionFocus(
+      paused,
+      { type: 'stop', id: 'focus_1' },
+      START + MINUTE,
+    );
+    expect(FocusStateSchema.safeParse(stopped).success).toBe(true);
+    const resumed = transitionFocus(
+      paused,
+      { type: 'resume', id: 'focus_1' },
+      START + MINUTE,
+    );
+    const completed = transitionFocus(
+      resumed,
+      { type: 'sync' },
+      START + 30 * MINUTE,
+    );
+    expect(FocusStateSchema.safeParse(completed).success).toBe(true);
+    expect(completed.history[0]?.endedAt).toBe(START + 25 * MINUTE);
   });
 });

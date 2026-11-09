@@ -154,6 +154,7 @@
   --deck-nav-width: 4.75rem;
   --deck-task-content-width: 42rem;
   --deck-task-control-size: 2.75rem;
+  --deck-focus-countdown-size: clamp(3rem, 10vi, 5rem);
   --deck-task-checkbox-size: 1.25rem;
   --deck-space-1: 0.5rem;
   --deck-space-2: 1rem;
@@ -188,6 +189,7 @@
   --deck-clock-width: 8ch;
   --deck-control-size: 2.5rem;
   --deck-nav-item-size: 3.5rem;
+  --deck-nav-stack-size: var(--deck-nav-item-size);
   --deck-glass-blur: 1.25rem;
   --deck-workspace-inline-start: 7.5rem;
   --deck-workspace-block-start: 5.5rem;
