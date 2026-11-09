@@ -70,6 +70,19 @@ async function exerciseBackupSettings({
   }
 }
 
+function failMaintenanceReply(type: string) {
+  const send = chrome.runtime.sendMessage;
+  chrome.runtime.sendMessage = function (message: unknown, ...args: unknown[]) {
+    if (
+      message &&
+      typeof message === 'object' &&
+      Reflect.get(message, 'type') === type
+    )
+      return Promise.resolve({ error: 'fixture disk full' });
+    return Reflect.apply(send, chrome.runtime, [message, ...args]);
+  } as typeof send;
+}
+
 test('one persistent backup failure and its retry reply produce one alert', async () => {
   const context = await launchExtension();
   try {
@@ -86,21 +99,7 @@ test('one persistent backup failure and its retry reply produce one alert', asyn
         },
       });
     }, MAINTENANCE_MESSAGE);
-    await page.addInitScript((type) => {
-      const send = chrome.runtime.sendMessage;
-      chrome.runtime.sendMessage = function (
-        message: unknown,
-        ...args: unknown[]
-      ) {
-        if (
-          message &&
-          typeof message === 'object' &&
-          Reflect.get(message, 'type') === type
-        )
-          return Promise.resolve({ error: 'fixture disk full' });
-        return Reflect.apply(send, chrome.runtime, [message, ...args]);
-      } as typeof send;
-    }, MAINTENANCE_MESSAGE);
+    await page.addInitScript(failMaintenanceReply, MAINTENANCE_MESSAGE);
     await page.reload();
     const errors = page.locator('[data-deck="toast"][data-kind="error"]');
     await expect(errors.filter({ hasText: 'fixture disk full' })).toHaveCount(

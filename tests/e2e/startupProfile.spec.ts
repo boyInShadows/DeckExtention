@@ -6,6 +6,7 @@ import {
   type TestInfo,
 } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
+import { relative } from 'node:path';
 
 import { launchExtension } from './extension';
 import {
@@ -23,6 +24,7 @@ const TRACED_SAMPLES = 3;
 const DIAGNOSTIC_TIMEOUT_MS = 90_000;
 const PAINT_TIMEOUT_MS = 2_000;
 const SHOULD_PROFILE_SCRIPTS = process.env.DECK_COVERAGE !== '1';
+const CPU_PROFILE_ORDER = [false, true, true, false] as const;
 
 async function prepareWarmStore(page: Page) {
   await page.locator('[data-deck="pin-add"]').click();
@@ -90,6 +92,7 @@ async function recordSamples(
   page: Page,
   session: CDPSession,
   testInfo: TestInfo,
+  shouldProfileScripts: boolean,
 ) {
   const samples = [];
   let scripts: Awaited<ReturnType<typeof observeStartupScripts>> | undefined;
@@ -97,7 +100,7 @@ async function recordSamples(
     const isTraced = index >= WARM_SAMPLES;
     if (isTraced) {
       // Keep CPU identity capture separate from the precise-coverage session.
-      if (SHOULD_PROFILE_SCRIPTS) {
+      if (shouldProfileScripts && SHOULD_PROFILE_SCRIPTS) {
         scripts ??= await observeStartupScripts(session);
         await scripts.start();
       }
@@ -187,42 +190,56 @@ function assertSamples(samples: Awaited<ReturnType<typeof recordSamples>>) {
   }
 }
 
-test('startup diagnostics: database, render and frame stages (instrumented, not latency acceptance)', async ({
-  browserName,
-}, testInfo) => {
-  expect(browserName).toBe('chromium');
-  test.setTimeout(DIAGNOSTIC_TIMEOUT_MS);
-  const context = await launchExtension();
-  try {
-    await context.addInitScript(observeDatabaseOpen);
-    await context.addInitScript(observeStartupMetadata);
-    await context.addInitScript(observeDatabaseTransactions);
-    await context.addInitScript(observeDatabaseReads);
-    await context.addInitScript(observeSurfaceRender);
-    const page = await context.newPage();
-    await page.goto('chrome://newtab/');
-    await page.waitForSelector(READY);
-    await prepareWarmStore(page);
-    const session = await context.newCDPSession(page);
-    const samples = await recordSamples(page, session, testInfo);
-    await testInfo.attach('startup-profile.json', {
-      body: JSON.stringify({
-        instrumented: true,
-        isAcceptanceReport: false,
-        isCoverageInstrumented: process.env.DECK_COVERAGE === '1',
-        browserVersion: context.browser()?.version(),
-        tracedSamplesHaveDebuggerAndCpuProfiler: SHOULD_PROFILE_SCRIPTS,
-        fixture:
-          'one persisted pin and completed export, matching phase1 warm setup',
-        samples,
-      }),
-      contentType: 'application/json',
-    });
-    assertSamples(samples);
-  } finally {
-    await context.close();
-  }
-});
+for (const [index, shouldProfileScripts] of CPU_PROFILE_ORDER.entries()) {
+  test(`startup diagnostics ${index}: ${shouldProfileScripts ? 'CPU' : 'trace only'} (instrumented, not latency acceptance)`, async ({
+    browserName,
+  }, testInfo) => {
+    expect(browserName).toBe('chromium');
+    test.setTimeout(DIAGNOSTIC_TIMEOUT_MS);
+    const context = await launchExtension();
+    try {
+      await context.addInitScript(observeDatabaseOpen);
+      await context.addInitScript(observeStartupMetadata);
+      await context.addInitScript(observeDatabaseTransactions);
+      await context.addInitScript(observeDatabaseReads);
+      await context.addInitScript(observeSurfaceRender);
+      const page = await context.newPage();
+      await page.goto('chrome://newtab/');
+      await page.waitForSelector(READY);
+      await prepareWarmStore(page);
+      const session = await context.newCDPSession(page);
+      const samples = await recordSamples(
+        page,
+        session,
+        testInfo,
+        shouldProfileScripts,
+      );
+      await testInfo.attach('startup-profile.json', {
+        body: JSON.stringify({
+          instrumented: true,
+          isAcceptanceReport: false,
+          isCoverageInstrumented: process.env.DECK_COVERAGE === '1',
+          browserVersion: context.browser()?.version(),
+          tracedSamplesHaveDebuggerAndCpuProfiler:
+            shouldProfileScripts && SHOULD_PROFILE_SCRIPTS,
+          requestedCpuProfiler: shouldProfileScripts,
+          counterbalanceIndex: index,
+          artifactDirectory: relative(
+            testInfo.project.outputDir,
+            testInfo.outputDir,
+          ).replaceAll('\\', '/'),
+          fixture:
+            'one persisted pin and completed export, matching phase1 warm setup',
+          samples,
+        }),
+        contentType: 'application/json',
+      });
+      assertSamples(samples);
+    } finally {
+      await context.close();
+    }
+  });
+}
 
 async function abortRead() {
   const request = indexedDB.open('deck');
