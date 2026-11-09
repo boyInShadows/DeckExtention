@@ -38,6 +38,7 @@ export const strings = {
   settings: 'Settings',
   blurMode: 'Blur',
   updateFailed: 'Action failed.',
+  backupFailed: 'Backup failed.',
   saved: 'Saved',
   undo: 'Undo',
   openDrawer: 'Open Deck drawer',

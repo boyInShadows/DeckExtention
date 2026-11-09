@@ -89,10 +89,18 @@ export function Surface({ initialData }: SurfaceProps) {
   } | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
   const notify = useCallback((notice: NoticeInput) => {
-    setNotices((current) => [
-      ...current,
-      { ...notice, id: crypto.randomUUID() },
-    ]);
+    setNotices((current) => {
+      if (
+        notice.kind === 'error' &&
+        !notice.action &&
+        current.some(
+          (item) =>
+            item.kind === 'error' && !item.action && item.text === notice.text,
+        )
+      )
+        return current;
+      return [...current, { ...notice, id: crypto.randomUUID() }];
+    });
   }, []);
   const notifyError = useCallback(
     (text: string) => notify({ kind: 'error', text }),
@@ -226,7 +234,8 @@ export function Surface({ initialData }: SurfaceProps) {
         void chrome.runtime
           .sendMessage({ type: MAINTENANCE_MESSAGE })
           .then((reply: { error: string | null }) => {
-            if (reply.error) notifyFailure(reply.error);
+            if (reply.error)
+              notifyError(`${strings.backupFailed} ${reply.error}`);
           })
           .catch(notifyFailure);
       });
@@ -236,7 +245,7 @@ export function Surface({ initialData }: SurfaceProps) {
       if (idle !== null) window.cancelIdleCallback(idle);
       clearTimeout(drawerExitTimer.current);
     };
-  }, [notifyFailure]);
+  }, [notifyError, notifyFailure]);
 
   useLayoutEffect(() => {
     if (!tabId.current)

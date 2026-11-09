@@ -131,7 +131,6 @@ export const panelStrings = {
   backupSaved: 'Backup saved',
   drawerCommandFailed: 'Could not open the drawer.',
   drawerShortcutHint: 'Ctrl+J is not assigned. Assign it in Chrome shortcuts.',
-  backupFailed: 'Backup failed.',
   pageSaved: 'Page saved',
   untitledPage: (number: number) => `Page ${number}`,
   pinSaved: 'Pin saved',
