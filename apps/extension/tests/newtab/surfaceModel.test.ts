@@ -60,9 +60,22 @@ describe('surface model', () => {
       title: `Reference ${index} documentation`,
       hostname: `site${index}.example`,
     }));
+    const cpuStarted = process.cpuUsage();
     const started = performance.now();
     const search = buildSearchIndex(fixture);
-    expect(performance.now() - started).toBeLessThan(5);
+    const elapsedMs = performance.now() - started;
+    const cpu = process.cpuUsage(cpuStarted);
+    expect(
+      elapsedMs,
+      JSON.stringify({
+        elapsedMs,
+        cpuUserMicros: cpu.user,
+        cpuSystemMicros: cpu.system,
+        node: process.version,
+        platform: process.platform,
+        arch: process.arch,
+      }),
+    ).toBeLessThan(5);
     expect(search('referense 42').cards[0]?.id).toBe('card_42');
   });
 
