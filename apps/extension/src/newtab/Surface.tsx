@@ -92,10 +92,11 @@ export function Surface({ initialData }: SurfaceProps) {
     setNotices((current) => {
       if (
         notice.kind === 'error' &&
-        !notice.action &&
         current.some(
           (item) =>
-            item.kind === 'error' && !item.action && item.text === notice.text,
+            item.kind === 'error' &&
+            item.action === notice.action &&
+            item.text === notice.text,
         )
       )
         return current;
@@ -233,9 +234,10 @@ export function Surface({ initialData }: SurfaceProps) {
         void loadDrawer().catch(notifyFailure);
         void chrome.runtime
           .sendMessage({ type: MAINTENANCE_MESSAGE })
-          .then((reply: { error: string | null }) => {
-            if (reply.error)
-              notifyError(`${strings.backupFailed} ${reply.error}`);
+          .then(async (reply: { error: string | null }) => {
+            if (!reply.error) return;
+            const { backupFailureNotice } = await import('./pendingNotices');
+            notify(backupFailureNotice(reply.error));
           })
           .catch(notifyFailure);
       });
@@ -245,7 +247,7 @@ export function Surface({ initialData }: SurfaceProps) {
       if (idle !== null) window.cancelIdleCallback(idle);
       clearTimeout(drawerExitTimer.current);
     };
-  }, [notifyError, notifyFailure]);
+  }, [notify, notifyFailure]);
 
   useLayoutEffect(() => {
     if (!tabId.current)

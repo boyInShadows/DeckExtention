@@ -112,6 +112,9 @@ export const panelStrings = {
   customCss: 'Custom CSS',
   customCssHint: 'Targets stable [data-deck] attributes.',
   backupHint: 'Keeps seven local snapshots.',
+  backupReloadRequired:
+    'Reload Deck to finish updating its backup support. Then open a new tab.',
+  reloadDeck: 'Reload Deck',
   backupRetry: 'Backup failed yesterday — Retry',
   backupError: (message: string) => `Last backup failed: ${message}`,
   snapshotNow: 'Snapshot now',

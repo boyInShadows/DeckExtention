@@ -6,12 +6,47 @@ import {
   DRAWER_COMMAND_ERROR_KEY,
   SETTINGS_NOTICE_KEY,
 } from 'deck-schema';
+import { z } from 'zod';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { NoticeInput } from './ToastStack';
 import { STASH_NOTICE_KEY, STASH_PERMISSION_HASH } from '../sessions/constants';
 import { StashNoticeSchema } from '../sessions/messages';
 import { sendStashMessage, startStash } from '../sessions/stashActions';
+
+const OlderSettingsErrorSchema = z
+  .array(
+    z.object({
+      code: z.literal('unrecognized_keys'),
+      keys: z.tuple([z.literal('showGoogleSuggestions')]),
+      path: z.tuple([z.literal('settings')]),
+    }),
+  )
+  .nonempty();
+const RELOAD_DECK_ACTION = {
+  label: strings.reloadDeck,
+  run: () => chrome.runtime.reload(),
+};
+
+export function backupFailureNotice(message: string): NoticeInput {
+  const failure: NoticeInput = {
+    kind: 'error',
+    text: `${strings.backupFailed} ${message}`,
+  };
+  try {
+    if (
+      OlderSettingsErrorSchema.safeParse(JSON.parse(message) as unknown).success
+    )
+      return {
+        kind: 'error',
+        text: strings.backupReloadRequired,
+        action: RELOAD_DECK_ACTION,
+      };
+  } catch {
+    return failure;
+  }
+  return failure;
+}
 
 export async function readPendingNotices(
   notify: (notice: NoticeInput) => void,
@@ -62,10 +97,7 @@ export async function readPendingNotices(
       text: `${strings.drawerCommandFailed} ${drawerError.data.message}`,
     });
   if (backupError.success)
-    notify({
-      kind: 'error',
-      text: `${strings.backupFailed} ${backupError.data.message}`,
-    });
+    notify(backupFailureNotice(backupError.data.message));
   const consumed = [
     ...(stash.success ? [STASH_NOTICE_KEY] : []),
     ...(notice.success ? [CAPTURE_NOTICE_KEY] : []),
