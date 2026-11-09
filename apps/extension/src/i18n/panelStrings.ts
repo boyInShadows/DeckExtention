@@ -6,6 +6,8 @@ import { strings } from './strings';
  */
 export const panelStrings = {
   ...strings,
+  firstRunHint: 'Type >help and press Enter for shortcuts.',
+  showShortcuts: 'Show shortcuts',
   focusDescription: 'One thing at a time.',
   focusDuration: 'Minutes',
   focusTask: 'Task (optional)',
