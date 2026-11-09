@@ -6,6 +6,14 @@ import { strings } from './strings';
  */
 export const panelStrings = {
   ...strings,
+  focusAlreadyRunning:
+    'A focus session is already active. Pause or stop it first.',
+  focusChanged:
+    'The focus session changed in another tab. Refresh and try again.',
+  focusInvalidTask:
+    'That task is no longer available. Choose another task or focus on your own.',
+  focusMergeConflict:
+    'Two different focus sessions are active. Stop one before merging, or use Replace after reviewing your backup.',
   tasksDescription: 'A little less on your mind.',
   taskPlaceholder: 'What needs doing?',
   addTask: 'Add',

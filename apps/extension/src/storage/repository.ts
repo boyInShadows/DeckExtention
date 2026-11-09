@@ -40,6 +40,7 @@ import type { purgeDeleted as PurgeDeletedFunction } from './trashMaintenance';
 import type { expireSessions as ExpireSessionsFunction } from './sessionExpiry';
 import type { markCardsOpened as MarkCardsOpenedFunction } from './cardOpened';
 import type { ResurfaceAction } from './resurface';
+import type { FocusAction } from '../focus/model';
 
 const SETTINGS_KEY = 'settings';
 const CLIENT_ID_KEY = 'clientId';
@@ -246,6 +247,21 @@ export class DeckRepository {
     return getResurface(await this.#database, this.#now());
   }
 
+  async changeFocus(action: FocusAction) {
+    const { changeFocus } = await import('../focus/storage');
+    return changeFocus(
+      await this.#database,
+      action,
+      this.#now(),
+      this.#createId,
+    );
+  }
+
+  async takeFocusCompletion() {
+    const { takeFocusCompletion } = await import('../focus/storage');
+    return takeFocusCompletion(await this.#database);
+  }
+
   async resolveResurface(
     selected: Pick<Card, 'id' | 'url'>,
     day: string,
@@ -273,11 +289,12 @@ export class DeckRepository {
   async readDocument(exportedAt = this.#now()): Promise<DeckDocument> {
     const { parseDocument } = await this.#validation();
     const database = await this.#database;
-    const [pages, decks, cards, settingsRecord] = await Promise.all([
+    const [pages, decks, cards, settingsRecord, focus] = await Promise.all([
       database.getAll('pages'),
       database.getAll('decks'),
       database.getAll('cards'),
       database.get('meta', SETTINGS_KEY),
+      database.get('meta', 'focus'),
     ]);
     return parseDocument({
       schemaVersion: SCHEMA_VERSION,
@@ -286,6 +303,7 @@ export class DeckRepository {
       decks,
       cards,
       settings: settingsRecord?.value ?? SETTINGS_DEFAULTS,
+      ...(focus ? { focus: focus.value } : {}),
     });
   }
 
