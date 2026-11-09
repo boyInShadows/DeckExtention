@@ -19,6 +19,7 @@ import { useOpenTabs } from '../tabs/useOpenTabs';
 import type { OpenTab, TabAction } from '../tabs/openTabs';
 import type { CreatedWorkspace } from './lineWorkspace';
 import { useGoogleSuggestions } from '../search/useGoogleSuggestions';
+import { Icon } from './Icon';
 
 const MAX_GROUP_ROWS = 8;
 const PLACEHOLDER_ROTATE_MS = 6_000;
@@ -346,7 +347,8 @@ export function Line(props: LineProps) {
 
   return (
     <div ref={shellRef} data-deck="line-shell">
-      <div data-deck="line" className="deck-line">
+      <label data-deck="line" className="deck-line">
+        <Icon name="search" size={20} />
         <input
           ref={inputRef}
           value={query}
@@ -371,7 +373,7 @@ export function Line(props: LineProps) {
           autoComplete="off"
           spellCheck={false}
         />
-      </div>
+      </label>
       {query ? (
         <LineResults
           maxRows={MAX_GROUP_ROWS}

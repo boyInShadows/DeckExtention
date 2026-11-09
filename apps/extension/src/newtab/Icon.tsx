@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 type IconName =
+  | 'search'
   | 'links'
   | 'tasks'
   | 'focus'
@@ -15,6 +16,12 @@ type IconName =
   | 'chevron';
 
 const PATHS: Record<IconName, ReactNode> = {
+  search: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m16 16 5 5" />
+    </>
+  ),
   focus: (
     <>
       <circle cx="12" cy="13" r="8" />

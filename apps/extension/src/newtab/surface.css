@@ -123,33 +123,51 @@
   }
 
   .deck-line {
-    block-size: var(--deck-line-height);
-    border: 1px solid var(--deck-color-hairline);
-    border-radius: var(--deck-radius-panel);
-    background: var(--deck-color-glass);
-    box-shadow:
-      inset 0 1px 2px var(--deck-color-shadow),
-      0 0.5rem 2rem var(--deck-color-shadow);
-    backdrop-filter: blur(1.5rem);
+    display: flex;
+    align-items: center;
+    gap: var(--deck-space-1);
+    block-size: min(var(--deck-line-height), var(--deck-line-control-height));
+    inline-size: 100%;
+    border: 1px solid
+      color-mix(
+        in srgb,
+        var(--deck-color-text-muted) 70%,
+        var(--deck-color-canvas-raised)
+      );
+    border-radius: var(--deck-radius-pill);
+    background: var(--deck-color-canvas-raised);
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+    cursor: text;
+    transition:
+      border-color var(--deck-motion-hover) var(--deck-ease-hover),
+      outline-color var(--deck-motion-hover) var(--deck-ease-hover);
+  }
+
+  .deck-line > svg {
+    flex: none;
+    margin-inline-start: var(--deck-space-2);
+    color: var(--deck-color-text-muted);
+    pointer-events: none;
   }
 
   .deck-line:focus-within {
-    border-color: color-mix(in srgb, var(--deck-color-focus) 40%, transparent);
-  }
-
-  .deck-surface[data-drawer-open] .deck-line {
-    backdrop-filter: none;
+    border-color: var(--deck-color-focus);
+    outline-color: var(--deck-color-focus);
   }
 
   .deck-line input {
+    flex: 1;
+    min-inline-size: 0;
     block-size: 100%;
     inline-size: 100%;
     border: 0;
-    padding-inline: var(--deck-space-2);
+    padding-inline: 0 var(--deck-space-2);
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 0.9375rem;
+    font-size: var(--deck-font-body);
+    caret-color: var(--deck-color-focus);
   }
 
   .deck-line input::placeholder,
@@ -193,6 +211,9 @@
 
   [data-deck='line-shell'] {
     position: relative;
+    display: grid;
+    align-items: center;
+    block-size: var(--deck-line-height);
   }
 
   .deck-results {
@@ -203,6 +224,7 @@
     overflow: auto;
     max-block-size: var(--deck-results-max-block);
     margin-block-start: var(--deck-space-1);
+    padding: var(--deck-space-half);
     border: 1px solid var(--deck-color-hairline);
     border-radius: var(--deck-radius-panel);
     background: var(--deck-color-canvas-raised);
@@ -225,6 +247,7 @@
     min-block-size: 2.75rem;
     inline-size: 100%;
     border: 0;
+    border-radius: var(--deck-space-1);
     background: transparent;
     padding-inline: var(--deck-space-2);
     color: inherit;
@@ -238,7 +261,12 @@
   .deck-result:hover,
   .deck-result:focus-visible,
   .deck-result[data-active] {
-    background: var(--deck-color-glass);
+    background: var(--deck-color-selection);
+  }
+
+  .deck-result[data-active] {
+    outline: 1px solid var(--deck-color-focus);
+    outline-offset: -1px;
   }
 
   .deck-result small {
