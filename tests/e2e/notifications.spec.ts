@@ -70,17 +70,14 @@ async function exerciseBackupSettings({
   }
 }
 
-function failMaintenanceReply(type: string) {
-  const send = chrome.runtime.sendMessage;
-  chrome.runtime.sendMessage = function (message: unknown, ...args: unknown[]) {
-    if (
-      message &&
-      typeof message === 'object' &&
-      Reflect.get(message, 'type') === type
-    )
-      return Promise.resolve({ error: 'fixture disk full' });
-    return Reflect.apply(send, chrome.runtime, [message, ...args]);
-  } as typeof send;
+function failSnapshotStorage() {
+  Date.now = () => 1;
+  const set = chrome.storage.local.set;
+  chrome.storage.local.set = async function (items) {
+    if (Object.hasOwn(items, 'deckLatestSnapshot'))
+      throw new Error('fixture disk full');
+    return set.call(this, items);
+  };
 }
 
 test('one persistent backup failure and its retry reply produce one alert', async () => {
@@ -91,15 +88,22 @@ test('one persistent backup failure and its retry reply produce one alert', asyn
     await page.waitForSelector('html[data-deck-ready="true"]');
     await page.evaluate(async (type) => {
       await chrome.runtime.sendMessage({ type });
+    }, MAINTENANCE_MESSAGE);
+    const worker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker'));
+    await worker.evaluate(failSnapshotStorage);
+    await page.evaluate(async (type) => {
+      const reply = await chrome.runtime.sendMessage({ type });
+      if (reply.error !== 'fixture disk full')
+        throw new Error('Backup failure fixture did not reach the worker');
       await chrome.storage.local.set({
-        backupMaintenanceError: { message: 'fixture disk full', occurredAt: 1 },
         drawerCommandError: {
           message: 'distinct drawer failure',
           occurredAt: 1,
         },
       });
     }, MAINTENANCE_MESSAGE);
-    await page.addInitScript(failMaintenanceReply, MAINTENANCE_MESSAGE);
     await page.reload();
     const errors = page.locator('[data-deck="toast"][data-kind="error"]');
     await expect(errors.filter({ hasText: 'fixture disk full' })).toHaveCount(
