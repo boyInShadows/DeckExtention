@@ -21,6 +21,7 @@ const WARM_SAMPLES = 20;
 const TRACED_SAMPLES = 3;
 const DIAGNOSTIC_TIMEOUT_MS = 90_000;
 const PAINT_TIMEOUT_MS = 2_000;
+const SHOULD_PROFILE_SCRIPTS = process.env.DECK_COVERAGE !== '1';
 
 async function prepareWarmStore(page: Page) {
   await page.locator('[data-deck="pin-add"]').click();
@@ -94,8 +95,11 @@ async function recordSamples(
   for (let index = 0; index < WARM_SAMPLES + TRACED_SAMPLES; index += 1) {
     const isTraced = index >= WARM_SAMPLES;
     if (isTraced) {
-      scripts ??= await observeStartupScripts(session);
-      await scripts.start();
+      // Keep CPU identity capture separate from the precise-coverage session.
+      if (SHOULD_PROFILE_SCRIPTS) {
+        scripts ??= await observeStartupScripts(session);
+        await scripts.start();
+      }
       await session.send('Tracing.start', {
         categories:
           'devtools.timeline,blink.user_timing,v8,disabled-by-default-devtools.timeline',
@@ -110,11 +114,12 @@ async function recordSamples(
       { timeout: PAINT_TIMEOUT_MS },
     );
     samples.push(await startupSample(page, isTraced));
-    if (isTraced && scripts) {
-      await saveScriptProfile(
-        scripts,
-        testInfo.outputPath(`startup-${index}.scripts.json`),
-      );
+    if (isTraced) {
+      if (scripts)
+        await saveScriptProfile(
+          scripts,
+          testInfo.outputPath(`startup-${index}.scripts.json`),
+        );
       await finishTrace(
         session,
         testInfo.outputPath(`startup-${index}.trace.json`),
@@ -194,7 +199,7 @@ test('startup diagnostics: database, render and frame stages (instrumented, not 
         isAcceptanceReport: false,
         isCoverageInstrumented: process.env.DECK_COVERAGE === '1',
         browserVersion: context.browser()?.version(),
-        tracedSamplesHaveDebuggerAndCpuProfiler: true,
+        tracedSamplesHaveDebuggerAndCpuProfiler: SHOULD_PROFILE_SCRIPTS,
         fixture:
           'one persisted pin and completed export, matching phase1 warm setup',
         samples,
