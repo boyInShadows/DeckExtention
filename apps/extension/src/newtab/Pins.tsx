@@ -162,6 +162,7 @@ export function Pins({
   notify,
 }: PinsProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const [canSaveToInbox, setCanSaveToInbox] = useState(false);
   const [page, setPage] = useState(0);
   const [menu, setMenu] = useState<{ card: Card; anchor: HTMLElement } | null>(
     null,
@@ -191,24 +192,32 @@ export function Pins({
   );
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
+      if (event.defaultPrevented) return;
       const target = event.target;
       if (
         target instanceof Element &&
         target.closest(
-          'input, textarea, [contenteditable], [data-deck="drawer"], [data-deck="settings"], [data-deck="help"]',
+          'input, textarea, [contenteditable], [role="textbox"], [data-deck="pin-add-form"], [data-deck="drawer"], [data-deck="settings"], [data-deck="help"]',
         )
       )
         return;
       const candidate = event.clipboardData?.getData('text/plain').trim() ?? '';
       if (!/^https?:\/\//i.test(candidate)) return;
-      if (pins.length >= MAX_PINS) return;
+      try {
+        const hostname = new URL(candidate).hostname;
+        if (!hostname || /[%\s]/.test(hostname)) return;
+      } catch (error) {
+        if (!(error instanceof TypeError)) reportWriteError(error);
+        return;
+      }
       event.preventDefault();
       setInitialUrl(candidate);
+      setCanSaveToInbox(true);
       setIsAdding(true);
     };
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
-  }, [pins.length]);
+  }, [reportWriteError]);
 
   const open = async (card: Card, isNewTab: boolean) => {
     try {
@@ -262,58 +271,35 @@ export function Pins({
     }
   };
 
-  const addControl =
-    pins.length < MAX_PINS ? (
-      isAdding ? (
-        <Suspense>
-          <PinAddForm
-            key={initialUrl}
-            cards={cards}
-            pins={pins}
-            initialUrl={initialUrl}
-            repository={repository}
-            onCardsChange={(nextCards) => {
-              onCardsChange(nextCards);
-              setPage(Math.floor(pins.length / PINS_PER_PAGE));
-            }}
-            onClose={() => {
-              setIsAdding(false);
-              setInitialUrl('');
-            }}
-            notify={notify}
-          />
-        </Suspense>
-      ) : (
-        <button
-          data-deck="pin-add"
-          className="deck-pin-add"
-          type="button"
-          onClick={() => {
-            setInitialUrl('');
-            setIsAdding(true);
-          }}
-          aria-label={strings.addPin}
-          title={strings.addPin}
-        >
-          <span aria-hidden="true">+</span>
-          {pins.length >= PINS_PER_PAGE ? (
-            <small>{strings.addPin}</small>
-          ) : null}
-        </button>
-      )
-    ) : (
-      <button
-        data-deck="pin-add"
-        className="deck-pin-add"
-        type="button"
-        disabled
-        title={strings.pinLimit}
-        aria-label={strings.pinLimit}
-      >
-        <span aria-hidden="true">+</span>
-        {pins.length >= PINS_PER_PAGE ? <small>{strings.addPin}</small> : null}
-      </button>
-    );
+  const addControl = isAdding ? null : pins.length < MAX_PINS ? (
+    <button
+      data-deck="pin-add"
+      className="deck-pin-add"
+      type="button"
+      onClick={() => {
+        setInitialUrl('');
+        setCanSaveToInbox(false);
+        setIsAdding(true);
+      }}
+      aria-label={strings.addPin}
+      title={strings.addPin}
+    >
+      <span aria-hidden="true">+</span>
+      {pins.length >= PINS_PER_PAGE ? <small>{strings.addPin}</small> : null}
+    </button>
+  ) : (
+    <button
+      data-deck="pin-add"
+      className="deck-pin-add"
+      type="button"
+      disabled
+      title={strings.pinLimit}
+      aria-label={strings.pinLimit}
+    >
+      <span aria-hidden="true">+</span>
+      {pins.length >= PINS_PER_PAGE ? <small>{strings.addPin}</small> : null}
+    </button>
+  );
 
   return (
     <section
@@ -387,6 +373,26 @@ export function Pins({
         <p data-deck="pins-empty">{strings.pinsEmptyHint}</p>
       )}
       <Suspense>
+        {isAdding ? (
+          <PinAddForm
+            key={initialUrl}
+            cards={cards}
+            pins={pins}
+            initialUrl={initialUrl}
+            canSaveToInbox={canSaveToInbox}
+            repository={repository}
+            onCardsChange={(nextCards) => {
+              onCardsChange(nextCards);
+              if (nextCards.at(-1)?.pinned)
+                setPage(Math.floor(pins.length / PINS_PER_PAGE));
+            }}
+            onClose={() => {
+              setIsAdding(false);
+              setInitialUrl('');
+            }}
+            notify={notify}
+          />
+        ) : null}
         {menu ? (
           <PinMenu
             card={menu.card}

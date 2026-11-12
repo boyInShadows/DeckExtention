@@ -25,14 +25,19 @@ const existing: Card = {
   deletedAt: null,
 };
 
-async function fixture() {
-  const listCards = vi.fn(async () => [existing]);
+async function fixture(
+  options: { canSaveToInbox?: boolean; pins?: Card[] } = {},
+) {
+  const cards = options.pins ?? [existing];
+  const listCards = vi.fn(async () => cards);
   const upsertCard = vi.fn(async (card: Card) => card);
   const markCardsOpened = vi.fn(async () => [existing]);
   const repository = {
     listCards,
     listPages: async () => [],
-    listDecks: async () => [],
+    listDecks: async () => [
+      { id: 'deck_inbox', kind: 'inbox', deletedAt: null },
+    ],
     upsertCard,
     markCardsOpened,
   } as unknown as DeckRepository;
@@ -40,9 +45,10 @@ async function fixture() {
   const notify = vi.fn();
   const view = await render(
     <PinAddForm
-      cards={[existing]}
-      pins={[existing]}
+      cards={cards}
+      pins={cards}
       initialUrl=""
+      canSaveToInbox={options.canSaveToInbox ?? false}
       repository={repository}
       onCardsChange={vi.fn()}
       onClose={onClose}
@@ -159,25 +165,30 @@ it('reports failed opening and retains the duplicate and editable draft', async 
   view.unmount();
 });
 
-it('keeps both fields after a failed write and allows retrying', async () => {
-  const { view, upsertCard, notify, onClose } = await fixture();
-  upsertCard.mockRejectedValueOnce(new Error('disk full'));
-  await submit(view, 'https://example.com/new');
-  await settle(view, () =>
-    expect(notify).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'error', text: 'disk full' }),
-    ),
-  );
-  expect(onClose).not.toHaveBeenCalled();
-  expect(view.get<HTMLInputElement>('.deck-pin-label-input').value).toBe(
-    'Keep my label',
-  );
-  await view.act(() => {
-    keyDown(view.get('.deck-pin-url-input'), 'Enter');
-  });
-  await settle(view, () => expect(onClose).toHaveBeenCalledOnce());
-  view.unmount();
-});
+it.each([false, true])(
+  'keeps both fields after a failed write and allows retrying (Inbox available: %s)',
+  async (canSaveToInbox) => {
+    const { view, upsertCard, notify, onClose } = await fixture({
+      canSaveToInbox,
+    });
+    upsertCard.mockRejectedValueOnce(new Error('disk full'));
+    await submit(view, 'https://example.com/new');
+    await settle(view, () =>
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'error', text: 'disk full' }),
+      ),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(view.get<HTMLInputElement>('.deck-pin-label-input').value).toBe(
+      'Keep my label',
+    );
+    await view.act(() => {
+      keyDown(view.get('.deck-pin-url-input'), 'Enter');
+    });
+    await settle(view, () => expect(onClose).toHaveBeenCalledOnce());
+    view.unmount();
+  },
+);
 
 it('accepts only one submission while a current-record lookup is pending', async () => {
   const { view, listCards, upsertCard, onClose } = await fixture();
@@ -197,5 +208,43 @@ it('accepts only one submission while a current-record lookup is pending', async
   await view.act(() => release([]));
   await settle(view, () => expect(onClose).toHaveBeenCalledOnce());
   expect(upsertCard).toHaveBeenCalledOnce();
+  view.unmount();
+});
+
+it('offers Inbox and Pin for pasted URLs and Enter saves only an Inbox record', async () => {
+  const { view, upsertCard, onClose } = await fixture({ canSaveToInbox: true });
+  expect(view.getByLabel('Save to Inbox')).not.toBeNull();
+  expect(view.getByLabel('Add pin')).not.toBeNull();
+  await submit(view, 'https://inbox.example.com/new');
+  await settle(view, () => expect(onClose).toHaveBeenCalledOnce());
+  expect(upsertCard).toHaveBeenCalledOnce();
+  expect(upsertCard).toHaveBeenCalledWith(
+    expect.objectContaining({
+      deckId: 'deck_inbox',
+      pinned: false,
+      title: 'Keep my label',
+    }),
+  );
+  view.unmount();
+});
+
+it('keeps Inbox available at the pin limit while disabling Add pin', async () => {
+  const pins = Array.from({ length: 12 }, (_, index) => ({
+    ...existing,
+    id: `pin_${index}`,
+  }));
+  const { view, upsertCard, onClose } = await fixture({
+    canSaveToInbox: true,
+    pins,
+  });
+  expect(
+    view.get<HTMLButtonElement>('button[title="12 pins max"]').disabled,
+  ).toBe(true);
+  await submit(view, 'https://inbox.example.com/new');
+  await settle(view, () => expect(onClose).toHaveBeenCalledOnce());
+  expect(upsertCard).toHaveBeenCalledOnce();
+  expect(upsertCard).toHaveBeenCalledWith(
+    expect.objectContaining({ pinned: false }),
+  );
   view.unmount();
 });

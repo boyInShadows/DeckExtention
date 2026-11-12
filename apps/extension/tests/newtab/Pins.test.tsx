@@ -466,9 +466,7 @@ describe('Pins - adding', () => {
     await view.act(() =>
       type(view.get<HTMLInputElement>('.deck-pin-label-input'), 'Wiki'),
     );
-    await view.act(() =>
-      click(view.get('[data-deck="pin-add-form"] > button')),
-    );
+    await view.act(() => click(view.getByLabel(strings.addPin)));
     await vi.waitFor(() => expect(upsertCard).toHaveBeenCalledTimes(1));
     expect(upsertCard.mock.calls[0]?.[0]).toMatchObject({
       title: 'Wikipedia',
@@ -477,6 +475,47 @@ describe('Pins - adding', () => {
     });
     view.unmount();
   });
+
+  it('opens pasted capture at the pin limit without creating anything', async () => {
+    const pins = Array.from({ length: MAX_PINS }, (_, index) =>
+      makeCard(`pin${index}`),
+    );
+    const { view, upsertCard } = await mountPins(pins);
+    const paste = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { getData: () => 'https://new.example.com/' },
+    });
+    await view.act(() => {
+      window.dispatchEvent(paste);
+    });
+    await vi.waitFor(async () => {
+      await view.act(async () => {
+        await vi.dynamicImportSettled();
+      });
+      expect(view.query('[data-deck="pin-add-form"]')).not.toBeNull();
+    });
+    expect(paste.defaultPrevented).toBe(true);
+    expect(upsertCard).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it.each(['https://', 'https://bad host/'])(
+    'leaves invalid outside-input paste %s alone',
+    async (candidate) => {
+      const { view, upsertCard } = await mountPins([]);
+      const paste = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(paste, 'clipboardData', {
+        value: { getData: () => candidate },
+      });
+      await view.act(() => {
+        window.dispatchEvent(paste);
+      });
+      expect(paste.defaultPrevented).toBe(false);
+      expect(view.query('[data-deck="pin-add-form"]')).toBeNull();
+      expect(upsertCard).not.toHaveBeenCalled();
+      view.unmount();
+    },
+  );
 
   it.each(['not a url', 'ftp://files.example.com/x', ''])(
     'refuses %j with a visible error and saves nothing',

@@ -6,18 +6,26 @@ import { useDismissable } from '../hooks/useDismissable';
 import type { SurfaceData } from './bootstrap';
 import { focusOnMount } from './focusOnMount';
 import { Icon } from './Icon';
-import { createPin } from './pinUndo';
+import { createPin, MAX_PIN_COUNT } from './pinUndo';
 import type { NoticeInput } from './ToastStack';
 import { findSavedLink, type SavedLink } from '../capture/manualDuplicate';
 import { DuplicateLinkNotice } from '../capture/DuplicateLinkNotice';
+import { captureTarget, saveToInbox } from '../capture/quickSave';
 
-const pinAddButton = () =>
-  document.querySelector<HTMLButtonElement>('[data-deck="pin-add"]');
+const returnFocus = () => {
+  const button = document.querySelector<HTMLButtonElement>(
+    '[data-deck="pin-add"]',
+  );
+  return button && !button.disabled
+    ? button
+    : document.querySelector<HTMLInputElement>('[data-deck="line"] input');
+};
 
 export default function PinAddForm({
   cards,
   pins,
   initialUrl,
+  canSaveToInbox = false,
   repository,
   onCardsChange,
   onClose,
@@ -26,6 +34,7 @@ export default function PinAddForm({
   cards: Card[];
   pins: Card[];
   initialUrl: string;
+  canSaveToInbox?: boolean;
   repository: SurfaceData['repository'];
   onCardsChange: (cards: Card[]) => void;
   onClose: () => void;
@@ -37,8 +46,8 @@ export default function PinAddForm({
   const [isSaving, setIsSaving] = useState(false);
   const saving = useRef(false);
   const formRef = useRef<HTMLDivElement>(null);
-  useDismissable(formRef, onClose, pinAddButton);
-  const addPin = async () => {
+  useDismissable(formRef, onClose, returnFocus);
+  const saveLink = async (destination: 'inbox' | 'pin') => {
     if (saving.current) return;
     saving.current = true;
     setIsSaving(true);
@@ -48,8 +57,25 @@ export default function PinAddForm({
         setDuplicate(existing);
         return;
       }
-      const saved = await createPin(repository, urlInput, labelInput, pins);
-      onCardsChange([...cards, saved]);
+      const target = captureTarget(urlInput.trim(), labelInput);
+      if (!target) throw new Error(strings.invalidUrl);
+      const result =
+        destination === 'inbox'
+          ? await saveToInbox(repository, target)
+          : {
+              kind: 'saved' as const,
+              card: await createPin(repository, urlInput, labelInput, pins),
+            };
+      if (result.kind === 'duplicate') {
+        setDuplicate({
+          card: result.card,
+          location: result.card.pinned
+            ? strings.pinsLabel
+            : (result.location ?? strings.inbox),
+        });
+        return;
+      }
+      onCardsChange([...cards, result.card]);
       onClose();
       notify({ kind: 'success', text: strings.saved });
     } catch (error) {
@@ -68,16 +94,16 @@ export default function PinAddForm({
       data-deck="pin-add-form"
       className="deck-pin-add-form"
       role="dialog"
-      aria-label={strings.addPin}
+      aria-label={canSaveToInbox ? strings.saveLink : strings.addPin}
     >
       <header data-deck="pin-add-header" className="deck-pin-add-header">
-        <h2>{strings.addPin}</h2>
+        <h2>{canSaveToInbox ? strings.saveLink : strings.addPin}</h2>
         <button
           type="button"
           aria-label={strings.cancel}
           onClick={() => {
             onClose();
-            requestAnimationFrame(() => pinAddButton()?.focus());
+            requestAnimationFrame(() => returnFocus()?.focus());
           }}
         >
           <Icon name="close" />
@@ -95,7 +121,8 @@ export default function PinAddForm({
           setDuplicate(null);
         }}
         onKeyDown={(event) => {
-          if (event.key === 'Enter') void addPin();
+          if (event.key === 'Enter')
+            void saveLink(canSaveToInbox ? 'inbox' : 'pin');
         }}
       />
       <input
@@ -106,12 +133,34 @@ export default function PinAddForm({
         aria-label={strings.pinLabelPlaceholder}
         onChange={(event) => setLabelInput(event.currentTarget.value)}
         onKeyDown={(event) => {
-          if (event.key === 'Enter') void addPin();
+          if (event.key === 'Enter')
+            void saveLink(canSaveToInbox ? 'inbox' : 'pin');
         }}
       />
-      <button type="button" disabled={isSaving} onClick={() => void addPin()}>
+      {canSaveToInbox ? (
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() => void saveLink('inbox')}
+        >
+          {strings.saveToInbox}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        disabled={isSaving || pins.length >= MAX_PIN_COUNT}
+        title={pins.length >= MAX_PIN_COUNT ? strings.pinLimit : undefined}
+        onClick={() => void saveLink('pin')}
+      >
         {strings.addPin}
       </button>
+      {canSaveToInbox ? (
+        <p data-deck="capture-destination">
+          {pins.length >= MAX_PIN_COUNT
+            ? strings.pinLimit
+            : strings.pasteDestinationHint}
+        </p>
+      ) : null}
       {duplicate ? (
         <DuplicateLinkNotice
           duplicate={duplicate}
