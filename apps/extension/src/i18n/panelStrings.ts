@@ -8,6 +8,8 @@ export const panelStrings = {
   ...strings,
   firstRunHint: 'Type >help and press Enter for shortcuts.',
   showShortcuts: 'Show shortcuts',
+  alreadySavedIn: (location: string) => `Already saved in ${location}.`,
+  openSavedLink: 'Open saved link',
   focusDescription: 'One thing at a time.',
   focusDuration: 'Minutes',
   focusTask: 'Task (optional)',

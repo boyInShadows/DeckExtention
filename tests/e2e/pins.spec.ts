@@ -100,7 +100,7 @@ test('pins have inline editing, an anchored keyboard menu, and a letter fallback
     await page.getByRole('button', { name: 'Add pin' }).click();
     await page
       .getByRole('textbox', { name: 'Paste a URL' })
-      .fill('https://www.wikipedia.org/');
+      .fill('https://www.wikipedia.org/wiki/Deck_(software)');
     await page.getByRole('button', { name: 'Add pin' }).click();
     const pin = page.locator('[data-deck="pin"]').first();
     await expect(pin).toHaveAttribute('aria-label', 'Wikipedia');

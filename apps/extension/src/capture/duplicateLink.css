@@ -1,0 +1,13 @@
+@layer components {
+  .deck-duplicate-link {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: var(--deck-space-1);
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .deck-duplicate-link p {
+    margin-block: 0;
+  }
+}

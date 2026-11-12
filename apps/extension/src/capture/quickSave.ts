@@ -141,11 +141,11 @@ export async function addNoteToCard(
   return repository.upsertCard({ ...current, note, updatedAt: now() });
 }
 
-function describeDuplicate(
+export function describeDuplicate(
   card: Card,
   decks: Deck[],
   pages: Page[],
-): SaveResult {
+): Extract<SaveResult, { kind: 'duplicate' }> {
   const deck = decks.find((item) => item.id === card.deckId);
   if (!deck || deck.kind === 'inbox') {
     return { kind: 'duplicate', card, pageId: 'inbox', location: null };

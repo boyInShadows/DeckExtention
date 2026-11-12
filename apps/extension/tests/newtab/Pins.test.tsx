@@ -137,6 +137,8 @@ function fakeRepository(cards: Card[]) {
     repository: {
       upsertCard,
       listCards,
+      listPages: vi.fn(async () => []),
+      listDecks: vi.fn(async () => []),
       markCardsOpened,
     } as unknown as DeckRepository,
   };

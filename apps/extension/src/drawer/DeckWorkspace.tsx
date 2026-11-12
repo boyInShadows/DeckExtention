@@ -44,6 +44,8 @@ import { DeckMenu } from './DeckMenu';
 import { SESSION_LIFETIME_MS } from '../sessions/constants';
 import { openDeck, type DeckOpenMode } from '../sessions/openDeck';
 import '../tasks/tasks.css';
+import { findSavedLink, type SavedLink } from '../capture/manualDuplicate';
+import { DuplicateLinkNotice } from '../capture/DuplicateLinkNotice';
 
 const DROP_SETTLE_MS = 160;
 const DROP_SETTLE_EASING = 'var(--deck-ease-hover)';
@@ -288,6 +290,9 @@ function DeckColumn({
   const menuButton = useRef<HTMLButtonElement>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [url, setUrl] = useState('');
+  const [duplicate, setDuplicate] = useState<SavedLink | null>(null);
+  const [isSavingCard, setIsSavingCard] = useState(false);
+  const savingCard = useRef(false);
   const open = async (mode: DeckOpenMode = 'tabs') => {
     if (isOpening.current) return;
     isOpening.current = true;
@@ -364,9 +369,17 @@ function DeckColumn({
     }
   };
   const addCard = async () => {
+    if (savingCard.current) return;
     const parsed = parseCardUrl(url);
     if (!parsed) return props.onError(strings.invalidUrl);
+    savingCard.current = true;
+    setIsSavingCard(true);
     try {
+      const existing = await findSavedLink(props.data.repository, parsed.url);
+      if (existing) {
+        setDuplicate(existing);
+        return;
+      }
       const time = now();
       const saved = await props.data.repository.upsertCard({
         id: crypto.randomUUID(),
@@ -385,6 +398,9 @@ function DeckColumn({
       props.onSuccess?.(strings.cardSaved);
     } catch (error) {
       props.onError(message(error));
+    } finally {
+      savingCard.current = false;
+      setIsSavingCard(false);
     }
   };
   return (
@@ -583,10 +599,21 @@ function DeckColumn({
                 <input
                   ref={focusOnMount}
                   value={url}
-                  onChange={(event) => setUrl(event.target.value)}
+                  readOnly={isSavingCard}
+                  onChange={(event) => {
+                    setUrl(event.target.value);
+                    setDuplicate(null);
+                  }}
                   placeholder={strings.pasteUrl}
                   aria-label={strings.pasteUrl}
                 />
+                {duplicate ? (
+                  <DuplicateLinkNotice
+                    duplicate={duplicate}
+                    repository={props.data.repository}
+                    onError={props.onError}
+                  />
+                ) : null}
               </form>
             ) : (
               <button
