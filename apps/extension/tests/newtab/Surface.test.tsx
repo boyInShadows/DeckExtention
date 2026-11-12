@@ -22,7 +22,15 @@ import {
   type RenderResult,
 } from '../../src/testing/render';
 import type { SurfaceData } from '../../src/newtab/bootstrap';
+import type { NoticeInput } from '../../src/newtab/ToastStack';
 import { Surface } from '../../src/newtab/Surface';
+
+const shortcutHint = vi.hoisted(() => ({
+  firstRunHint: vi
+    .fn<() => Promise<NoticeInput | null>>()
+    .mockResolvedValue(null),
+}));
+vi.mock('../../src/newtab/firstRunHint', () => shortcutHint);
 
 /*
  * The lazy chunks and Pins are other components' concerns; these stand-ins
@@ -345,6 +353,8 @@ async function clickOn(view: RenderResult, element: Element): Promise<void> {
 }
 
 beforeEach(() => {
+  shortcutHint.firstRunHint.mockReset();
+  shortcutHint.firstRunHint.mockResolvedValue(null);
   frames.clear();
   idles.clear();
   messageListeners = [];
@@ -491,6 +501,30 @@ describe('Surface first paint', () => {
 });
 
 describe('Surface hand-over from Quick Save', () => {
+  it('dismisses the first-run hint on relevant input without hiding unrelated errors', async () => {
+    shortcutHint.firstRunHint.mockResolvedValue({
+      source: 'shortcut-hint',
+      kind: 'info',
+      text: 'Type >help and press Enter for shortcuts.',
+      action: { label: 'Show shortcuts', run: vi.fn() },
+    });
+    storageGet = vi.fn(async () => ({
+      [DRAWER_COMMAND_ERROR_KEY]: {
+        message: 'distinct drawer failure',
+        occurredAt: 1,
+      },
+    }));
+    stubBrowser();
+    const view = await mount(surfaceData());
+    await flushFrames(view);
+    await flushIdle(view);
+    expect(view.container.textContent).toContain('Type >help');
+    await press(view, view.get('[data-deck="line"] input'), 'x');
+    expect(view.container.textContent).not.toContain('Type >help');
+    expect(view.container.textContent).toContain('distinct drawer failure');
+    view.unmount();
+  });
+
   it('shows a stored capture notice once and clears it', async () => {
     storageGet = vi.fn(() =>
       Promise.resolve<Record<string, unknown>>({

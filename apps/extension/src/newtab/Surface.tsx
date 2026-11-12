@@ -93,6 +93,15 @@ export function Surface({ initialData }: SurfaceProps) {
     url: string;
   } | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
+  const hasInteracted = useRef(isDrawerOpen || isSettingsOpen);
+  const dismissShortcutHint = useCallback(() => {
+    hasInteracted.current = true;
+    setNotices((current) =>
+      current.some((notice) => notice.source === 'shortcut-hint')
+        ? current.filter((notice) => notice.source !== 'shortcut-hint')
+        : current,
+    );
+  }, []);
   const notify = useCallback((notice: NoticeInput) => {
     setNotices((current) => {
       if (
@@ -137,11 +146,12 @@ export function Surface({ initialData }: SurfaceProps) {
   const tabId = useRef(0);
 
   const openDrawer = useCallback(() => {
+    dismissShortcutHint();
     clearTimeout(drawerExitTimer.current);
     setIsSettingsOpen(false);
     setIsDrawerMounted(true);
     requestAnimationFrame(() => setIsDrawerOpen(true));
-  }, []);
+  }, [dismissShortcutHint]);
 
   const closeDrawer = useCallback(async () => {
     if ((await beforeDrawerClose.current?.()) === false) return false;
@@ -270,6 +280,29 @@ export function Surface({ initialData }: SurfaceProps) {
   }, [notify, notifyError]);
 
   useLayoutEffect(() => {
+    const onInteraction = (event: PointerEvent | KeyboardEvent) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-deck="toast"]')
+      )
+        return;
+      if (
+        event instanceof KeyboardEvent &&
+        ['Tab', 'Shift', 'Control', 'Alt', 'Meta'].includes(event.key)
+      )
+        return;
+      dismissShortcutHint();
+    };
+    window.addEventListener('pointerdown', onInteraction, true);
+    window.addEventListener('keydown', onInteraction, true);
+    return () => {
+      window.removeEventListener('pointerdown', onInteraction, true);
+      window.removeEventListener('keydown', onInteraction, true);
+    };
+  }, [dismissShortcutHint]);
+
+  useLayoutEffect(() => {
+    let isCurrent = true;
     let idle: number | null = null;
     const frame = window.requestAnimationFrame(() => {
       document.documentElement.dataset.deckReady = 'true';
@@ -278,6 +311,20 @@ export function Surface({ initialData }: SurfaceProps) {
         performance.measure('deck-interactive', 'deck-start', 'deck-ready');
       }
       idle = window.requestIdleCallback(() => {
+        void import('./firstRunHint')
+          .then(async ({ firstRunHint }) => {
+            if (!isCurrent) return;
+            const notice = await firstRunHint(() => {
+              document
+                .querySelector<HTMLInputElement>('[data-deck="line"] input')
+                ?.focus();
+              setIsHelpOpen(true);
+            });
+            if (isCurrent && notice && !hasInteracted.current) notify(notice);
+          })
+          .catch((error: unknown) => {
+            if (isCurrent) notifyFailure(error);
+          });
         void loadDrawer().catch(notifyFailure);
         void import('../focus/FocusMonitor')
           .then((module) => setFocusMonitor(() => module.default))
@@ -288,11 +335,12 @@ export function Surface({ initialData }: SurfaceProps) {
       });
     });
     return () => {
+      isCurrent = false;
       window.cancelAnimationFrame(frame);
       if (idle !== null) window.cancelIdleCallback(idle);
       clearTimeout(drawerExitTimer.current);
     };
-  }, [notifyFailure]);
+  }, [notify, notifyFailure]);
 
   useLayoutEffect(() => {
     if (!tabId.current)
