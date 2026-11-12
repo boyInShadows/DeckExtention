@@ -6,6 +6,42 @@ import { strings } from './strings';
  */
 export const panelStrings = {
   ...strings,
+  firstRunHint: 'Type >help and press Enter for shortcuts.',
+  showShortcuts: 'Show shortcuts',
+  focusDescription: 'One thing at a time.',
+  focusDuration: 'Minutes',
+  focusTask: 'Task (optional)',
+  focusStandalone: 'On my own',
+  focusStart: 'Start focus',
+  focusPause: 'Pause focus',
+  focusResume: 'Resume focus',
+  focusStop: 'Stop focus',
+  focusRemaining: 'Time remaining',
+  focusReady: 'Ready when you are.',
+  focusRunning: 'Focus in progress',
+  focusPaused: 'Focus paused',
+  focusAccounting:
+    'Stop keeps your focused time. Only a completed countdown counts toward your streak.',
+  focusTotals: 'Your focus time',
+  focusTotal: 'Focused time',
+  focusDailyStreak: 'Daily streak',
+  focusByTask: 'Time by task',
+  focusNoTaskTime: 'Task-linked focus time will appear here.',
+  focusMinutes: (minutes: number) => `${minutes} min`,
+  focusStreak: (days: number) => `${days} ${days === 1 ? 'day' : 'days'}`,
+  focusCompleted: (title: string | undefined) =>
+    title
+      ? `Focus complete: ${title}.`
+      : 'Focus complete. A little further along.',
+  focusView: 'View focus',
+  focusAlreadyRunning:
+    'A focus session is already active. Pause or stop it first.',
+  focusChanged:
+    'The focus session changed in another tab. Refresh and try again.',
+  focusInvalidTask:
+    'That task is no longer available. Choose another task or focus on your own.',
+  focusMergeConflict:
+    'Two different focus sessions are active. Stop one before merging, or use Replace after reviewing your backup.',
   tasksDescription: 'A little less on your mind.',
   taskPlaceholder: 'What needs doing?',
   addTask: 'Add',
@@ -112,6 +148,9 @@ export const panelStrings = {
   customCss: 'Custom CSS',
   customCssHint: 'Targets stable [data-deck] attributes.',
   backupHint: 'Keeps seven local snapshots.',
+  backupReloadRequired:
+    'Reload Deck to finish updating its backup support. Then open a new tab.',
+  reloadDeck: 'Reload Deck',
   backupRetry: 'Backup failed yesterday — Retry',
   backupError: (message: string) => `Last backup failed: ${message}`,
   snapshotNow: 'Snapshot now',
@@ -131,7 +170,6 @@ export const panelStrings = {
   backupSaved: 'Backup saved',
   drawerCommandFailed: 'Could not open the drawer.',
   drawerShortcutHint: 'Ctrl+J is not assigned. Assign it in Chrome shortcuts.',
-  backupFailed: 'Backup failed.',
   pageSaved: 'Page saved',
   untitledPage: (number: number) => `Page ${number}`,
   pinSaved: 'Pin saved',

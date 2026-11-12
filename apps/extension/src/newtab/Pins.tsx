@@ -13,6 +13,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
 } from 'react';
@@ -29,6 +30,7 @@ import type { SurfaceData } from './bootstrap';
 import type { NoticeInput } from './ToastStack';
 
 const MAX_PINS = 12;
+const PINS_PER_PAGE = 6;
 const PinMenu = lazy(() => import('./PinMenu'));
 const PinAddForm = lazy(() => import('./PinAddForm'));
 const FaviconTile = lazy(() => import('./FaviconTile'));
@@ -109,6 +111,7 @@ function SortablePin({
       href={card.url}
       draggable={false}
       aria-label={label}
+      title={label}
       aria-haspopup="menu"
       data-dragging={isDragging || undefined}
       {...attributes}
@@ -124,17 +127,22 @@ function SortablePin({
         if (!event.defaultPrevented) listeners?.onKeyDown?.(event);
       }}
     >
-      <span className="deck-pin__tile">
+      <span className="deck-pin__tile" aria-hidden="true">
         {card.pinIcon ? (
-          <span className="deck-pin__emoji" aria-hidden="true">
-            {card.pinIcon}
-          </span>
+          <span
+            className="deck-pin__emoji"
+            aria-hidden="true"
+            data-icon={card.pinIcon}
+          />
         ) : (
           <Suspense
             fallback={
-              <span className="deck-site-icon">
-                {card.hostname.replace(/^www\./, '')[0]?.toUpperCase()}
-              </span>
+              <span
+                className="deck-site-icon deck-site-icon__letter"
+                data-letter={card.hostname
+                  .replace(/^www\./, '')[0]
+                  ?.toUpperCase()}
+              />
             }
           >
             <FaviconTile url={card.url} hostname={card.hostname} />
@@ -154,6 +162,7 @@ export function Pins({
   notify,
 }: PinsProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const [page, setPage] = useState(0);
   const [menu, setMenu] = useState<{ card: Card; anchor: HTMLElement } | null>(
     null,
   );
@@ -169,6 +178,10 @@ export function Pins({
         ),
     [cards],
   );
+  const pageCount = Math.max(1, Math.ceil(pins.length / PINS_PER_PAGE));
+  const activePage = Math.min(page, pageCount - 1);
+  const firstPin = activePage * PINS_PER_PAGE;
+  const visiblePins = pins.slice(firstPin, firstPin + PINS_PER_PAGE);
   const reportWriteError = useCallback(
     (error: unknown) => {
       const detail = error instanceof Error ? error.message : String(error);
@@ -249,6 +262,59 @@ export function Pins({
     }
   };
 
+  const addControl =
+    pins.length < MAX_PINS ? (
+      isAdding ? (
+        <Suspense>
+          <PinAddForm
+            key={initialUrl}
+            cards={cards}
+            pins={pins}
+            initialUrl={initialUrl}
+            repository={repository}
+            onCardsChange={(nextCards) => {
+              onCardsChange(nextCards);
+              setPage(Math.floor(pins.length / PINS_PER_PAGE));
+            }}
+            onClose={() => {
+              setIsAdding(false);
+              setInitialUrl('');
+            }}
+            notify={notify}
+          />
+        </Suspense>
+      ) : (
+        <button
+          data-deck="pin-add"
+          className="deck-pin-add"
+          type="button"
+          onClick={() => {
+            setInitialUrl('');
+            setIsAdding(true);
+          }}
+          aria-label={strings.addPin}
+          title={strings.addPin}
+        >
+          <span aria-hidden="true">+</span>
+          {pins.length >= PINS_PER_PAGE ? (
+            <small>{strings.addPin}</small>
+          ) : null}
+        </button>
+      )
+    ) : (
+      <button
+        data-deck="pin-add"
+        className="deck-pin-add"
+        type="button"
+        disabled
+        title={strings.pinLimit}
+        aria-label={strings.pinLimit}
+      >
+        <span aria-hidden="true">+</span>
+        {pins.length >= PINS_PER_PAGE ? <small>{strings.addPin}</small> : null}
+      </button>
+    );
+
   return (
     <section
       ref={setNodeRef}
@@ -257,64 +323,66 @@ export function Pins({
       aria-label={strings.pinsLabel}
       data-drag-over={isOver || undefined}
     >
-      <SortableContext
-        items={pins.map(({ id }) => dragId('pin', id))}
-        strategy={horizontalListSortingStrategy}
+      <div
+        className="deck-pins__grid"
+        data-deck="pins-grid"
+        style={
+          {
+            '--deck-pin-count':
+              visiblePins.length + (pins.length < PINS_PER_PAGE ? 1 : 0),
+          } as CSSProperties
+        }
       >
-        {pins.map((card) => (
-          <SortablePin
-            key={card.id}
-            card={card}
-            onMenu={(card, anchor) => setMenu({ card, anchor })}
-            onOpen={(item, isNewTab) => void open(item, isNewTab)}
-            onUnpin={(card) => void savePin(card, { pinned: false })}
-          />
-        ))}
-      </SortableContext>
-      {pins.length < MAX_PINS ? (
-        isAdding ? (
-          <Suspense>
-            <PinAddForm
-              key={initialUrl}
-              cards={cards}
-              pins={pins}
-              initialUrl={initialUrl}
-              repository={repository}
-              onCardsChange={onCardsChange}
-              onClose={() => {
-                setIsAdding(false);
-                setInitialUrl('');
-              }}
-              notify={notify}
-            />
-          </Suspense>
-        ) : (
-          <button
-            data-deck="pin-add"
-            className="deck-pin-add"
-            type="button"
-            onClick={() => {
-              setInitialUrl('');
-              setIsAdding(true);
-            }}
-            aria-label={strings.addPin}
-            title={strings.addPin}
-          >
-            <span aria-hidden="true">+</span>
-          </button>
-        )
-      ) : (
-        <button
-          data-deck="pin-add"
-          className="deck-pin-add"
-          type="button"
-          disabled
-          title={strings.pinLimit}
-          aria-label={strings.pinLimit}
+        <SortableContext
+          items={visiblePins.map(({ id }) => dragId('pin', id))}
+          strategy={horizontalListSortingStrategy}
         >
-          <span aria-hidden="true">+</span>
-        </button>
-      )}
+          {visiblePins.map((card) => (
+            <SortablePin
+              key={card.id}
+              card={card}
+              onMenu={(card, anchor) => setMenu({ card, anchor })}
+              onOpen={(item, isNewTab) => void open(item, isNewTab)}
+              onUnpin={(card) => void savePin(card, { pinned: false })}
+            />
+          ))}
+        </SortableContext>
+        {pins.length < PINS_PER_PAGE ? addControl : null}
+      </div>
+      {pins.length >= PINS_PER_PAGE ? (
+        <div className="deck-pins__controls" data-deck="pins-controls">
+          {addControl}
+          {pageCount > 1 ? (
+            <nav aria-label={strings.pinsLabel} data-deck="pins-pages">
+              <button
+                type="button"
+                disabled={activePage === 0}
+                onClick={() => setPage(activePage - 1)}
+              >
+                {strings.previousLinks}
+              </button>
+              <span
+                data-deck="pins-range"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {strings.pinRange(
+                  firstPin + 1,
+                  firstPin + visiblePins.length,
+                  pins.length,
+                )}
+              </span>
+              <button
+                type="button"
+                disabled={activePage === pageCount - 1}
+                onClick={() => setPage(activePage + 1)}
+              >
+                {strings.moreLinks}
+              </button>
+            </nav>
+          ) : null}
+        </div>
+      ) : null}
       {!pins.length && !isAdding && (
         <p data-deck="pins-empty">{strings.pinsEmptyHint}</p>
       )}

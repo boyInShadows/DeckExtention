@@ -1,4 +1,5 @@
 import type { Card } from 'deck-schema';
+import { useLayoutEffect, useRef } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { LINE_ACTIONS } from './lineActionCatalog';
@@ -43,6 +44,17 @@ export default function LineResults({
   onTabAction: (tab: OpenTab, action: TabAction) => void;
   onSearch: () => void;
 }) {
+  const panel = useRef<HTMLElement>(null);
+  // Settings and clock changes can move the Line without a window resize.
+  useLayoutEffect(() => {
+    const update = () => {
+      const top = panel.current?.getBoundingClientRect().top ?? 0;
+      panel.current?.style.setProperty('--deck-results-start', `${top}px`);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  });
   const sections = [
     {
       group: 'cards' as const,
@@ -81,6 +93,7 @@ export default function LineResults({
   ].filter(({ rows }) => rows.length);
   return (
     <section
+      ref={panel}
       data-deck="line-results"
       className="deck-results deck-blurrable"
       aria-live="polite"

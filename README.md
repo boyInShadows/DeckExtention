@@ -1,9 +1,11 @@
 # Deck
 
-A calm Chrome new tab with a glass workspace for links, notes, tasks and saved sessions.
+A calm Chrome new tab with a glass workspace for links, notes, tasks, saved sessions and focus timers.
 
-Open a new tab for the clock, The Line and up to twelve pinned links. Choose Links,
-Tasks, Inbox or Sessions from the icon rail, or press `Ctrl+J` to open the floating
+Open a new tab for the clock, The Line and six pinned links at a time. Use More
+links to reach the remaining pins. The page stays within the viewport; workspace
+panels scroll internally when needed. Choose Links,
+Tasks, Inbox, Sessions or Focus from the icon rail, or press `Ctrl+J` to open the floating
 workspace. The rail moves to the top in narrow windows.
 
 No account, telemetry or remote fonts. Core features work offline.
@@ -24,8 +26,7 @@ not mockups. The task content is synthetic.
 ## Current state
 
 The surface, drawer, capture, bookmark import, sessions, open-tab search, daily
-resurfacing, tasks and optional Shelf are implemented. Glass navigation and the
-dedicated Tasks view are the latest first edit.
+resurfacing, tasks, focus timers and optional Shelf are implemented.
 
 This is an unreleased working build. Owner visual review, physical Chrome shortcuts,
 permission prompts, real-display checks and the field trial remain open. Strict
@@ -44,6 +45,10 @@ working build, without a Chrome Web Store release or public rating claim.
   Move, pin, rename and trash items; edit notes with Markdown preview.
 - **Tasks:** add with Enter, view open/completed tasks, complete or reopen them,
   edit notes, and recover deletions through Trash or Undo.
+- **Focus:** choose an editable 25-minute countdown, with pause/resume and an optional
+  task link. Stopped sessions retain focused time; completed countdowns count toward
+  one daily streak. Countdowns continue while Deck is closed, with a completion notice
+  on return. Focus time and task totals are included in JSON backups.
 - **Capture and sessions:** Quick Save sends a page to Inbox without a destination
   picker. Stash saves eligible tabs; saved decks can reopen as tabs or tab groups.
 - **Appearance:** Night, Day and System themes, local wallpapers, privacy blur,
@@ -137,17 +142,21 @@ build when they finish, including after failures.
 ```text
 apps/extension/       Manifest, Vite configuration and extension source
   src/               Features: newtab, drawer, tasks, capture, sessions, storage...
+  tests/             Unit and component tests grouped by feature
   public/            Bundled extension icons
   dist/              Generated unpacked extension (ignored)
 packages/schema/     Shared Zod schemas, types, constants and fixtures
-tests/e2e/           Chromium extension journeys
+  tests/             Schema boundary tests and fixtures
+tests/               Shared unit, search, performance and Chromium journeys
 tools/               Repository-owned lint rules, icon generation and coverage
 docs/                Local planning, reports, previews, archives and artifacts
 .github/workflows/   Quality checks
 ```
 
-Source and component tests stay together by feature; browser journeys stay in
-`tests/e2e`. Font licensing and provenance stay beside the bundled font.
+Package unit and component tests live in each package's `tests/` folder, grouped
+by feature. Browser journeys stay in `tests/e2e`, and the coverage tool's self-test
+lives in `tools/test-coverage/tests`. Font licensing and provenance stay beside
+the bundled font.
 
 Test output goes to `docs/artifacts/test-results`; coverage goes to
 `docs/artifacts/coverage/{unit,e2e,merged}`. Historical experiments and reports are

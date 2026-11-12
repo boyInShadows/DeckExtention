@@ -63,7 +63,12 @@ export default function FaviconTile({
       style={{ background: `var(--deck-color-wallpaper-${tone})` }}
       aria-hidden="true"
     >
-      <span hidden={isFavicon}>{name.charAt(0).toUpperCase()}</span>
+      {/* Decorative initials stay separate from the link's spoken label. */}
+      <span
+        hidden={isFavicon}
+        className="deck-site-icon__letter"
+        data-letter={name.charAt(0).toUpperCase()}
+      />
       <img
         src={faviconUrl(url)}
         alt=""

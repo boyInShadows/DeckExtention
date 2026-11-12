@@ -239,7 +239,9 @@ test('netscape bookmark file: imports without any permission', async () => {
     await page.keyboard.press('/');
     await page.keyboard.type('One & only');
     await expect(
-      page.locator('[data-deck="line-results"]').getByText('One & only'),
+      page
+        .locator('[data-deck="line-results"]')
+        .getByText('One & only', { exact: true }),
     ).toBeVisible();
   } finally {
     await context.close();

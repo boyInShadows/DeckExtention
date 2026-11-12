@@ -14,6 +14,7 @@
 @import '../drawer/workspace.css';
 @import '../newtab/help.css';
 @import './responsive.css';
+@import '../newtab/fixedSurface.css';
 
 /* Tailwind 4 scans for utilities from here; the extension source is one tree. */
 @source '../';
@@ -90,6 +91,10 @@ body {
     font: inherit;
   }
 
+  small {
+    font-size: var(--deck-font-label);
+  }
+
   ::selection {
     background: var(--deck-color-focus);
     color: var(--deck-color-canvas);
@@ -118,8 +123,10 @@ body {
   .deck-settings,
   .deck-toast,
   .deck-help,
+  .deck-line,
   .deck-results,
   .deck-menu,
+  .deck-pin-add-form,
   .deck-pins-drop {
     --deck-color-text: var(--deck-color-panel-text);
     --deck-color-text-muted: var(--deck-color-panel-muted);

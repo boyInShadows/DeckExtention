@@ -58,7 +58,7 @@
 .hint {
   margin-inline-end: auto;
   color: var(--deck-color-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--deck-font-label);
 }
 
 button {
@@ -69,7 +69,7 @@ button {
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--deck-font-label);
   cursor: pointer;
   transition: background var(--deck-motion-hover) var(--deck-ease-hover);
 }

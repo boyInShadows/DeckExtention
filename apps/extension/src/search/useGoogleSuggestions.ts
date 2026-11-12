@@ -8,7 +8,7 @@ import {
 
 type Access = 'off' | 'on' | 'unavailable';
 type Suggestions = { query: string; items: string[]; isUnavailable: boolean };
-const DEBOUNCE_MS = 250;
+const DEBOUNCE_MS = 100;
 
 export function useGoogleAccess(isActive = true): Access {
   const [access, setAccess] = useState<Access>('off');

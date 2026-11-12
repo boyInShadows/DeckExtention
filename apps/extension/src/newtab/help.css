@@ -38,7 +38,7 @@
   .deck-help h3 {
     margin-block-end: var(--deck-space-1);
     color: var(--deck-color-text-muted);
-    font-size: 0.6875rem;
+    font-size: var(--deck-font-label);
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
@@ -63,7 +63,7 @@
 
   .deck-help p {
     color: var(--deck-color-text-muted);
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
   }
 
   :is(.deck-help, .deck-keymap) kbd {
@@ -71,7 +71,7 @@
     border: 1px solid var(--deck-color-hairline);
     border-radius: 0.3rem;
     font: inherit;
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
   }
 
   .deck-keymap {

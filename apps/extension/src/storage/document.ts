@@ -10,6 +10,7 @@ import {
   type Settings,
 } from 'deck-schema';
 import { z } from 'zod';
+import { FocusStateSchema, type FocusState } from '../focus/model';
 
 export const DeckDocumentSchema = z.strictObject({
   schemaVersion: z.literal(SCHEMA_VERSION),
@@ -18,6 +19,7 @@ export const DeckDocumentSchema = z.strictObject({
   decks: z.array(DeckSchema),
   cards: z.array(CardSchema),
   settings: SettingsSchema,
+  focus: FocusStateSchema.optional(),
 });
 
 export type DeckDocument = {
@@ -27,6 +29,7 @@ export type DeckDocument = {
   decks: Deck[];
   cards: Card[];
   settings: Settings;
+  focus?: FocusState | undefined;
 };
 
 export function parseDocument(value: unknown): DeckDocument {

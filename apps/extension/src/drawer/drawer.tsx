@@ -18,6 +18,7 @@ import {
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { Icon } from '../newtab/Icon';
+import { workspaceSections } from '../newtab/sectionNavModel';
 import { downloadExport } from '../newtab/downloadExport';
 import { playSpring } from '../motion/spring';
 import {
@@ -52,6 +53,7 @@ import type { DrawerProps } from './DrawerProps';
 import { PageDeleteSheet } from './PageDeleteSheet';
 import { TaskManager } from '../tasks/TaskManager';
 import { TASKS_PAGE_ID } from '../tasks/constants';
+import FocusPanel from '../focus/FocusPanel';
 
 function currentTimestamp(): number {
   return Date.now();
@@ -193,6 +195,7 @@ export default function Drawer({
   const [noteEntity, setNoteEntity] = useState<Deck | Card | null>(null);
   const noteRef = useRef<NotePanelHandle>(null);
   const orderedPages = useMemo(() => activePages(pages), [pages]);
+  const linksPageId = orderedPages[0]?.id ?? 'links';
   const [selectedId, setSelectedId] = useState(() =>
     selectedPageId(pages, initialPageId ?? requestedPageId()),
   );
@@ -406,13 +409,11 @@ export default function Drawer({
   }, [isPagesLoaded]);
 
   useLayoutEffect(() => {
-    // The Inbox is the rail's first stop, then the user pages in order.
+    // Primary sections follow the surface rail; additional user pages follow.
     const railIds = [
-      INBOX_PAGE_ID,
-      SESSIONS_PAGE_ID,
-      TASKS_PAGE_ID,
+      ...workspaceSections(linksPageId).map(({ id }) => id),
       TRASH_PAGE_ID,
-      ...orderedPages.map(({ id }) => id),
+      ...orderedPages.slice(1).map(({ id }) => id),
     ];
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.altKey && /^Digit[1-9]$/.test(event.code)) {
@@ -447,6 +448,7 @@ export default function Drawer({
     data.repository,
     isOpen,
     keymap,
+    linksPageId,
     onError,
     onSuccess,
     orderedPages,
@@ -607,6 +609,7 @@ export default function Drawer({
         </header>
         <SystemPages
           selectedId={selectedId}
+          linksPageId={linksPageId}
           inboxCount={inboxCount}
           sessionCount={
             decks.filter(
@@ -658,7 +661,16 @@ export default function Drawer({
           +
         </button>
       </aside>
-      {selectedId === TASKS_PAGE_ID ? (
+      {selectedId === 'focus' ? (
+        <FocusPanel
+          isOpen={isOpen}
+          repository={data.repository}
+          cards={cards}
+          decks={decks}
+          pages={pages}
+          onError={onError}
+        />
+      ) : selectedId === TASKS_PAGE_ID ? (
         <TaskManager
           isOpen={isOpen}
           cards={cards}

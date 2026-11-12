@@ -5,6 +5,7 @@ import { Icon } from '../newtab/Icon';
 import type { DeckRepository } from '../storage/repository';
 import type { UndoAction } from '../drawer/UndoAction';
 import { createTask } from './quickTask';
+import { taskRecords } from './taskRecords';
 import './taskManager.css';
 
 interface TaskManagerProps {
@@ -38,24 +39,7 @@ export function TaskManager({
   useEffect(() => {
     if (isOpen) managerRef.current?.focus();
   }, [isOpen]);
-  const activePageIds = new Set(
-    pages.filter(({ deletedAt }) => deletedAt === null).map(({ id }) => id),
-  );
-  const activeDeckIds = new Set(
-    decks
-      .filter(
-        (deck) =>
-          deck.deletedAt === null &&
-          (deck.kind !== 'normal' || activePageIds.has(deck.pageId)),
-      )
-      .map(({ id }) => id),
-  );
-  const tasks = cards.filter(
-    (card) =>
-      card.kind === 'task' &&
-      card.deletedAt === null &&
-      activeDeckIds.has(card.deckId),
-  );
+  const tasks = taskRecords(cards, decks, pages);
   const visible = tasks
     .filter((card) => Boolean(card.done) === isCompleted)
     .toSorted((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));

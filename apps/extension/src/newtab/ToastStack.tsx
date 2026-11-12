@@ -8,6 +8,7 @@ import { Icon } from './Icon';
 const TOAST_DURATION_MS = 4_000;
 
 export interface NoticeInput {
+  source?: 'backup' | 'shortcut-hint';
   kind: 'info' | 'success' | 'error';
   text: string;
   action?: { label: string; run: () => Promise<void> | void };

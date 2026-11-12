@@ -214,6 +214,10 @@ export class BackupService {
         skipped: 0,
       };
     }
+    if (document.focus) {
+      const { mergeFocus } = await import('../focus/storage');
+      await mergeFocus(await this.#database, document.focus, true);
+    }
     const [pages, decks, cards] = await Promise.all([
       this.#repository.listPages(),
       this.#repository.listDecks(),
@@ -244,6 +248,10 @@ export class BackupService {
     }
     for (const card of selectNewer(document.cards, cards)) {
       await this.#repository.upsertCard(card);
+    }
+    if (document.focus) {
+      const { mergeFocus } = await import('../focus/storage');
+      await mergeFocus(await this.#database, document.focus, false);
     }
   }
 

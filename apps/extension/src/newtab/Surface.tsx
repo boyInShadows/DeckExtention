@@ -30,6 +30,8 @@ import type ResurfacePanel from '../resurface/Resurface';
 import type ShelfPanel from '../shelf/Shelf';
 import type { Card } from 'deck-schema';
 import type { CreatedWorkspace } from './lineWorkspace';
+import type FocusMonitorPanel from '../focus/FocusMonitor';
+import type { FocusEntry } from '../focus/model';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
 const HelpOverlay = lazy(() => import('./HelpOverlay'));
@@ -70,6 +72,9 @@ export function Surface({ initialData }: SurfaceProps) {
   const [Resurface, setResurface] = useState<typeof ResurfacePanel | null>(
     null,
   );
+  const [FocusMonitor, setFocusMonitor] = useState<
+    typeof FocusMonitorPanel | null
+  >(null);
   const keymap = useMemo(
     () => new Map(settings.keymap.map(({ action, chord }) => [action, chord])),
     [settings.keymap],
@@ -88,11 +93,29 @@ export function Surface({ initialData }: SurfaceProps) {
     url: string;
   } | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
+  const hasInteracted = useRef(isDrawerOpen || isSettingsOpen);
+  const dismissShortcutHint = useCallback(() => {
+    hasInteracted.current = true;
+    setNotices((current) =>
+      current.some((notice) => notice.source === 'shortcut-hint')
+        ? current.filter((notice) => notice.source !== 'shortcut-hint')
+        : current,
+    );
+  }, []);
   const notify = useCallback((notice: NoticeInput) => {
-    setNotices((current) => [
-      ...current,
-      { ...notice, id: crypto.randomUUID() },
-    ]);
+    setNotices((current) => {
+      if (
+        notice.kind === 'error' &&
+        current.some(
+          (item) =>
+            item.kind === 'error' &&
+            item.action === notice.action &&
+            item.text === notice.text,
+        )
+      )
+        return current;
+      return [...current, { ...notice, id: crypto.randomUUID() }];
+    });
   }, []);
   const notifyError = useCallback(
     (text: string) => notify({ kind: 'error', text }),
@@ -123,11 +146,12 @@ export function Surface({ initialData }: SurfaceProps) {
   const tabId = useRef(0);
 
   const openDrawer = useCallback(() => {
+    dismissShortcutHint();
     clearTimeout(drawerExitTimer.current);
     setIsSettingsOpen(false);
     setIsDrawerMounted(true);
     requestAnimationFrame(() => setIsDrawerOpen(true));
-  }, []);
+  }, [dismissShortcutHint]);
 
   const closeDrawer = useCallback(async () => {
     if ((await beforeDrawerClose.current?.()) === false) return false;
@@ -140,6 +164,34 @@ export function Surface({ initialData }: SurfaceProps) {
     }, DRAWER_EXIT_MS);
     return true;
   }, []);
+
+  const openWorkspacePage = useCallback(
+    async (pageId: string) => {
+      if ((await beforeDrawerClose.current?.()) === false) return;
+      setCreatedWorkspace(null);
+      setNavigationRequest({ pageId });
+      openDrawer();
+    },
+    [openDrawer],
+  );
+
+  const focusCompleted = useCallback(
+    (entry: FocusEntry) => {
+      void import('../i18n/panelStrings')
+        .then(({ panelStrings }) =>
+          notify({
+            kind: 'info',
+            text: panelStrings.focusCompleted(entry.task?.title),
+            action: {
+              label: panelStrings.focusView,
+              run: () => openWorkspacePage('focus'),
+            },
+          }),
+        )
+        .catch(notifyFailure);
+    },
+    [notify, notifyFailure, openWorkspacePage],
+  );
 
   const saveSettings = useCallback(
     async (next: typeof settings) => {
@@ -205,15 +257,52 @@ export function Surface({ initialData }: SurfaceProps) {
 
   // Quick Save hands over here when its toast could not show (P2.S4).
   useEffect(() => {
+    let isCurrent = true;
+    let stopWatching: (() => void) | undefined;
     // Consumed once: a reload of this tab should start calm again.
     if (location.hash === OPEN_SETTINGS_HASH)
       history.replaceState(null, '', location.pathname);
     void import('./pendingNotices')
-      .then(({ readPendingNotices }) => readPendingNotices(notify))
+      .then(({ readPendingNotices, watchBackupNotices }) => {
+        if (!isCurrent) return;
+        stopWatching = watchBackupNotices(notify, () => {
+          setNotices((current) =>
+            current.filter((notice) => notice.source !== 'backup'),
+          );
+        });
+        return readPendingNotices(notify);
+      })
       .catch((noticeError: unknown) => notifyError(String(noticeError)));
+    return () => {
+      isCurrent = false;
+      stopWatching?.();
+    };
   }, [notify, notifyError]);
 
   useLayoutEffect(() => {
+    const onInteraction = (event: PointerEvent | KeyboardEvent) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-deck="toast"]')
+      )
+        return;
+      if (
+        event instanceof KeyboardEvent &&
+        ['Tab', 'Shift', 'Control', 'Alt', 'Meta'].includes(event.key)
+      )
+        return;
+      dismissShortcutHint();
+    };
+    window.addEventListener('pointerdown', onInteraction, true);
+    window.addEventListener('keydown', onInteraction, true);
+    return () => {
+      window.removeEventListener('pointerdown', onInteraction, true);
+      window.removeEventListener('keydown', onInteraction, true);
+    };
+  }, [dismissShortcutHint]);
+
+  useLayoutEffect(() => {
+    let isCurrent = true;
     let idle: number | null = null;
     const frame = window.requestAnimationFrame(() => {
       document.documentElement.dataset.deckReady = 'true';
@@ -222,21 +311,36 @@ export function Surface({ initialData }: SurfaceProps) {
         performance.measure('deck-interactive', 'deck-start', 'deck-ready');
       }
       idle = window.requestIdleCallback(() => {
+        void import('./firstRunHint')
+          .then(async ({ firstRunHint }) => {
+            if (!isCurrent) return;
+            const notice = await firstRunHint(() => {
+              document
+                .querySelector<HTMLInputElement>('[data-deck="line"] input')
+                ?.focus();
+              setIsHelpOpen(true);
+            });
+            if (isCurrent && notice && !hasInteracted.current) notify(notice);
+          })
+          .catch((error: unknown) => {
+            if (isCurrent) notifyFailure(error);
+          });
         void loadDrawer().catch(notifyFailure);
+        void import('../focus/FocusMonitor')
+          .then((module) => setFocusMonitor(() => module.default))
+          .catch(notifyFailure);
         void chrome.runtime
           .sendMessage({ type: MAINTENANCE_MESSAGE })
-          .then((reply: { error: string | null }) => {
-            if (reply.error) notifyFailure(reply.error);
-          })
           .catch(notifyFailure);
       });
     });
     return () => {
+      isCurrent = false;
       window.cancelAnimationFrame(frame);
       if (idle !== null) window.cancelIdleCallback(idle);
       clearTimeout(drawerExitTimer.current);
     };
-  }, [notifyFailure]);
+  }, [notify, notifyFailure]);
 
   useLayoutEffect(() => {
     if (!tabId.current)
@@ -380,12 +484,7 @@ export function Surface({ initialData }: SurfaceProps) {
               )[0]?.id ?? 'links'
           }
           onOpen={(id) => {
-            void (async () => {
-              if ((await beforeDrawerClose.current?.()) === false) return;
-              setCreatedWorkspace(null);
-              setNavigationRequest({ pageId: id });
-              openDrawer();
-            })().catch(notifyFailure);
+            void openWorkspacePage(id).catch(notifyFailure);
           }}
         />
         <div data-deck="surface-column" className="deck-surface__column">
@@ -438,36 +537,44 @@ export function Surface({ initialData }: SurfaceProps) {
             offerUndo={offerUndo}
             notify={notify}
           />
-          {settings.showShelf && Shelf ? (
-            <Shelf
-              cards={cards}
-              decks={decks}
-              pages={pages}
-              selectedDeckIds={settings.shelfDeckIds}
-              repository={initialData.repository}
-              onDataChange={reloadWorkspace}
-              onError={notifyError}
-              onOpenNote={(card) => {
-                setRequestedNote(card);
-                openDrawer();
-              }}
-            />
-          ) : null}
+          <section
+            data-deck="surface-extras"
+            className="deck-surface__extras"
+            aria-label={strings.surfaceExtras}
+            tabIndex={0}
+          >
+            {settings.showShelf && Shelf ? (
+              <Shelf
+                cards={cards}
+                decks={decks}
+                pages={pages}
+                selectedDeckIds={settings.shelfDeckIds}
+                repository={initialData.repository}
+                onDataChange={reloadWorkspace}
+                onError={notifyError}
+                onOpenNote={(card) => {
+                  setRequestedNote(card);
+                  openDrawer();
+                }}
+              />
+            ) : null}
+            <Suspense>
+              {settings.showResurface && Resurface ? (
+                <Resurface
+                  repository={initialData.repository}
+                  cards={cards}
+                  decks={decks}
+                  pages={pages}
+                  now={now}
+                  isVisible={!isDrawerMounted && !isSettingsOpen && !isHelpOpen}
+                  onDataChange={reloadWorkspace}
+                  notify={notify}
+                />
+              ) : null}
+            </Suspense>
+          </section>
         </div>
-        <Suspense>
-          {settings.showResurface && Resurface ? (
-            <Resurface
-              repository={initialData.repository}
-              cards={cards}
-              decks={decks}
-              pages={pages}
-              now={now}
-              isVisible={!isDrawerMounted && !isSettingsOpen && !isHelpOpen}
-              onDataChange={reloadWorkspace}
-              notify={notify}
-            />
-          ) : null}
-        </Suspense>
+
         <nav data-deck="surface-controls" className="deck-surface-controls">
           <button
             type="button"
@@ -558,6 +665,13 @@ export function Surface({ initialData }: SurfaceProps) {
           ) : null}
         </Suspense>
         <Suspense>
+          {FocusMonitor ? (
+            <FocusMonitor
+              repository={initialData.repository}
+              onError={notifyError}
+              onComplete={focusCompleted}
+            />
+          ) : null}
           {isHelpOpen ? (
             <HelpOverlay
               keymapOverrides={settings.keymap}

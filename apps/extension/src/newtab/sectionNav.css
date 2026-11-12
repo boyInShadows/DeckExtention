@@ -67,13 +67,40 @@
     /* Keep the rail between the clock and the open drawer. */
     .deck-surface[data-drawer-open] {
       --deck-workspace-block-start: calc(
-        var(--deck-nav-item-size) + var(--deck-control-size) +
+        var(--deck-nav-stack-size) + var(--deck-control-size) +
           var(--deck-space-4)
       );
     }
 
     .deck-surface[data-drawer-open] .deck-section-nav {
       inset-block-start: calc(var(--deck-control-size) + var(--deck-space-1));
+    }
+  }
+
+  @media (width < 360px) {
+    .deck-section-nav {
+      gap: 0;
+      inline-size: calc(100% - var(--deck-space-1));
+      max-inline-size: none;
+    }
+  }
+
+  @media (width < 600px) {
+    .deck-surface {
+      --deck-nav-stack-size: calc(
+        var(--deck-nav-item-size) * 2 + var(--deck-space-1)
+      );
+
+      padding-block-start: max(
+        var(--deck-surface-block-start),
+        calc(var(--deck-nav-stack-size) + var(--deck-space-3))
+      );
+    }
+
+    .deck-section-nav {
+      grid-auto-flow: row;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      inline-size: calc(100% - var(--deck-space-2));
     }
   }
 }

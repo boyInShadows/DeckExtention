@@ -161,7 +161,7 @@ test('phase 2 journey: quick save, triage, drag, export', async ({
     await expect(decks).toHaveCount(2);
 
     // Triage: the saved page is in the Inbox; m, type, Enter.
-    await page.locator('[data-deck="page"][data-system]').first().click();
+    await page.getByRole('button', { name: 'Inbox', exact: true }).click();
     const inbox = page.getByRole('listbox', { name: 'Inbox' });
     await expect(inbox.getByRole('option')).toHaveCount(1);
     await expect(inbox).toContainText(ARTICLE_TITLE);
@@ -246,7 +246,7 @@ test('phase 2 journey: quick save, triage, drag, export', async ({
   }
 });
 
-test('access granted in context is listed in Settings and can be revoked', async () => {
+test('web search needs no search grant; a legacy grant is listed in Settings and revocable', async () => {
   const context = await launchExtension();
   try {
     await context.route(/^https?:\/\//, (route) =>
@@ -259,13 +259,27 @@ test('access granted in context is listed in Settings and can be revoked', async
       );
     expect(await hasSearch()).toBe(false);
 
-    // Granted at the moment of use: a `?` query from the Line.
+    // Current web search navigates directly without Chrome search access.
     await page.keyboard.press('/');
     await page.keyboard.type('?deck');
     await page.keyboard.press('Enter');
     await page.waitForURL((url) => !url.href.startsWith('chrome'));
 
     const deck = await openDeck(context, '#settings');
+    expect(
+      await deck.evaluate(() =>
+        chrome.permissions.contains({ permissions: ['search'] }),
+      ),
+    ).toBe(false);
+    // A legacy optional grant must remain visible and revocable after an update.
+    expect(
+      await deck.evaluate(() =>
+        chrome.permissions.request({ permissions: ['search'] }),
+      ),
+    ).toBe(true);
+    await deck.reload();
+    await deck.waitForSelector(READY_SELECTOR);
+    await deck.getByRole('button', { name: 'Settings', exact: true }).click();
     const row = deck
       .locator('[data-deck="granted-access"]')
       .filter({ hasText: 'Web search' });

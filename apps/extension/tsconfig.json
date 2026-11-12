@@ -6,10 +6,13 @@
     "types": ["chrome", "node", "vite/client"]
   },
   "include": [
+    "../../tests/motion/**/*.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
     "vite.config.ts",
     "manifest.config.ts",
-    "preactAlias.ts"
+    "preactAlias.ts",
+    "tests/**/*.ts",
+    "tests/**/*.tsx"
   ]
 }

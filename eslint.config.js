@@ -74,7 +74,7 @@ export default tseslint.config(
   },
 
   {
-    files: ['apps/extension/src/**/*.{ts,tsx}'],
+    files: ['apps/extension/{src,tests}/**/*.{ts,tsx}'],
     languageOptions: {
       globals: { ...globals.browser, chrome: 'readonly' },
     },
@@ -102,7 +102,7 @@ export default tseslint.config(
 
   {
     /* Fixtures are data, not code: they exist to be wrong. */
-    files: ['**/test/fixtures/**'],
+    files: ['**/{test,tests}/fixtures/**'],
     rules: { 'deck/no-raw-hex': 'off' },
   },
   {

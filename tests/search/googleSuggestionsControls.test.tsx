@@ -84,6 +84,30 @@ function Probe({
   );
 }
 
+it('requests only the latest query after 100 ms without another keystroke', async () => {
+  await import('../../apps/extension/src/search/googleSuggestions');
+  vi.useFakeTimers();
+  try {
+    isGranted = true;
+    view = await render(createElement(Probe, { query: 'old query' }));
+    await view.act(() => vi.advanceTimersByTimeAsync(99));
+    expect(provider.fetchGoogleSuggestions).not.toHaveBeenCalled();
+    await view.rerender(createElement(Probe, { query: 'new query' }));
+    await view.act(() => vi.advanceTimersByTimeAsync(99));
+    expect(provider.fetchGoogleSuggestions).not.toHaveBeenCalled();
+    await view.act(() => vi.advanceTimersByTimeAsync(1));
+    expect(provider.fetchGoogleSuggestions).toHaveBeenCalledExactlyOnceWith(
+      'new query',
+      expect.any(AbortSignal),
+    );
+    expect(view.container.textContent).toBe('new idea');
+  } finally {
+    view?.unmount();
+    view = undefined;
+    vi.useRealTimers();
+  }
+});
+
 it('makes no provider call without consent, while blurred, or for commands and URLs', async () => {
   view = await render(createElement(Probe, { query: 'private query' }));
   await new Promise((resolve) => setTimeout(resolve, 300));

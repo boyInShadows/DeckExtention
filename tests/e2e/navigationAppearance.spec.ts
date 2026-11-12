@@ -26,7 +26,7 @@ test('navigation stays transparent with distinct icons, hover, focus and selecti
           .locator('svg')
           .evaluateAll((icons) => icons.map((icon) => icon.innerHTML)),
       ).size,
-    ).toBe(4);
+    ).toBe(5);
 
     for (const theme of ['night', 'day']) {
       await page.evaluate((value) => {
@@ -83,7 +83,7 @@ test('navigation stays transparent with distinct icons, hover, focus and selecti
         await page.mouse.move(0, 0);
         await page.keyboard.press('Tab');
         await buttons.first().focus();
-        for (let index = 0; index < 4; index += 1) {
+        for (let index = 0; index < 5; index += 1) {
           const button = buttons.nth(index);
           await expect(button).toBeFocused();
           await expect(button).toHaveCSS('outline-style', 'solid');
@@ -92,7 +92,7 @@ test('navigation stays transparent with distinct icons, hover, focus and selecti
             'background-color',
             'rgba(0, 0, 0, 0)',
           );
-          if (index < 3) await page.keyboard.press('Tab');
+          if (index < 4) await page.keyboard.press('Tab');
         }
         await tasks.focus();
         await page.keyboard.press('Enter');
@@ -160,6 +160,10 @@ test('local wallpapers keep surface text and opaque panels readable in both them
           .getByRole('group', { name: 'Theme', exact: true })
           .getByRole('button', { name: theme, exact: true })
           .click();
+        await expect(page.locator('html')).toHaveAttribute(
+          'data-theme',
+          theme.toLowerCase(),
+        );
         const image = await page.evaluate((fill) => {
           const canvas = document.createElement('canvas');
           canvas.width = 64;
@@ -183,9 +187,9 @@ test('local wallpapers keep surface text and opaque panels readable in both them
           'data-loaded',
           'true',
         );
-        const panelColor = await page
-          .locator('body')
-          .evaluate((body) => getComputedStyle(body).color);
+        const panelColor =
+          theme === 'Day' ? 'rgb(39, 45, 54)' : 'rgb(245, 238, 227)';
+        await expect(page.locator('body')).toHaveCSS('color', panelColor);
         await expect(page.locator('[data-deck="clock"]')).toHaveCSS(
           'color',
           'rgb(255, 255, 255)',

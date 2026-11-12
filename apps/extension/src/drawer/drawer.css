@@ -75,9 +75,7 @@
 
   .deck-pages {
     display: grid;
-    grid-template-rows:
-      repeat(5, auto) minmax(var(--deck-control-size), 1fr)
-      auto;
+    grid-template-rows: auto auto minmax(var(--deck-control-size), 1fr) auto;
     overflow-y: auto;
     gap: var(--deck-space-1);
     min-block-size: 0;
@@ -91,9 +89,14 @@
     justify-content: space-between;
   }
 
+  .deck-pages__sections {
+    display: grid;
+    gap: var(--deck-space-1);
+  }
+
   .deck-pages h2 {
     margin: 0;
-    font-size: 0.75rem;
+    font-size: var(--deck-font-label);
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -114,7 +117,8 @@
   }
 
   .deck-pages :where(button:hover),
-  .deck-pages :where(button[data-selected]) {
+  .deck-pages :where(button[data-selected]),
+  .deck-pages :where(button[aria-current='page']) {
     background: var(--deck-color-selection);
   }
 
