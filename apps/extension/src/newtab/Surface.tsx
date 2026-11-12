@@ -32,6 +32,7 @@ import type { Card } from 'deck-schema';
 import type { CreatedWorkspace } from './lineWorkspace';
 import type FocusMonitorPanel from '../focus/FocusMonitor';
 import type { FocusEntry } from '../focus/model';
+import { useExternalLinkDrop } from '../capture/useExternalLinkDrop';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
 const HelpOverlay = lazy(() => import('./HelpOverlay'));
@@ -224,6 +225,13 @@ export function Surface({ initialData }: SurfaceProps) {
       })
       .catch(notifyFailure);
   }, [initialData, notifyFailure]);
+
+  useExternalLinkDrop(
+    initialData.repository,
+    reloadWorkspace,
+    notify,
+    notifyFailure,
+  );
 
   useEffect(() => {
     if (!settings.showResurface) return;

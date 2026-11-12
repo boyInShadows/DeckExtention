@@ -1,0 +1,6 @@
+@layer components {
+  [data-external-drop] {
+    outline: 0.125rem solid var(--deck-color-focus);
+    outline-offset: var(--deck-space-1);
+  }
+}
