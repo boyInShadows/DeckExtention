@@ -208,7 +208,7 @@ export function DeckWorkspace(props: WorkspaceProps) {
               {...props}
               deck={deck}
               isNew={editingDeckId === deck.id}
-              visibleCards={activeCards(props.cards, deck.id)}
+              visibleCards={activeCards(props.cards, deck.id, deck.sortMode)}
               onEditNote={props.onEditNote ?? setNoteEntity}
             />
           ))}
@@ -385,7 +385,13 @@ function DeckColumn({
         id: crypto.randomUUID(),
         deckId: deck.id,
         ...parsed,
-        order: generateKeyBetween(visibleCards.at(-1)?.order ?? null, null),
+        order: generateKeyBetween(
+          activeCards(props.cards, deck.id)
+            .map(({ order }) => order)
+            .toSorted()
+            .at(-1) ?? null,
+          null,
+        ),
         pinned: false,
         lastOpenedAt: null,
         createdAt: time,

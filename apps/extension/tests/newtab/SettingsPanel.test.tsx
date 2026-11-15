@@ -701,6 +701,9 @@ describe('SettingsPanel - backups', () => {
     });
     const { view } = await mount();
     await clickAndSettle(view, buttonWithText(view, strings.exportBookmarks));
+    await view.act(async () => {
+      await vi.dynamicImportSettled();
+    });
     const [blob] = nth(createObjectURL.mock.calls);
     if (!(blob instanceof Blob)) throw new Error('HTML export missing');
     expect(blob.type).toBe('text/html;charset=utf-8');

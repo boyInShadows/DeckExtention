@@ -64,7 +64,7 @@ export default function Shelf(props: ShelfProps) {
         <ShelfDeck
           key={deck.id}
           deck={deck}
-          cards={activeCards(props.cards, deck.id)}
+          cards={activeCards(props.cards, deck.id, deck.sortMode)}
           isOpen={deck.id === openId}
           onToggle={() =>
             setOpenId((current) => (current === deck.id ? null : deck.id))

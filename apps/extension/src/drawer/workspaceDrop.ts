@@ -98,11 +98,19 @@ async function persistCardMove(
       : state.cards.find(({ id }) => id === over.id)?.deckId;
   if (!targetDeckId || (over.entity !== 'card' && over.entity !== 'deck'))
     return;
+  const source = state.cards.find(({ id }) => id === activeId);
+  const target = state.decks.find(({ id }) => id === targetDeckId);
+  const isSorted =
+    target?.sortMode !== undefined && target.sortMode !== 'manual';
+  if (source?.deckId === targetDeckId && isSorted) {
+    state.onError(strings.sortCardsHint);
+    return;
+  }
   const moved = moveCard(
     state.cards,
     activeId,
     targetDeckId,
-    over.entity === 'card' ? over.id : undefined,
+    over.entity === 'card' && !isSorted ? over.id : undefined,
   );
   if (!moved) return;
   const saved = await state.repository.upsertCard({

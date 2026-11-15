@@ -20,6 +20,7 @@ const DECK_FIELDS = [
   'color',
   'isCollapsed',
   'isTaskMode',
+  'sortMode',
   'note',
   'expiresAt',
 ];
@@ -114,6 +115,12 @@ export function isDeck(value: unknown): value is Deck {
     (value.color === null || isToken(value.color)) &&
     typeof value.isCollapsed === 'boolean' &&
     isOptional(value.isTaskMode, (item) => typeof item === 'boolean') &&
+    isOptional(
+      value.sortMode,
+      (item) =>
+        typeof item === 'string' &&
+        ['manual', 'title', 'newest', 'hostname'].includes(item),
+    ) &&
     isOptional(value.note, (note) => isString(note, NOTE_MAX_LENGTH)) &&
     isOptional(value.expiresAt, isTime)
   );
