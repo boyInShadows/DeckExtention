@@ -17,6 +17,7 @@ import {
 
 import { panelStrings as strings } from '../../src/i18n/panelStrings';
 import type { DeckRepository } from '../../src/storage/repository';
+import type { DeckDocument } from '../../src/storage/document';
 import {
   click,
   keyDown,
@@ -35,7 +36,7 @@ import type { NoticeInput } from '../../src/newtab/ToastStack';
  */
 const backups = vi.hoisted(() => ({
   listSnapshots: vi.fn<() => Promise<Snapshot[]>>(),
-  exportData: vi.fn<() => Promise<{ json: string }>>(),
+  exportData: vi.fn<() => Promise<{ json: string; document?: DeckDocument }>>(),
   previewImport: vi.fn<(value: unknown, mode: string) => Promise<unknown>>(),
   importData: vi.fn<(value: unknown, mode: string) => Promise<unknown>>(),
   restoreSnapshot: vi.fn<(id: string) => Promise<void>>(),
@@ -671,6 +672,54 @@ describe('SettingsPanel - backups', () => {
     const { view } = await mount();
     await clickAndSettle(view, buttonWithText(view, strings.exportData));
     expect(alertText(view)).toBe(`${strings.updateFailed} no snapshot either`);
+    view.unmount();
+  });
+
+  it('downloads HTML separately and explains the full-backup boundary', async () => {
+    backups.exportData.mockResolvedValue({
+      json: EXPORT_JSON,
+      document: {
+        schemaVersion: SCHEMA_VERSION,
+        exportedAt: NOW,
+        pages: [],
+        decks: [],
+        cards: [],
+        settings: SETTINGS_DEFAULTS,
+      },
+    });
+    const createObjectURL = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockReturnValue(BLOB_URL);
+    const revokeObjectURL = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockReturnValue(undefined);
+    const anchors: HTMLAnchorElement[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      anchors.push(this);
+    });
+    const { view } = await mount();
+    await clickAndSettle(view, buttonWithText(view, strings.exportBookmarks));
+    const [blob] = nth(createObjectURL.mock.calls);
+    if (!(blob instanceof Blob)) throw new Error('HTML export missing');
+    expect(blob.type).toBe('text/html;charset=utf-8');
+    expect(await blob.text()).toContain('<!DOCTYPE NETSCAPE-Bookmark-file-1>');
+    expect(nth(anchors).download).toMatch(/^deck-\d{4}-\d{2}-\d{2}\.html$/);
+    expect(revokeObjectURL).toHaveBeenCalledWith(BLOB_URL);
+    expect(view.container.textContent).toContain(strings.exportBookmarksHint);
+    view.unmount();
+  });
+
+  it('shows HTML export failures without downloading', async () => {
+    backups.exportData.mockRejectedValue(new Error('snapshots unreadable'));
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL');
+    const { view } = await mount();
+    await clickAndSettle(view, buttonWithText(view, strings.exportBookmarks));
+    expect(alertText(view)).toBe(
+      `${strings.updateFailed} snapshots unreadable`,
+    );
+    expect(createObjectURL).not.toHaveBeenCalled();
     view.unmount();
   });
 });

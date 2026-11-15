@@ -212,6 +212,13 @@ export const panelStrings = {
   restore: 'Restore',
   restoreConfirm: 'Replace data with this backup?',
   exportData: 'Export data',
+  exportBookmarks: 'Export bookmarks (HTML)',
+  exportBookmarksUnsafeUrl:
+    'A link has a URL scheme that cannot be safely exported as HTML. Use Export data (JSON) to preserve all data.',
+  exportBookmarksMissingParent:
+    'A link or deck has a missing folder. Use Export data (JSON) to preserve all data.',
+  exportBookmarksHint:
+    'Links only, organized by page and deck. Notes, task details and settings stay in the full JSON export above.',
   importData: 'Import data',
   importConfirm: 'Import and replace data?',
   keyHint: 'Chrome manages extension shortcuts.',

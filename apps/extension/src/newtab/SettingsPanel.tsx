@@ -212,9 +212,9 @@ export default function SettingsPanel({
     [loadSnapshots, notify, onDataChange],
   );
 
-  const exportData = async () => {
+  const exportData = async (format: 'json' | 'html' = 'json') => {
     try {
-      await downloadExport(repository);
+      await downloadExport(repository, format);
       notify({ kind: 'success', text: strings.exportSaved });
     } catch (exportError) {
       showError(exportError);
@@ -534,6 +534,14 @@ export default function SettingsPanel({
           <button type="button" onClick={() => void exportData()}>
             {strings.exportData}
           </button>
+          <button
+            type="button"
+            data-deck="export-bookmarks"
+            onClick={() => void exportData('html')}
+          >
+            {strings.exportBookmarks}
+          </button>
+          <p data-deck="export-bookmarks-hint">{strings.exportBookmarksHint}</p>
           <button type="button" onClick={() => importInput.current?.click()}>
             {strings.importData}
           </button>
