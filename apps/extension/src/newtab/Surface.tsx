@@ -202,6 +202,7 @@ export function Surface({ initialData }: SurfaceProps) {
         setSettings(saved);
         document.documentElement.dataset.theme = saved.theme;
         document.documentElement.dataset.accent = saved.accentColor;
+        document.documentElement.dataset.density = saved.rowDensity;
         notify({ kind: 'success', text: strings.saved });
       } catch (saveError) {
         notifyFailure(saveError);
@@ -225,6 +226,7 @@ export function Surface({ initialData }: SurfaceProps) {
         setSettings(storedSettings);
         document.documentElement.dataset.theme = storedSettings.theme;
         document.documentElement.dataset.accent = storedSettings.accentColor;
+        document.documentElement.dataset.density = storedSettings.rowDensity;
       })
       .catch(notifyFailure);
   }, [initialData, notifyFailure]);

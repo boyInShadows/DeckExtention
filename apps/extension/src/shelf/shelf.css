@@ -84,7 +84,7 @@
 
   [data-deck='shelf-card'] :is(a, button) {
     display: grid;
-    padding-block: var(--deck-space-1);
+    padding-block: calc(var(--deck-space-1) + var(--deck-row-padding-block));
     color: inherit;
     text-align: start;
     text-decoration: none;

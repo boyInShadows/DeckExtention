@@ -8,7 +8,7 @@ import {
   type Page,
   type Deck,
 } from 'deck-schema';
-import { ACCENT_COLORS } from 'deck-schema/constants';
+import { ACCENT_COLORS, ROW_DENSITIES } from 'deck-schema/constants';
 import {
   useCallback,
   useEffect,
@@ -386,6 +386,25 @@ export default function SettingsPanel({
               </button>
             ))}
           </div>
+          <label data-deck="density-setting">
+            {strings.rowDensity}
+            <select
+              data-deck="density-select"
+              value={settings.rowDensity}
+              onChange={(event) => {
+                const density = ROW_DENSITIES.find(
+                  (value) => value === event.currentTarget.value,
+                );
+                if (density) void update({ rowDensity: density });
+              }}
+            >
+              {ROW_DENSITIES.map((value) => (
+                <option key={value} value={value}>
+                  {strings.densityNames[value]}
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             {strings.yourName}
             <input

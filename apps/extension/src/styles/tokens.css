@@ -135,6 +135,10 @@ html[data-accent='slate'] {
   --deck-color-focus: var(--deck-accent-slate);
 }
 
+html[data-density='comfortable'] {
+  --deck-row-padding-block: var(--deck-space-1);
+}
+
 html[data-accent='blue'] {
   --deck-color-focus: var(--deck-accent-blue);
 }
@@ -165,6 +169,7 @@ html[data-accent]:not([data-accent='warm']) {
  */
 :root {
   --deck-color-selection-text: var(--deck-color-canvas);
+  --deck-row-padding-block: 0rem;
   --deck-color-wallpaper-canvas-raised: var(--deck-color-canvas-raised);
   --deck-color-panel-text: var(--deck-color-text);
   --deck-color-panel-muted: var(--deck-color-text-muted);
