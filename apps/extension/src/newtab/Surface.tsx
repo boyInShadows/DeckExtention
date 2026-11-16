@@ -201,6 +201,7 @@ export function Surface({ initialData }: SurfaceProps) {
         const saved = await initialData.repository.setSettings(next);
         setSettings(saved);
         document.documentElement.dataset.theme = saved.theme;
+        document.documentElement.dataset.accent = saved.accentColor;
         notify({ kind: 'success', text: strings.saved });
       } catch (saveError) {
         notifyFailure(saveError);
@@ -223,6 +224,7 @@ export function Surface({ initialData }: SurfaceProps) {
         setCards(storedCards);
         setSettings(storedSettings);
         document.documentElement.dataset.theme = storedSettings.theme;
+        document.documentElement.dataset.accent = storedSettings.accentColor;
       })
       .catch(notifyFailure);
   }, [initialData, notifyFailure]);

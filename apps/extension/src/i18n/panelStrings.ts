@@ -6,6 +6,15 @@ import { strings } from './strings';
  */
 export const panelStrings = {
   ...strings,
+  accentColor: 'Accent color',
+  accentNames: {
+    warm: 'Warm (default)',
+    slate: 'Slate',
+    blue: 'Blue',
+    green: 'Green',
+    amber: 'Amber',
+    rose: 'Rose',
+  },
   filterCards: 'Filter cards on this page',
   closeFilter: 'Close filter',
   noMatchingCards: 'No matching cards. Try another word or close the filter.',

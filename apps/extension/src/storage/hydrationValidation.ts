@@ -1,4 +1,5 @@
 import {
+  ACCENT_COLORS,
   CUSTOM_CSS_MAX_LENGTH,
   HOSTNAME_MAX_LENGTH,
   NOTE_MAX_LENGTH,
@@ -42,6 +43,7 @@ const CARD_FIELDS = [
 ];
 const SETTINGS_FIELDS = [
   'theme',
+  'accentColor',
   'ownerName',
   'showSeconds',
   'showDate',
@@ -187,6 +189,9 @@ export function isSettings(value: unknown): value is Settings {
     hasOnlyFields(value, SETTINGS_FIELDS) &&
     typeof value.theme === 'string' &&
     ['night', 'day', 'system'].includes(value.theme) &&
+    isOptional(value.accentColor, (item) =>
+      ACCENT_COLORS.some((color) => color === item),
+    ) &&
     isString(value.ownerName, 80) &&
     typeof value.showSeconds === 'boolean' &&
     isOptional(value.showDate, (item) => typeof item === 'boolean') &&

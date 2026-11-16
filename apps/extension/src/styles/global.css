@@ -97,7 +97,7 @@ body {
 
   ::selection {
     background: var(--deck-color-focus);
-    color: var(--deck-color-canvas);
+    color: var(--deck-color-selection-text);
   }
 
   :focus-visible {
@@ -133,6 +133,7 @@ body {
     --deck-color-hairline: var(--deck-color-panel-hairline);
     --deck-color-glass: var(--deck-color-panel-hover);
     --deck-color-focus: var(--deck-color-panel-focus);
+    --deck-color-selection-text: var(--deck-color-canvas);
 
     color: var(--deck-color-text);
   }

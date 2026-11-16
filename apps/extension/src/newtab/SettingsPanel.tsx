@@ -8,6 +8,7 @@ import {
   type Page,
   type Deck,
 } from 'deck-schema';
+import { ACCENT_COLORS } from 'deck-schema/constants';
 import {
   useCallback,
   useEffect,
@@ -354,6 +355,34 @@ export default function SettingsPanel({
                 onClick={() => void update({ theme: value })}
               >
                 {label}
+              </button>
+            ))}
+          </div>
+          <p data-deck="accent-label">{strings.accentColor}</p>
+          <div
+            className="deck-settings__swatches"
+            data-deck="accent-swatches"
+            role="group"
+            aria-label={strings.accentColor}
+          >
+            {ACCENT_COLORS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                data-deck="accent-swatch"
+                className="deck-settings__swatch"
+                style={{
+                  backgroundColor: `var(--deck-accent-${color})`,
+                  color: 'var(--deck-color-canvas)',
+                }}
+                aria-label={strings.accentNames[color]}
+                title={strings.accentNames[color]}
+                aria-pressed={settings.accentColor === color}
+                onClick={() => void update({ accentColor: color })}
+              >
+                {settings.accentColor === color ? (
+                  <Icon name="check" size={16} />
+                ) : null}
               </button>
             ))}
           </div>
