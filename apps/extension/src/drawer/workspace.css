@@ -18,6 +18,24 @@
     gap: var(--deck-space-2);
   }
 
+  .deck-workspace__filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--deck-space-2);
+    margin-block-end: var(--deck-space-4);
+  }
+
+  .deck-workspace__filter input {
+    flex: 1;
+    min-inline-size: 0;
+  }
+
+  .deck-workspace__filter p {
+    flex-basis: 100%;
+    margin: 0;
+  }
+
   .deck-column {
     position: relative;
     border: 1px solid var(--deck-color-hairline);

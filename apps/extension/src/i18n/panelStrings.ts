@@ -6,6 +6,10 @@ import { strings } from './strings';
  */
 export const panelStrings = {
   ...strings,
+  filterCards: 'Filter cards on this page',
+  closeFilter: 'Close filter',
+  noMatchingCards: 'No matching cards. Try another word or close the filter.',
+  filterScope: 'Filtering cards on this page. Escape clears the filter.',
   firstRunHint: 'Type >help and press Enter for shortcuts.',
   showShortcuts: 'Show shortcuts',
   alreadySavedIn: (location: string) => `Already saved in ${location}.`,
