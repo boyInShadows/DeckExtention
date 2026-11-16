@@ -18,6 +18,7 @@ export const SETTINGS_DEFAULTS: Settings = Object.freeze({
   ownerName: '',
   showSeconds: false,
   showDate: true,
+  showWeekNumber: false,
   use12HourClock: false,
   showResurface: true,
   showShelf: false,

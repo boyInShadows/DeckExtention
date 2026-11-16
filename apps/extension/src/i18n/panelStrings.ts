@@ -124,6 +124,7 @@ export const panelStrings = {
   yourName: 'Your name',
   showSeconds: 'Show seconds',
   showDate: 'Show date',
+  showWeekNumber: 'Show ISO week number with date',
   use12HourClock: '12-hour clock',
   privacyBlur: 'Privacy blur',
   showResurface: 'Resurface an unread link each day',

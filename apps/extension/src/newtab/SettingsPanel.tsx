@@ -376,6 +376,11 @@ export default function SettingsPanel({
             onChange={(showDate) => void update({ showDate })}
           />
           <Toggle
+            label={strings.showWeekNumber}
+            checked={settings.showWeekNumber}
+            onChange={(showWeekNumber) => void update({ showWeekNumber })}
+          />
+          <Toggle
             label={strings.use12HourClock}
             checked={settings.use12HourClock}
             onChange={(use12HourClock) => void update({ use12HourClock })}

@@ -38,6 +38,7 @@ export const SettingsSchema = z.strictObject({
   ownerName: z.string().max(80),
   showSeconds: z.boolean(),
   showDate: z.boolean().default(true),
+  showWeekNumber: z.boolean().default(false),
   use12HourClock: z.boolean().default(false),
   showResurface: z.boolean().default(true),
   showShelf: z.boolean().default(false),

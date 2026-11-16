@@ -25,6 +25,7 @@ import type { SurfaceData } from './bootstrap';
 import { Line } from './Line';
 import { Pins } from './Pins';
 import { greetingForHour } from './surfaceModel';
+import { isoWeek } from './isoWeek';
 import { SectionNav } from './SectionNav';
 import type ResurfacePanel from '../resurface/Resurface';
 import type ShelfPanel from '../shelf/Shelf';
@@ -447,6 +448,7 @@ export function Surface({ initialData }: SurfaceProps) {
     timeStyle: settings.showSeconds ? 'medium' : 'short',
     hour12: settings.use12HourClock,
   });
+  const week = settings.showWeekNumber ? isoWeek(now) : null;
   const wallpaperUrl =
     settings.wallpaper.kind === 'file' &&
     loadedWallpaper?.key === settings.wallpaper.blobKey
@@ -504,8 +506,26 @@ export function Surface({ initialData }: SurfaceProps) {
             {time}
           </time>
           {settings.showDate && (
-            <p data-deck="date">
-              {now.toLocaleDateString(undefined, { dateStyle: 'full' })}
+            <p
+              data-deck="date"
+              title={
+                week
+                  ? now.toLocaleDateString(undefined, { dateStyle: 'full' })
+                  : undefined
+              }
+            >
+              {now.toLocaleDateString(undefined, {
+                dateStyle: week ? 'long' : 'full',
+              })}
+              {week ? (
+                <span
+                  data-deck="week"
+                  aria-label={strings.isoWeekLabel(week.year, week.week)}
+                >
+                  {' · '}
+                  {strings.isoWeek(week.year, week.week)}
+                </span>
+              ) : null}
             </p>
           )}
           {settings.ownerName ? (

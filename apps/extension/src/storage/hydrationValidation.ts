@@ -45,6 +45,7 @@ const SETTINGS_FIELDS = [
   'ownerName',
   'showSeconds',
   'showDate',
+  'showWeekNumber',
   'use12HourClock',
   'showResurface',
   'showShelf',
@@ -189,6 +190,7 @@ export function isSettings(value: unknown): value is Settings {
     isString(value.ownerName, 80) &&
     typeof value.showSeconds === 'boolean' &&
     isOptional(value.showDate, (item) => typeof item === 'boolean') &&
+    isOptional(value.showWeekNumber, (item) => typeof item === 'boolean') &&
     isOptional(value.use12HourClock, (item) => typeof item === 'boolean') &&
     isOptional(value.showResurface, (item) => typeof item === 'boolean') &&
     isOptional(value.showShelf, (item) => typeof item === 'boolean') &&
