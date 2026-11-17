@@ -141,3 +141,20 @@ export async function openCard(
   else location.assign(opened.url);
   return opened;
 }
+
+export async function openCardIncognito(
+  repository: DeckRepository,
+  card: Card,
+  onOpened: (current: Card) => void,
+): Promise<boolean> {
+  if (!(await chrome.extension.isAllowedIncognitoAccess())) return false;
+  const current = await markOpened(repository, card);
+  if (!current.url || !/^https?:\/\//i.test(current.url))
+    throw new Error(strings.invalidUrl);
+  onOpened(current);
+  const opened = await chrome.windows.create({
+    url: current.url,
+    incognito: true,
+  });
+  return opened?.incognito === true;
+}

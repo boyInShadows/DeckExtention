@@ -9,41 +9,54 @@ import {
 
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { useDismissable } from '../hooks/useDismissable';
+import { openCardIncognito } from '../drawer/inboxActions';
+import type { DeckRepository } from '../storage/repository';
 
-const MENU_WIDTH = 192;
-const MENU_HEIGHT = 128;
-const MENU_GAP = 8;
+const MENU_WIDTH = 12;
+const MENU_HEIGHT = 12;
+const MENU_GAP = 0.5;
 
 export default function PinMenu({
   card,
   anchor,
   onClose,
   onUpdate,
+  repository,
+  onOpened,
+  onError,
 }: {
   card: Card;
   anchor: HTMLElement;
   onClose: () => void;
   onUpdate: (change: Partial<Card>) => Promise<boolean>;
+  repository: DeckRepository;
+  onOpened: (current: Card) => void;
+  onError: (message: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<'label' | 'icon' | null>(null);
   const [value, setValue] = useState('');
   const rect = anchor.getBoundingClientRect();
-  const anchorStart =
-    document.documentElement.dir === 'rtl'
-      ? window.innerWidth - rect.right
-      : rect.left;
-  const inline = Math.min(
-    anchorStart,
-    window.innerWidth - MENU_WIDTH - MENU_GAP,
+  const rem = Number.parseFloat(
+    getComputedStyle(document.documentElement).fontSize,
   );
+  const viewportWidth = window.innerWidth / rem;
+  const viewportHeight = window.innerHeight / rem;
+  const anchorStart =
+    (document.documentElement.dir === 'rtl'
+      ? window.innerWidth - rect.right
+      : rect.left) / rem;
+  const inline = Math.min(anchorStart, viewportWidth - MENU_WIDTH - MENU_GAP);
   const block =
-    rect.bottom + MENU_HEIGHT + MENU_GAP <= window.innerHeight
-      ? rect.bottom + MENU_GAP
-      : rect.top - MENU_HEIGHT - MENU_GAP;
+    rect.bottom / rem + MENU_HEIGHT + MENU_GAP <= viewportHeight
+      ? rect.bottom / rem + MENU_GAP
+      : rect.top / rem - MENU_HEIGHT - MENU_GAP;
+  const blockStart = Math.max(MENU_GAP, block);
   const style = {
-    insetInlineStart: Math.max(MENU_GAP, inline),
-    insetBlockStart: Math.max(MENU_GAP, block),
+    insetInlineStart: `${Math.max(MENU_GAP, inline)}rem`,
+    insetBlockStart: `${blockStart}rem`,
+    maxBlockSize: `${Math.max(MENU_GAP, viewportHeight - blockStart - MENU_GAP)}rem`,
+    overflowY: 'auto',
   } satisfies CSSProperties;
 
   useEffect(() => {
@@ -57,6 +70,17 @@ export default function PinMenu({
   };
   const save = async (change: Partial<Card>) => {
     if (await onUpdate(change)) close();
+  };
+  const openIncognito = async () => {
+    close();
+    try {
+      if (!(await openCardIncognito(repository, card, onOpened)))
+        onError(strings.incognitoUnavailable);
+    } catch (error) {
+      onError(
+        `${strings.updateFailed} ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (editing || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key))
@@ -131,6 +155,14 @@ export default function PinMenu({
             }}
           >
             {strings.changePinIcon}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            data-deck="pin-incognito"
+            onClick={() => void openIncognito()}
+          >
+            {strings.openIncognito}
           </button>
           <button
             type="button"

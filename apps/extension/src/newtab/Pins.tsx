@@ -399,6 +399,13 @@ export function Pins({
             anchor={menu.anchor}
             onClose={() => setMenu(null)}
             onUpdate={(change) => savePin(menu.card, change)}
+            repository={repository}
+            onOpened={(current) =>
+              onCardsChange(
+                cards.map((card) => (card.id === current.id ? current : card)),
+              )
+            }
+            onError={(text) => notify({ kind: 'error', text })}
           />
         ) : null}
       </Suspense>

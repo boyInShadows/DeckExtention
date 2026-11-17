@@ -65,8 +65,9 @@ function chromeExecutable(): string {
 
 export async function launchExtension(
   extensionPath = EXTENSION_PATH,
+  userDataDir = '',
 ): Promise<BrowserContext> {
-  const context = await chromium.launchPersistentContext('', {
+  const context = await chromium.launchPersistentContext(userDataDir, {
     channel: 'chromium',
     executablePath: chromeExecutable(),
     headless: true,

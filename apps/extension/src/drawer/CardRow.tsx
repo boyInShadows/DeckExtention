@@ -10,7 +10,7 @@ import FaviconTile from '../newtab/FaviconTile';
 import type { WorkspaceProps } from './DeckWorkspace';
 import { dragId } from './dragIdentity';
 import { useDropHighlight } from './useDropHighlight';
-import { markOpened, openCard } from './inboxActions';
+import { openCard, openCardIncognito } from './inboxActions';
 import { parseCardUrl, replaceEntity } from './workspaceModel';
 
 const DROP_SETTLE_MS = 160;
@@ -135,17 +135,12 @@ export function CardRow({
   const openIncognito = async () => {
     if (!card.url) return props.onError(strings.taskNeedsUrl);
     try {
-      if (!(await chrome.extension.isAllowedIncognitoAccess()))
-        return props.onError(strings.incognitoUnavailable);
-      const current = await markOpened(props.data.repository, card);
-      if (!current.url || !/^https?:\/\//i.test(current.url))
-        throw new Error(strings.invalidUrl);
-      props.onCardsChange(replaceEntity(props.cards, current));
-      const opened = await chrome.windows.create({
-        url: current.url,
-        incognito: true,
-      });
-      if (!opened?.incognito) props.onError(strings.incognitoUnavailable);
+      const isOpened = await openCardIncognito(
+        props.data.repository,
+        card,
+        (current) => props.onCardsChange(replaceEntity(props.cards, current)),
+      );
+      if (!isOpened) props.onError(strings.incognitoUnavailable);
     } catch (error) {
       props.onError(
         `${strings.updateFailed} ${error instanceof Error ? error.message : String(error)}`,

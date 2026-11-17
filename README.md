@@ -43,6 +43,8 @@ working build, without a Chrome Web Store release or public rating claim.
   Shift+Enter opens in a new tab. Open-tab search asks for optional access.
 - **Links and Inbox:** organize pages, decks and cards with mouse or keyboard.
   Move, pin, rename and trash items; edit notes with Markdown preview.
+  Right-click a pin to open it in incognito after allowing Deck in Chrome's
+  extension details.
 - **Tasks:** add with Enter, view open/completed tasks, complete or reopen them,
   edit notes, and recover deletions through Trash or Undo.
 - **Focus:** choose an editable 25-minute countdown, with pause/resume and an optional
