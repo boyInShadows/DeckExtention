@@ -8,6 +8,12 @@ export const panelStrings = {
   ...strings,
   rowDensity: 'Row density',
   densityNames: { compact: 'Compact (default)', comfortable: 'Comfortable' },
+  fontSize: 'Text size',
+  fontSizeNames: {
+    default: 'Default',
+    large: 'Large',
+    'extra-large': 'Extra large',
+  },
   accentColor: 'Accent color',
   accentNames: {
     warm: 'Warm (default)',

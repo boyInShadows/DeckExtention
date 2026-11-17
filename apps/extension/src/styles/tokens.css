@@ -139,6 +139,15 @@ html[data-density='comfortable'] {
   --deck-row-padding-block: var(--deck-space-1);
 }
 
+/* Scale rem text and its controls together, relative to the browser's font. */
+html[data-font-size='large'] {
+  font-size: 1.125rem;
+}
+
+html[data-font-size='extra-large'] {
+  font-size: 1.25rem;
+}
+
 html[data-accent='blue'] {
   --deck-color-focus: var(--deck-accent-blue);
 }

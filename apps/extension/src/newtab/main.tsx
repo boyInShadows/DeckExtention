@@ -25,6 +25,7 @@ function renderSurface(surfaceData: SurfaceData): void {
   document.documentElement.dataset.theme = surfaceData.settings.theme;
   document.documentElement.dataset.accent = surfaceData.settings.accentColor;
   document.documentElement.dataset.density = surfaceData.settings.rowDensity;
+  document.documentElement.dataset.fontSize = surfaceData.settings.fontSize;
   root.render(
     <StrictMode>
       <Surface initialData={surfaceData} />

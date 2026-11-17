@@ -8,7 +8,11 @@ import {
   type Page,
   type Deck,
 } from 'deck-schema';
-import { ACCENT_COLORS, ROW_DENSITIES } from 'deck-schema/constants';
+import {
+  ACCENT_COLORS,
+  FONT_SIZES,
+  ROW_DENSITIES,
+} from 'deck-schema/constants';
 import {
   useCallback,
   useEffect,
@@ -401,6 +405,25 @@ export default function SettingsPanel({
               {ROW_DENSITIES.map((value) => (
                 <option key={value} value={value}>
                   {strings.densityNames[value]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label data-deck="font-size-setting">
+            {strings.fontSize}
+            <select
+              data-deck="font-size-select"
+              value={settings.fontSize}
+              onChange={(event) => {
+                const fontSize = FONT_SIZES.find(
+                  (value) => value === event.currentTarget.value,
+                );
+                if (fontSize) void update({ fontSize });
+              }}
+            >
+              {FONT_SIZES.map((value) => (
+                <option key={value} value={value}>
+                  {strings.fontSizeNames[value]}
                 </option>
               ))}
             </select>

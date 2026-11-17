@@ -13,6 +13,7 @@ export const CUSTOM_CSS_MAX_LENGTH = 100_000;
 export const HOSTNAME_MAX_LENGTH = 253;
 export const WALLPAPER_DIM_MAX = 60;
 export const ROW_DENSITIES = ['compact', 'comfortable'] as const;
+export const FONT_SIZES = ['default', 'large', 'extra-large'] as const;
 export const ACCENT_COLORS = [
   'warm',
   'slate',
@@ -26,6 +27,7 @@ export const SETTINGS_DEFAULTS: Settings = Object.freeze({
   theme: 'night',
   accentColor: 'warm',
   rowDensity: 'compact',
+  fontSize: 'default',
   ownerName: '',
   showSeconds: false,
   showDate: true,

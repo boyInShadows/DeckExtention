@@ -5,7 +5,12 @@ import {
   TokenNameSchema,
   UrlSchema,
 } from './common';
-import { ACCENT_COLORS, ROW_DENSITIES, WALLPAPER_DIM_MAX } from './constants';
+import {
+  ACCENT_COLORS,
+  FONT_SIZES,
+  ROW_DENSITIES,
+  WALLPAPER_DIM_MAX,
+} from './constants';
 export { SETTINGS_DEFAULTS, WALLPAPER_DIM_MAX } from './constants';
 
 /** Night is the default; System follows `prefers-color-scheme`. */
@@ -36,6 +41,7 @@ export const SettingsSchema = z.strictObject({
   theme: ThemeSchema,
   accentColor: z.enum(ACCENT_COLORS).default('warm'),
   rowDensity: z.enum(ROW_DENSITIES).default('compact'),
+  fontSize: z.enum(FONT_SIZES).default('default'),
   /** Empty means no greeting line at all - never a placeholder (P1.S3). */
   ownerName: z.string().max(80),
   showSeconds: z.boolean(),

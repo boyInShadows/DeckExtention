@@ -95,4 +95,48 @@
       pointer-events: auto;
     }
   }
+
+  @media (width < 45rem) {
+    html[data-font-size]:not([data-font-size='default']) .deck-cards {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    html[data-font-size]:not([data-font-size='default'])
+      .deck-column
+      .deck-card {
+      grid-template-columns: auto 1.25rem minmax(0, 1fr);
+    }
+
+    html[data-font-size]:not([data-font-size='default'])
+      .deck-card
+      .deck-card__actions {
+      position: static;
+      grid-column: 1 / -1;
+      justify-self: end;
+      flex-wrap: wrap;
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+
+    html[data-font-size]:not([data-font-size='default']) .deck-task-list li,
+    html[data-font-size]:not([data-font-size='default'])
+      .deck-trash
+      :is(header, li) {
+      flex-wrap: wrap;
+    }
+
+    html[data-font-size]:not([data-font-size='default']) .deck-trash li > span {
+      flex-basis: 100%;
+      overflow-wrap: anywhere;
+    }
+
+    html[data-font-size]:not([data-font-size='default'])
+      .deck-task-list
+      [data-deck='task-note'] {
+      flex-basis: calc(
+        100% - var(--deck-task-control-size) - var(--deck-space-1)
+      );
+    }
+  }
 }

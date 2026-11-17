@@ -52,7 +52,8 @@ working build, without a Chrome Web Store release or public rating claim.
 - **Capture and sessions:** Quick Save sends a page to Inbox without a destination
   picker. Stash saves eligible tabs; saved decks can reopen as tabs or tab groups.
 - **Appearance:** Night, Day and System themes, local wallpapers, privacy blur,
-  reduced-motion support and Custom CSS with stable `data-deck` hooks.
+  text size, row density, reduced-motion support and Custom CSS with stable
+  `data-deck` hooks.
 - **Optional Shelf and daily resurfacing:** show selected decks on the surface
   or revisit an older saved link.
 - **Local recovery:** JSON export/import, seven daily snapshots, migration
