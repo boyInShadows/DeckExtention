@@ -24,6 +24,7 @@ export function SectionNav({
           key={icon}
           type="button"
           data-deck="section-link"
+          data-drop-inbox={id === 'inbox' || undefined}
           title={label}
           aria-label={strings.openSection(label)}
           aria-current={selectedId === id ? 'page' : undefined}

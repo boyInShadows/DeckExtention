@@ -61,6 +61,7 @@
     --deck-color-text: var(--deck-color-on-bright);
     --deck-color-text-muted: var(--deck-color-on-bright-muted);
     --deck-color-focus: var(--deck-color-on-bright);
+    --deck-color-selection-text: var(--deck-color-on-bright-selection);
   }
 
   .deck-surface__column {

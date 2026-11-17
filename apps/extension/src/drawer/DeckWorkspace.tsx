@@ -44,6 +44,10 @@ import { DeckMenu } from './DeckMenu';
 import { SESSION_LIFETIME_MS } from '../sessions/constants';
 import { openDeck, type DeckOpenMode } from '../sessions/openDeck';
 import '../tasks/tasks.css';
+import { findSavedLink, type SavedLink } from '../capture/manualDuplicate';
+import { DuplicateLinkNotice } from '../capture/DuplicateLinkNotice';
+import { filterCards } from './drawerFilter';
+import { useDrawerFilter } from './useDrawerFilter';
 
 const DROP_SETTLE_MS = 160;
 const DROP_SETTLE_EASING = 'var(--deck-ease-hover)';
@@ -91,6 +95,20 @@ export function DeckWorkspace(props: WorkspaceProps) {
     parseRecentTargets(localStorage.getItem(RECENT_TARGETS_KEY)),
   );
   const mainRef = useRef<HTMLElement>(null);
+  const {
+    query: filterQuery,
+    setQuery,
+    focusFilter,
+    reset,
+  } = useDrawerFilter(
+    mainRef,
+    props.isOpen && !props.isNoteOpen && !noteEntity && !movingCard,
+    props.selectedPageId,
+  );
+  const query = filterQuery ?? '';
+  const hasMatches = visible.some(
+    (deck) => filterCards(activeCards(props.cards, deck.id), query).length > 0,
+  );
   const targets = useMemo(
     () => moveTargets(props.decks, props.pages),
     [props.decks, props.pages],
@@ -191,7 +209,35 @@ export function DeckWorkspace(props: WorkspaceProps) {
   if (!props.selectedPageId)
     return <p className="deck-workspace__empty">{strings.selectPage}</p>;
   return (
-    <main ref={mainRef} data-deck="decks" className="deck-workspace">
+    <main
+      ref={mainRef}
+      tabIndex={-1}
+      data-deck="decks"
+      className="deck-workspace"
+    >
+      {filterQuery !== null ? (
+        <div data-deck="drawer-filter" className="deck-workspace__filter">
+          <input
+            ref={focusFilter}
+            type="search"
+            data-deck="drawer-filter-input"
+            aria-label={strings.filterCards}
+            placeholder={strings.filterCards}
+            value={query}
+            onChange={(event) => setQuery(event.currentTarget.value)}
+          />
+          <button
+            type="button"
+            data-deck="drawer-filter-reset"
+            onClick={() => reset()}
+          >
+            {strings.closeFilter}
+          </button>
+          <p role="status" data-deck="drawer-filter-status">
+            {hasMatches ? strings.filterScope : strings.noMatchingCards}
+          </p>
+        </div>
+      ) : null}
       <div className="deck-grid">
         {props.selectedDeckKind === 'session' && visible.length === 0 ? (
           <p data-deck="sessions-empty">{strings.sessionsEmpty}</p>
@@ -206,7 +252,8 @@ export function DeckWorkspace(props: WorkspaceProps) {
               {...props}
               deck={deck}
               isNew={editingDeckId === deck.id}
-              visibleCards={activeCards(props.cards, deck.id)}
+              visibleCards={activeCards(props.cards, deck.id, deck.sortMode)}
+              cardQuery={query}
               onEditNote={props.onEditNote ?? setNoteEntity}
             />
           ))}
@@ -259,14 +306,17 @@ function DeckColumn({
   deck,
   isNew,
   visibleCards,
+  cardQuery,
   onEditNote,
   ...props
 }: WorkspaceProps & {
   deck: Deck;
   isNew: boolean;
   visibleCards: Card[];
+  cardQuery: string;
   onEditNote: (entity: Deck | Card) => void;
 }) {
+  const shownCards = filterCards(visibleCards, cardQuery);
   const {
     attributes,
     listeners,
@@ -288,6 +338,9 @@ function DeckColumn({
   const menuButton = useRef<HTMLButtonElement>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [url, setUrl] = useState('');
+  const [duplicate, setDuplicate] = useState<SavedLink | null>(null);
+  const [isSavingCard, setIsSavingCard] = useState(false);
+  const savingCard = useRef(false);
   const open = async (mode: DeckOpenMode = 'tabs') => {
     if (isOpening.current) return;
     isOpening.current = true;
@@ -364,15 +417,29 @@ function DeckColumn({
     }
   };
   const addCard = async () => {
+    if (savingCard.current) return;
     const parsed = parseCardUrl(url);
     if (!parsed) return props.onError(strings.invalidUrl);
+    savingCard.current = true;
+    setIsSavingCard(true);
     try {
+      const existing = await findSavedLink(props.data.repository, parsed.url);
+      if (existing) {
+        setDuplicate(existing);
+        return;
+      }
       const time = now();
       const saved = await props.data.repository.upsertCard({
         id: crypto.randomUUID(),
         deckId: deck.id,
         ...parsed,
-        order: generateKeyBetween(visibleCards.at(-1)?.order ?? null, null),
+        order: generateKeyBetween(
+          activeCards(props.cards, deck.id)
+            .map(({ order }) => order)
+            .toSorted()
+            .at(-1) ?? null,
+          null,
+        ),
         pinned: false,
         lastOpenedAt: null,
         createdAt: time,
@@ -385,6 +452,9 @@ function DeckColumn({
       props.onSuccess?.(strings.cardSaved);
     } catch (error) {
       props.onError(message(error));
+    } finally {
+      savingCard.current = false;
+      setIsSavingCard(false);
     }
   };
   return (
@@ -532,7 +602,7 @@ function DeckColumn({
           onClose={() => setIsMenuOpen(false)}
         />
       ) : null}
-      {!deck.isCollapsed ? (
+      {!deck.isCollapsed || cardQuery.trim() ? (
         <>
           {deck.id === 'deck_examples' ? (
             <p data-deck="example-hint">{strings.exampleHint}</p>
@@ -554,10 +624,10 @@ function DeckColumn({
           ) : null}
           <div className="deck-cards">
             <SortableContext
-              items={visibleCards.map(({ id }) => dragId('card', id))}
+              items={shownCards.map(({ id }) => dragId('card', id))}
               strategy={verticalListSortingStrategy}
             >
-              {visibleCards.map((card) => (
+              {shownCards.map((card) => (
                 <CardRow
                   key={card.id}
                   card={card}
@@ -566,7 +636,11 @@ function DeckColumn({
                 />
               ))}
             </SortableContext>
-            {!visibleCards.length ? <p>{strings.emptyDeck}</p> : null}
+            {!shownCards.length ? (
+              <p>
+                {cardQuery.trim() ? strings.noMatchingCards : strings.emptyDeck}
+              </p>
+            ) : null}
           </div>
           <footer>
             {visibleCards.length > 0 &&
@@ -583,10 +657,21 @@ function DeckColumn({
                 <input
                   ref={focusOnMount}
                   value={url}
-                  onChange={(event) => setUrl(event.target.value)}
+                  readOnly={isSavingCard}
+                  onChange={(event) => {
+                    setUrl(event.target.value);
+                    setDuplicate(null);
+                  }}
                   placeholder={strings.pasteUrl}
                   aria-label={strings.pasteUrl}
                 />
+                {duplicate ? (
+                  <DuplicateLinkNotice
+                    duplicate={duplicate}
+                    repository={props.data.repository}
+                    onError={props.onError}
+                  />
+                ) : null}
               </form>
             ) : (
               <button

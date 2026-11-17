@@ -15,6 +15,13 @@ import {
  * which is why the kind lives on the record rather than being inferred.
  */
 export const DeckKindSchema = z.enum(['normal', 'inbox', 'session']);
+export const DeckSortModeSchema = z.enum([
+  'manual',
+  'title',
+  'newest',
+  'hostname',
+]);
+export type DeckSortMode = z.infer<typeof DeckSortModeSchema>;
 
 export const DeckSchema = z.strictObject({
   ...softDeletableFields,
@@ -26,6 +33,7 @@ export const DeckSchema = z.strictObject({
   color: TokenNameSchema.nullable(),
   isCollapsed: z.boolean(),
   isTaskMode: z.boolean().optional(),
+  sortMode: DeckSortModeSchema.optional(),
   /** Deck-level markdown note, rendered above the deck's cards. */
   note: NoteSchema.optional(),
   /** Session decks self-clean after 30 days unless pinned (MasterPlan I4). */

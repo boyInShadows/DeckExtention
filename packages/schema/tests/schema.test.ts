@@ -25,6 +25,18 @@ const SCHEMAS: Record<string, ZodType> = {
 };
 
 describe('valid fixtures parse', () => {
+  it('accepts only supported optional deck sort modes and keeps old decks unchanged', () => {
+    for (const sortMode of ['manual', 'title', 'newest', 'hostname']) {
+      expect(
+        DeckSchema.parse({ ...validFixtures.deck, sortMode }).sortMode,
+      ).toBe(sortMode);
+    }
+    expect(
+      DeckSchema.safeParse({ ...validFixtures.deck, sortMode: 'random' })
+        .success,
+    ).toBe(false);
+    expect(DeckSchema.parse(validFixtures.deck)).not.toHaveProperty('sortMode');
+  });
   it('parses a Page', () => {
     expect(PageSchema.parse(validFixtures.page)).toEqual(validFixtures.page);
   });

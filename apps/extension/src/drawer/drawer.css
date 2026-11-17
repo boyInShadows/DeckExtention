@@ -180,7 +180,8 @@
   }
 
   .deck-trash li {
-    min-block-size: 3rem;
+    min-block-size: calc(3rem + 2 * var(--deck-row-padding-block));
+    padding-block: var(--deck-row-padding-block);
     border-block-end: 1px solid var(--deck-color-hairline);
   }
 

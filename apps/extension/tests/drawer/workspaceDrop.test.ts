@@ -67,6 +67,38 @@ function state(overrides: Partial<WorkspaceDropState> = {}) {
 }
 
 describe('workspace drop persistence', () => {
+  it('keeps manual keys intact when dropping within a sorted deck', async () => {
+    const context = state();
+    context.value.decks = context.value.decks.map((value) => ({
+      ...value,
+      sortMode: 'title',
+    }));
+    await handleWorkspaceDrop(
+      { activeId: dragId('card', 'card_a'), overId: dragId('deck', 'deck_a') },
+      context.value,
+    );
+    expect(context.repository.upsertCard).not.toHaveBeenCalled();
+    expect(context.value.onCardsChange).not.toHaveBeenCalled();
+    expect(context.value.onError).toHaveBeenCalledWith(strings.sortCardsHint);
+  });
+
+  it('still moves across decks, appending to the target manual order under a sorted view', async () => {
+    const context = state();
+    context.value.decks = context.value.decks.map((value) => ({
+      ...value,
+      sortMode: 'hostname',
+    }));
+    const original = structuredClone(context.value.cards);
+    await handleWorkspaceDrop(
+      { activeId: dragId('card', 'card_a'), overId: dragId('card', 'card_b') },
+      context.value,
+    );
+    const saved = context.repository.upsertCard.mock.calls[0]?.[0];
+    expect(saved?.deckId).toBe('deck_b');
+    expect(saved?.order.localeCompare('a0')).toBeGreaterThan(0);
+    expect(context.value.cards).toEqual(original);
+    expect(context.value.onError).not.toHaveBeenCalled();
+  });
   it('persists one card write when moving between decks', async () => {
     const context = state();
     await handleWorkspaceDrop(

@@ -1,4 +1,4 @@
-import type { Card, Deck } from 'deck-schema';
+import type { Card, Deck, DeckSortMode } from 'deck-schema';
 
 export function activeDecks(
   decks: Deck[],
@@ -15,7 +15,11 @@ export function activeDecks(
     .toSorted((left, right) => compareOrder(left.order, right.order));
 }
 
-export function activeCards(cards: Card[], deckId: string): Card[] {
+export function activeCards(
+  cards: Card[],
+  deckId: string,
+  sortMode: DeckSortMode = 'manual',
+): Card[] {
   return cards
     .filter(
       (card) =>
@@ -24,8 +28,26 @@ export function activeCards(cards: Card[], deckId: string): Card[] {
     .toSorted((left, right) => {
       const doneDifference =
         Number(Boolean(left.done)) - Number(Boolean(right.done));
-      return doneDifference || compareOrder(left.order, right.order);
+      return (
+        doneDifference ||
+        compareCards(left, right, sortMode) ||
+        compareOrder(left.order, right.order) ||
+        compareOrder(left.id, right.id)
+      );
     });
+}
+
+function compareCards(left: Card, right: Card, sortMode: DeckSortMode): number {
+  if (sortMode === 'newest') return right.createdAt - left.createdAt;
+  if (sortMode === 'title')
+    return compareOrder(left.title.toLowerCase(), right.title.toLowerCase());
+  if (sortMode === 'hostname') {
+    return (
+      Number(!left.hostname) - Number(!right.hostname) ||
+      compareOrder(left.hostname.toLowerCase(), right.hostname.toLowerCase())
+    );
+  }
+  return 0;
 }
 
 export function compareOrder(left: string, right: string): number {

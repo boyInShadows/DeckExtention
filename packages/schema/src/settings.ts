@@ -5,7 +5,7 @@ import {
   TokenNameSchema,
   UrlSchema,
 } from './common';
-import { WALLPAPER_DIM_MAX } from './constants';
+import { ACCENT_COLORS, ROW_DENSITIES, WALLPAPER_DIM_MAX } from './constants';
 export { SETTINGS_DEFAULTS, WALLPAPER_DIM_MAX } from './constants';
 
 /** Night is the default; System follows `prefers-color-scheme`. */
@@ -34,10 +34,13 @@ export const WallpaperSchema = z.discriminatedUnion('kind', [
 
 export const SettingsSchema = z.strictObject({
   theme: ThemeSchema,
+  accentColor: z.enum(ACCENT_COLORS).default('warm'),
+  rowDensity: z.enum(ROW_DENSITIES).default('compact'),
   /** Empty means no greeting line at all - never a placeholder (P1.S3). */
   ownerName: z.string().max(80),
   showSeconds: z.boolean(),
   showDate: z.boolean().default(true),
+  showWeekNumber: z.boolean().default(false),
   use12HourClock: z.boolean().default(false),
   showResurface: z.boolean().default(true),
   showShelf: z.boolean().default(false),

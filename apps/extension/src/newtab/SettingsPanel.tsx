@@ -8,6 +8,7 @@ import {
   type Page,
   type Deck,
 } from 'deck-schema';
+import { ACCENT_COLORS, ROW_DENSITIES } from 'deck-schema/constants';
 import {
   useCallback,
   useEffect,
@@ -212,9 +213,9 @@ export default function SettingsPanel({
     [loadSnapshots, notify, onDataChange],
   );
 
-  const exportData = async () => {
+  const exportData = async (format: 'json' | 'html' = 'json') => {
     try {
-      await downloadExport(repository);
+      await downloadExport(repository, format);
       notify({ kind: 'success', text: strings.exportSaved });
     } catch (exportError) {
       showError(exportError);
@@ -357,6 +358,53 @@ export default function SettingsPanel({
               </button>
             ))}
           </div>
+          <p data-deck="accent-label">{strings.accentColor}</p>
+          <div
+            className="deck-settings__swatches"
+            data-deck="accent-swatches"
+            role="group"
+            aria-label={strings.accentColor}
+          >
+            {ACCENT_COLORS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                data-deck="accent-swatch"
+                className="deck-settings__swatch"
+                style={{
+                  backgroundColor: `var(--deck-accent-${color})`,
+                  color: 'var(--deck-color-canvas)',
+                }}
+                aria-label={strings.accentNames[color]}
+                title={strings.accentNames[color]}
+                aria-pressed={settings.accentColor === color}
+                onClick={() => void update({ accentColor: color })}
+              >
+                {settings.accentColor === color ? (
+                  <Icon name="check" size={16} />
+                ) : null}
+              </button>
+            ))}
+          </div>
+          <label data-deck="density-setting">
+            {strings.rowDensity}
+            <select
+              data-deck="density-select"
+              value={settings.rowDensity}
+              onChange={(event) => {
+                const density = ROW_DENSITIES.find(
+                  (value) => value === event.currentTarget.value,
+                );
+                if (density) void update({ rowDensity: density });
+              }}
+            >
+              {ROW_DENSITIES.map((value) => (
+                <option key={value} value={value}>
+                  {strings.densityNames[value]}
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             {strings.yourName}
             <input
@@ -374,6 +422,11 @@ export default function SettingsPanel({
             label={strings.showDate}
             checked={settings.showDate}
             onChange={(showDate) => void update({ showDate })}
+          />
+          <Toggle
+            label={strings.showWeekNumber}
+            checked={settings.showWeekNumber}
+            onChange={(showWeekNumber) => void update({ showWeekNumber })}
           />
           <Toggle
             label={strings.use12HourClock}
@@ -534,6 +587,14 @@ export default function SettingsPanel({
           <button type="button" onClick={() => void exportData()}>
             {strings.exportData}
           </button>
+          <button
+            type="button"
+            data-deck="export-bookmarks"
+            onClick={() => void exportData('html')}
+          >
+            {strings.exportBookmarks}
+          </button>
+          <p data-deck="export-bookmarks-hint">{strings.exportBookmarksHint}</p>
           <button type="button" onClick={() => importInput.current?.click()}>
             {strings.importData}
           </button>

@@ -88,6 +88,9 @@ describe('warm hydration guards', () => {
     [DeckSchema, isDeck, { ...deck, note: 42 }],
     [DeckSchema, isDeck, { ...deck, isTaskMode: true }],
     [DeckSchema, isDeck, { ...deck, isTaskMode: 'yes' }],
+    ...['manual', 'title', 'newest', 'hostname', 'invalid', null, 42].map(
+      (sortMode) => [DeckSchema, isDeck, { ...deck, sortMode }] as const,
+    ),
     [CardSchema, isCard, card],
     [CardSchema, isCard, { ...card, kind: 'task', url: undefined }],
     [CardSchema, isCard, { ...card, kind: 'link', url: undefined }],

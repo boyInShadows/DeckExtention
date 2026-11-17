@@ -12,12 +12,24 @@ export const NOTE_MAX_LENGTH = 20_000;
 export const CUSTOM_CSS_MAX_LENGTH = 100_000;
 export const HOSTNAME_MAX_LENGTH = 253;
 export const WALLPAPER_DIM_MAX = 60;
+export const ROW_DENSITIES = ['compact', 'comfortable'] as const;
+export const ACCENT_COLORS = [
+  'warm',
+  'slate',
+  'blue',
+  'green',
+  'amber',
+  'rose',
+] as const;
 
 export const SETTINGS_DEFAULTS: Settings = Object.freeze({
   theme: 'night',
+  accentColor: 'warm',
+  rowDensity: 'compact',
   ownerName: '',
   showSeconds: false,
   showDate: true,
+  showWeekNumber: false,
   use12HourClock: false,
   showResurface: true,
   showShelf: false,

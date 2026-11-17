@@ -1,4 +1,6 @@
 import {
+  ACCENT_COLORS,
+  ROW_DENSITIES,
   CUSTOM_CSS_MAX_LENGTH,
   HOSTNAME_MAX_LENGTH,
   NOTE_MAX_LENGTH,
@@ -20,6 +22,7 @@ const DECK_FIELDS = [
   'color',
   'isCollapsed',
   'isTaskMode',
+  'sortMode',
   'note',
   'expiresAt',
 ];
@@ -41,9 +44,12 @@ const CARD_FIELDS = [
 ];
 const SETTINGS_FIELDS = [
   'theme',
+  'accentColor',
+  'rowDensity',
   'ownerName',
   'showSeconds',
   'showDate',
+  'showWeekNumber',
   'use12HourClock',
   'showResurface',
   'showShelf',
@@ -114,6 +120,12 @@ export function isDeck(value: unknown): value is Deck {
     (value.color === null || isToken(value.color)) &&
     typeof value.isCollapsed === 'boolean' &&
     isOptional(value.isTaskMode, (item) => typeof item === 'boolean') &&
+    isOptional(
+      value.sortMode,
+      (item) =>
+        typeof item === 'string' &&
+        ['manual', 'title', 'newest', 'hostname'].includes(item),
+    ) &&
     isOptional(value.note, (note) => isString(note, NOTE_MAX_LENGTH)) &&
     isOptional(value.expiresAt, isTime)
   );
@@ -179,9 +191,16 @@ export function isSettings(value: unknown): value is Settings {
     hasOnlyFields(value, SETTINGS_FIELDS) &&
     typeof value.theme === 'string' &&
     ['night', 'day', 'system'].includes(value.theme) &&
+    isOptional(value.accentColor, (item) =>
+      ACCENT_COLORS.some((color) => color === item),
+    ) &&
+    isOptional(value.rowDensity, (item) =>
+      ROW_DENSITIES.some((density) => density === item),
+    ) &&
     isString(value.ownerName, 80) &&
     typeof value.showSeconds === 'boolean' &&
     isOptional(value.showDate, (item) => typeof item === 'boolean') &&
+    isOptional(value.showWeekNumber, (item) => typeof item === 'boolean') &&
     isOptional(value.use12HourClock, (item) => typeof item === 'boolean') &&
     isOptional(value.showResurface, (item) => typeof item === 'boolean') &&
     isOptional(value.showShelf, (item) => typeof item === 'boolean') &&

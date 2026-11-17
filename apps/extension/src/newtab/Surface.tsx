@@ -25,6 +25,7 @@ import type { SurfaceData } from './bootstrap';
 import { Line } from './Line';
 import { Pins } from './Pins';
 import { greetingForHour } from './surfaceModel';
+import { isoWeek } from './isoWeek';
 import { SectionNav } from './SectionNav';
 import type ResurfacePanel from '../resurface/Resurface';
 import type ShelfPanel from '../shelf/Shelf';
@@ -32,6 +33,7 @@ import type { Card } from 'deck-schema';
 import type { CreatedWorkspace } from './lineWorkspace';
 import type FocusMonitorPanel from '../focus/FocusMonitor';
 import type { FocusEntry } from '../focus/model';
+import { useExternalLinkDrop } from '../capture/useExternalLinkDrop';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
 const HelpOverlay = lazy(() => import('./HelpOverlay'));
@@ -199,6 +201,8 @@ export function Surface({ initialData }: SurfaceProps) {
         const saved = await initialData.repository.setSettings(next);
         setSettings(saved);
         document.documentElement.dataset.theme = saved.theme;
+        document.documentElement.dataset.accent = saved.accentColor;
+        document.documentElement.dataset.density = saved.rowDensity;
         notify({ kind: 'success', text: strings.saved });
       } catch (saveError) {
         notifyFailure(saveError);
@@ -221,9 +225,18 @@ export function Surface({ initialData }: SurfaceProps) {
         setCards(storedCards);
         setSettings(storedSettings);
         document.documentElement.dataset.theme = storedSettings.theme;
+        document.documentElement.dataset.accent = storedSettings.accentColor;
+        document.documentElement.dataset.density = storedSettings.rowDensity;
       })
       .catch(notifyFailure);
   }, [initialData, notifyFailure]);
+
+  useExternalLinkDrop(
+    initialData.repository,
+    reloadWorkspace,
+    notify,
+    notifyFailure,
+  );
 
   useEffect(() => {
     if (!settings.showResurface) return;
@@ -439,6 +452,7 @@ export function Surface({ initialData }: SurfaceProps) {
     timeStyle: settings.showSeconds ? 'medium' : 'short',
     hour12: settings.use12HourClock,
   });
+  const week = settings.showWeekNumber ? isoWeek(now) : null;
   const wallpaperUrl =
     settings.wallpaper.kind === 'file' &&
     loadedWallpaper?.key === settings.wallpaper.blobKey
@@ -496,8 +510,26 @@ export function Surface({ initialData }: SurfaceProps) {
             {time}
           </time>
           {settings.showDate && (
-            <p data-deck="date">
-              {now.toLocaleDateString(undefined, { dateStyle: 'full' })}
+            <p
+              data-deck="date"
+              title={
+                week
+                  ? now.toLocaleDateString(undefined, { dateStyle: 'full' })
+                  : undefined
+              }
+            >
+              {now.toLocaleDateString(undefined, {
+                dateStyle: week ? 'long' : 'full',
+              })}
+              {week ? (
+                <span
+                  data-deck="week"
+                  aria-label={strings.isoWeekLabel(week.year, week.week)}
+                >
+                  {' · '}
+                  {strings.isoWeek(week.year, week.week)}
+                </span>
+              ) : null}
             </p>
           )}
           {settings.ownerName ? (

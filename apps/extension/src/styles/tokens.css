@@ -30,7 +30,8 @@
   --deck-color-panel-glass: rgb(37 34 30 / 94%);
   --deck-color-hairline: rgb(247 231 211 / 14%);
   --deck-color-scrim: rgb(24 22 19 / 35%);
-  --deck-color-focus: #edbd91;
+  --deck-accent-warm: #edbd91;
+  --deck-color-focus: var(--deck-accent-warm);
   --deck-color-selection: rgb(237 189 145 / 12%);
   --deck-color-shadow: rgb(0 0 0 / 24%);
   --deck-color-danger: #f38ba8;
@@ -40,6 +41,7 @@
   --deck-accent-amber: #f2c66d;
   --deck-accent-rose: #f299b0;
   --deck-color-on-bright: #ffffff;
+  --deck-color-on-bright-selection: #1b1a18;
   --deck-color-on-bright-muted: #e1e4eb;
   --deck-color-wallpaper-slate: #202a39;
   --deck-color-wallpaper-indigo: #29254a;
@@ -68,7 +70,8 @@
   --deck-color-panel-glass: rgb(255 255 255 / 96%);
   --deck-color-hairline: rgb(39 45 54 / 14%);
   --deck-color-scrim: rgb(27 31 38 / 14%);
-  --deck-color-focus: #985329;
+  --deck-accent-warm: #985329;
+  --deck-color-focus: var(--deck-accent-warm);
   --deck-color-selection: rgb(152 83 41 / 9%);
   --deck-color-shadow: rgb(22 30 42 / 9%);
   --deck-color-danger: #b4233f;
@@ -107,7 +110,8 @@
     --deck-color-panel-glass: rgb(255 255 255 / 96%);
     --deck-color-hairline: rgb(39 45 54 / 14%);
     --deck-color-scrim: rgb(27 31 38 / 14%);
-    --deck-color-focus: #985329;
+    --deck-accent-warm: #985329;
+    --deck-color-focus: var(--deck-accent-warm);
     --deck-color-selection: rgb(152 83 41 / 9%);
     --deck-color-shadow: rgb(22 30 42 / 9%);
     --deck-color-danger: #b4233f;
@@ -127,11 +131,45 @@
   }
 }
 
+html[data-accent='slate'] {
+  --deck-color-focus: var(--deck-accent-slate);
+}
+
+html[data-density='comfortable'] {
+  --deck-row-padding-block: var(--deck-space-1);
+}
+
+html[data-accent='blue'] {
+  --deck-color-focus: var(--deck-accent-blue);
+}
+
+html[data-accent='green'] {
+  --deck-color-focus: var(--deck-accent-green);
+}
+
+html[data-accent='amber'] {
+  --deck-color-focus: var(--deck-accent-amber);
+}
+
+html[data-accent='rose'] {
+  --deck-color-focus: var(--deck-accent-rose);
+}
+
+html[data-accent]:not([data-accent='warm']) {
+  --deck-color-selection: color-mix(
+    in srgb,
+    var(--deck-color-focus) 12%,
+    transparent
+  );
+}
+
 /*
  * Non-colour tokens. AGENTS.md section 6: no magic numbers - spacing, radius
  * and motion are named here and referenced everywhere else.
  */
 :root {
+  --deck-color-selection-text: var(--deck-color-canvas);
+  --deck-row-padding-block: 0rem;
   --deck-color-wallpaper-canvas-raised: var(--deck-color-canvas-raised);
   --deck-color-panel-text: var(--deck-color-text);
   --deck-color-panel-muted: var(--deck-color-text-muted);

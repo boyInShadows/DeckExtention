@@ -200,7 +200,7 @@ it('exports, wipes and imports a mixed task/link library with task mode and Shel
   try {
     await repository.upsertMany({
       pages: [page],
-      decks: [{ ...deck, isTaskMode: true }],
+      decks: [{ ...deck, isTaskMode: true, sortMode: 'newest' }],
       cards: [link, task],
     });
     await repository.setSettings({
@@ -209,6 +209,7 @@ it('exports, wipes and imports a mixed task/link library with task mode and Shel
       shelfDeckIds: [deck.id, 'missing_deck'],
     });
     const saved = (await backups.exportData()).document;
+    expect(saved.decks[0]?.sortMode).toBe('newest');
     expect(saved.settings.shelfDeckIds).toEqual([deck.id, 'missing_deck']);
     await repository.replaceDocument({
       ...saved,

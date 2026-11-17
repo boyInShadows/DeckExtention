@@ -15,9 +15,9 @@ import type { DeckOpenMode } from '../sessions/openDeck';
 import { SESSION_LIFETIME_MS } from '../sessions/constants';
 
 const COLORS = ['slate', 'blue', 'green', 'amber', 'rose'] as const;
-const MENU_GAP = 8;
-const MENU_WIDTH = 224;
-const MENU_HEIGHT = 430;
+const MENU_GAP = 0.5;
+const MENU_WIDTH = 14;
+const MENU_HEIGHT = 29;
 
 export function DeckMenu({
   anchor,
@@ -49,25 +49,40 @@ export function DeckMenu({
     null,
   );
   const [subMenu, setSubMenu] = useState<
-    'color' | 'page' | 'permission' | null
+    'color' | 'page' | 'permission' | 'sort' | null
   >(null);
   const hasLinks = cards.some((card) => card.url !== undefined);
   const rect = anchor.getBoundingClientRect();
+  const rem = Number.parseFloat(
+    getComputedStyle(document.documentElement).fontSize,
+  );
+  // The transformed drawer is the containing block for this fixed menu.
+  const container = anchor
+    .closest('[data-deck="drawer"]')
+    ?.getBoundingClientRect();
+  const viewportWidth = (container?.width ?? window.innerWidth) / rem;
+  const viewportHeight = (container?.height ?? window.innerHeight) / rem;
+  const top = (rect.top - (container?.top ?? 0)) / rem;
+  const bottom = (rect.bottom - (container?.top ?? 0)) / rem;
   const isRtl = document.documentElement.dir === 'rtl';
-  const inline = isRtl ? window.innerWidth - rect.right : rect.left;
+  const inline =
+    (isRtl
+      ? (container?.right ?? window.innerWidth) - rect.right
+      : rect.left - (container?.left ?? 0)) / rem;
+  const blockStart = Math.max(
+    MENU_GAP,
+    bottom + MENU_HEIGHT <= viewportHeight
+      ? bottom + MENU_GAP
+      : top - MENU_HEIGHT - MENU_GAP,
+  );
   const style = {
-    maxBlockSize: `calc(100dvh - ${MENU_GAP * 2}px)`,
+    maxBlockSize: `${Math.max(MENU_GAP, viewportHeight - blockStart - MENU_GAP)}rem`,
     overflowY: 'auto',
-    insetInlineStart: Math.max(
+    insetInlineStart: `${Math.max(
       MENU_GAP,
-      Math.min(inline, window.innerWidth - MENU_WIDTH - MENU_GAP),
-    ),
-    insetBlockStart: Math.max(
-      MENU_GAP,
-      rect.bottom + MENU_HEIGHT <= window.innerHeight
-        ? rect.bottom + MENU_GAP
-        : rect.top - MENU_HEIGHT - MENU_GAP,
-    ),
+      Math.min(inline, viewportWidth - MENU_WIDTH - MENU_GAP),
+    )}rem`,
+    insetBlockStart: `${blockStart}rem`,
   } satisfies CSSProperties;
 
   useEffect(() => {
@@ -142,7 +157,7 @@ export function DeckMenu({
       data-deck="deck-menu"
       className="deck-menu deck-workspace-menu"
       role="menu"
-      aria-label={strings.deckMenu}
+      aria-label={subMenu === 'sort' ? strings.sortCards : strings.deckMenu}
       style={style}
       onKeyDown={onKeyDown}
     >
@@ -164,6 +179,31 @@ export function DeckMenu({
           >
             {strings.cancel}
           </button>
+        </>
+      ) : subMenu === 'sort' ? (
+        <>
+          <p data-deck="deck-sort-hint">{strings.sortCardsHint}</p>
+          {(['manual', 'title', 'newest', 'hostname'] as const).map(
+            (sortMode) => (
+              <button
+                key={sortMode}
+                type="button"
+                role="menuitemradio"
+                data-deck="deck-sort-option"
+                aria-label={strings.deckSort[sortMode]}
+                aria-checked={(deck.sortMode ?? 'manual') === sortMode}
+                onClick={() => choose({ sortMode })}
+              >
+                {strings.deckSort[sortMode]}
+                {(deck.sortMode ?? 'manual') === sortMode ? (
+                  <span data-deck="deck-sort-selected" aria-hidden="true">
+                    {' '}
+                    ✓
+                  </span>
+                ) : null}
+              </button>
+            ),
+          )}
         </>
       ) : subMenu === 'color' ? (
         <>
@@ -219,6 +259,15 @@ export function DeckMenu({
             onClick={() => choose({ isTaskMode: !deck.isTaskMode })}
           >
             {strings.taskMode}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            data-deck="deck-sort"
+            aria-haspopup="menu"
+            onClick={() => setSubMenu('sort')}
+          >
+            {strings.sortCards}
           </button>
           <button
             type="button"

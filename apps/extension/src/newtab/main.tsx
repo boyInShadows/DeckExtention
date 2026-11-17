@@ -23,6 +23,8 @@ const root = createRoot(container);
 
 function renderSurface(surfaceData: SurfaceData): void {
   document.documentElement.dataset.theme = surfaceData.settings.theme;
+  document.documentElement.dataset.accent = surfaceData.settings.accentColor;
+  document.documentElement.dataset.density = surfaceData.settings.rowDensity;
   root.render(
     <StrictMode>
       <Surface initialData={surfaceData} />

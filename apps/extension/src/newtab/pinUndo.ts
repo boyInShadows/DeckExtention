@@ -6,7 +6,7 @@ import { panelStrings as strings } from '../i18n/panelStrings';
 import type { SurfaceData } from './bootstrap';
 import { openCard } from '../drawer/inboxActions';
 
-const MAX_PIN_COUNT = 12;
+export const MAX_PIN_COUNT = 12;
 
 export async function openPin(
   repository: SurfaceData['repository'],
