@@ -65,6 +65,9 @@ export const panelStrings = {
       ? `Focus complete: ${title}.`
       : 'Focus complete. A little further along.',
   focusView: 'View focus',
+  focusPlaySound: 'Play sound',
+  focusSoundBlocked:
+    "Sound couldn't play automatically. Select Play sound to try again.",
   focusAlreadyRunning:
     'A focus session is already active. Pause or stop it first.',
   focusChanged:

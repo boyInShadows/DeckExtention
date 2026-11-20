@@ -67,3 +67,81 @@ it('runs Undo with Ctrl+Z outside text editing and reports action failures', asy
   input.remove();
   view.unmount();
 });
+
+it('keeps a completion popup available while its secondary sound action replays', async () => {
+  const sound = vi.fn(async () => undefined);
+  const dismiss = vi.fn();
+  const open = vi.fn();
+  const view = await render(
+    <ToastStack
+      notices={[
+        {
+          id: 'focus',
+          source: 'focus',
+          kind: 'info',
+          text: 'Focus complete.',
+          action: { label: 'View focus', run: open },
+          secondaryAction: { label: 'Play sound', run: sound },
+        },
+      ]}
+      dismiss={dismiss}
+      notify={vi.fn()}
+    />,
+  );
+  await view.act(() =>
+    view.getByLabel<HTMLButtonElement>('Play sound').click(),
+  );
+  await view.act(() =>
+    view.getByLabel<HTMLButtonElement>('Play sound').click(),
+  );
+  expect(sound).toHaveBeenCalledTimes(2);
+  expect(dismiss).not.toHaveBeenCalled();
+  expect(view.get('[data-deck="toast"]').getAttribute('data-source')).toBe(
+    'focus',
+  );
+  await view.act(() =>
+    view.getByLabel<HTMLButtonElement>('View focus').click(),
+  );
+  expect(open).toHaveBeenCalledTimes(1);
+  expect(dismiss).toHaveBeenCalledWith('focus');
+  view.unmount();
+});
+
+it('reports a failed secondary action without dismissing the popup and permits retry', async () => {
+  const sound = vi
+    .fn(async () => undefined)
+    .mockRejectedValueOnce(new Error('Sound blocked'));
+  const dismiss = vi.fn();
+  const notify = vi.fn();
+  const view = await render(
+    <ToastStack
+      notices={[
+        {
+          id: 'focus',
+          source: 'focus',
+          kind: 'info',
+          text: 'Focus complete.',
+          action: { label: 'View focus', run: vi.fn() },
+          secondaryAction: { label: 'Play sound', run: sound },
+        },
+      ]}
+      dismiss={dismiss}
+      notify={notify}
+    />,
+  );
+  await view.act(() =>
+    view.getByLabel<HTMLButtonElement>('Play sound').click(),
+  );
+  expect(notify).toHaveBeenCalledWith(
+    expect.objectContaining({
+      kind: 'error',
+      text: expect.stringContaining('Sound blocked'),
+    }),
+  );
+  expect(dismiss).not.toHaveBeenCalled();
+  await view.act(() =>
+    view.getByLabel<HTMLButtonElement>('Play sound').click(),
+  );
+  expect(sound).toHaveBeenCalledTimes(2);
+  view.unmount();
+});

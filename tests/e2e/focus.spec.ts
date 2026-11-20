@@ -319,6 +319,9 @@ test('focus deadlines finish automatically, count one streak day and retain data
       await expect(page.locator('[data-deck="focus-history"]')).toContainText(
         '1 day',
       );
+      await expect(
+        page.locator('[data-deck="toast"][data-source="focus"]'),
+      ).toHaveCount(1);
     }
     await expect
       .poll(() => storedFocus(page))

@@ -8,10 +8,11 @@ import { Icon } from './Icon';
 const TOAST_DURATION_MS = 4_000;
 
 export interface NoticeInput {
-  source?: 'backup' | 'shortcut-hint';
+  source?: 'backup' | 'shortcut-hint' | 'focus';
   kind: 'info' | 'success' | 'error';
   text: string;
   action?: { label: string; run: () => Promise<void> | void };
+  secondaryAction?: { label: string; run: () => Promise<void> | void };
 }
 
 export interface Notice extends NoticeInput {
@@ -32,15 +33,17 @@ export default function ToastStack({
     .reverse()
     .find(({ action }) => action?.label === strings.undo);
   const run = useCallback(
-    async (notice: Notice) => {
+    async (notice: Notice, isSecondary = false) => {
       if (running.current.has(notice.id)) return;
       running.current.add(notice.id);
-      dismiss(notice.id);
+      if (!isSecondary) dismiss(notice.id);
       try {
-        await notice.action?.run();
+        await (isSecondary ? notice.secondaryAction : notice.action)?.run();
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
         notify({ kind: 'error', text: `${strings.updateFailed} ${detail}` });
+      } finally {
+        if (isSecondary) running.current.delete(notice.id);
       }
     },
     [dismiss, notify],
@@ -78,15 +81,13 @@ export default function ToastStack({
   );
 }
 
-function Toast({
-  notice,
-  dismiss,
-  run,
-}: {
+interface ToastProps {
   notice: Notice;
   dismiss: (id: string) => void;
-  run: (notice: Notice) => Promise<void>;
-}) {
+  run: (notice: Notice, isSecondary?: boolean) => Promise<void>;
+}
+
+function Toast({ notice, dismiss, run }: ToastProps) {
   const toastRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const animation =
@@ -108,10 +109,28 @@ function Toast({
       ref={toastRef}
       data-deck="toast"
       data-kind={notice.kind}
+      data-source={notice.source}
       role={notice.kind === 'error' ? 'alert' : undefined}
       className="deck-toast"
     >
       <span className="deck-blurrable">{notice.text}</span>
+      <NoticeActions notice={notice} dismiss={dismiss} run={run} />
+    </div>
+  );
+}
+
+function NoticeActions({ notice, dismiss, run }: ToastProps) {
+  return (
+    <>
+      {notice.secondaryAction ? (
+        <button
+          data-deck="toast-secondary"
+          type="button"
+          onClick={() => void run(notice, true)}
+        >
+          {notice.secondaryAction.label}
+        </button>
+      ) : null}
       {notice.action ? (
         <button type="button" onClick={() => void run(notice)}>
           {notice.action.label}
@@ -127,6 +146,6 @@ function Toast({
           <Icon name="close" />
         </button>
       ) : null}
-    </div>
+    </>
   );
 }

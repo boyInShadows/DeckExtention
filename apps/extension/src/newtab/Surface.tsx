@@ -116,7 +116,11 @@ export function Surface({ initialData }: SurfaceProps) {
         )
       )
         return current;
-      return [...current, { ...notice, id: crypto.randomUUID() }];
+      const retained =
+        notice.source === 'focus'
+          ? current.filter((item) => item.source !== 'focus')
+          : current;
+      return [...retained, { ...notice, id: crypto.randomUUID() }];
     });
   }, []);
   const notifyError = useCallback(
@@ -179,16 +183,9 @@ export function Surface({ initialData }: SurfaceProps) {
 
   const focusCompleted = useCallback(
     (entry: FocusEntry) => {
-      void import('../i18n/panelStrings')
-        .then(({ panelStrings }) =>
-          notify({
-            kind: 'info',
-            text: panelStrings.focusCompleted(entry.task?.title),
-            action: {
-              label: panelStrings.focusView,
-              run: () => openWorkspacePage('focus'),
-            },
-          }),
+      void import('../focus/completionNotice')
+        .then(({ showFocusCompletion }) =>
+          showFocusCompletion(entry, notify, () => openWorkspacePage('focus')),
         )
         .catch(notifyFailure);
     },

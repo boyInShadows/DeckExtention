@@ -1,7 +1,9 @@
 @layer components {
   .deck-toast-stack {
     position: fixed;
-    inset-block-end: var(--deck-space-3);
+    inset-block-end: calc(
+      var(--deck-space-3) + var(--deck-control-size) + var(--deck-space-2)
+    );
     inset-inline: 0;
     z-index: 10;
     display: flex;
@@ -52,5 +54,24 @@
     background: transparent;
     color: var(--deck-color-focus);
     cursor: pointer;
+  }
+
+  .deck-toast[data-source='focus'] {
+    flex-wrap: wrap;
+  }
+
+  .deck-toast[data-source='focus'] > span {
+    flex: 1 1 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .deck-toast[data-source='focus'] > button {
+    min-block-size: var(--deck-control-size);
+    padding: var(--deck-space-1);
+    border-radius: var(--deck-space-1);
+  }
+
+  .deck-toast[data-source='focus'] > button:last-child {
+    margin-inline-start: auto;
   }
 }

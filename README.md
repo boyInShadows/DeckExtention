@@ -50,7 +50,10 @@ working build, without a Chrome Web Store release or public rating claim.
 - **Focus:** choose an editable 25-minute countdown, with pause/resume and an optional
   task link. Stopped sessions retain focused time; completed countdowns count toward
   one daily streak. Countdowns continue while Deck is closed, with a completion notice
-  on return. Focus time and task totals are included in JSON backups.
+  on return. A filling progress line and compact navigation countdown keep the active
+  session visible within Deck. Completion offers a local chime and a replay button;
+  blocked autoplay leaves the message available. Focus time and task totals are
+  included in JSON backups.
 - **Capture and sessions:** Quick Save sends a page to Inbox without a destination
   picker. Stash saves eligible tabs; saved decks can reopen as tabs or tab groups.
 - **Appearance:** Night, Day and System themes, local wallpapers, privacy blur,
