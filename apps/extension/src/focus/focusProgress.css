@@ -1,0 +1,21 @@
+@layer components {
+  .deck-focus-progress {
+    display: block;
+    inline-size: 100%;
+    block-size: var(--deck-space-1);
+    border: 0;
+    border-radius: var(--deck-space-1);
+    appearance: none;
+    overflow: hidden;
+    background: var(--deck-color-panel-hairline);
+    color: var(--deck-color-panel-focus);
+  }
+
+  .deck-focus-progress::-webkit-progress-bar {
+    background: var(--deck-color-panel-hairline);
+  }
+
+  .deck-focus-progress::-webkit-progress-value {
+    background: var(--deck-color-panel-focus);
+  }
+}

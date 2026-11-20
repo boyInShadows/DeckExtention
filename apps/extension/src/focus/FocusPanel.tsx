@@ -4,6 +4,7 @@ import type { DeckRepository } from '../storage/repository';
 import { panelStrings as strings } from '../i18n/panelStrings';
 import { taskRecords } from '../tasks/taskRecords';
 import { useFocus } from './useFocus';
+import { FocusProgress } from './FocusProgress';
 import {
   DEFAULT_FOCUS_MINUTES,
   MAX_FOCUS_MINUTES,
@@ -13,6 +14,7 @@ import {
   focusSummary,
   type FocusAction,
   type FocusState,
+  type FocusEntry,
 } from './model';
 import './focus.css';
 
@@ -208,6 +210,16 @@ function FocusTotals({ state, now }: { state: FocusState; now: number }) {
   );
 }
 
+function isLatestFocusComplete(state: FocusState | null): boolean {
+  return (
+    state?.history.reduce<FocusEntry | undefined>(
+      (previous, entry) =>
+        !previous || entry.endedAt >= previous.endedAt ? entry : previous,
+      undefined,
+    )?.isCompleted ?? false
+  );
+}
+
 function FocusClock({
   state,
   now,
@@ -218,14 +230,20 @@ function FocusClock({
   minutes: number;
 }) {
   const active = state?.active;
+  const isCompleted = !active && isLatestFocusComplete(state);
+  const elapsed = active ? focusElapsed(active, now) : 0;
   const remaining = active
-    ? active.durationMs - focusElapsed(active, now)
-    : minutes * FOCUS_MINUTE_MS;
+    ? active.durationMs - elapsed
+    : isCompleted
+      ? 0
+      : minutes * FOCUS_MINUTE_MS;
   const status = active
     ? active.runningSince === null
       ? strings.focusPaused
       : strings.focusRunning
-    : strings.focusReady;
+    : isCompleted
+      ? strings.focusFinished
+      : strings.focusReady;
   return (
     <div className="deck-focus__timer" data-deck="focus-timer">
       <output
@@ -236,6 +254,9 @@ function FocusClock({
       >
         {countdown(remaining)}
       </output>
+      <FocusProgress
+        value={active ? elapsed / active.durationMs : isCompleted ? 1 : 0}
+      />
       <p role="status">{status}</p>
       {active?.task ? <p>{active.task.title}</p> : null}
     </div>

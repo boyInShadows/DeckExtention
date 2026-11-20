@@ -12,6 +12,7 @@ import {
   emptyFocus,
   transitionFocus,
   type FocusAction,
+  type FocusState,
 } from '../../src/focus/model';
 
 let view: RenderResult | undefined;
@@ -128,3 +129,87 @@ it('previews the edited duration before starting a focus session', async () => {
   await result.act(() => type(result.get<HTMLInputElement>('input'), '5'));
   expect(result.get('[data-deck="focus-countdown"]').textContent).toBe('05:00');
 });
+
+const START = new Date(2026, 10, 20, 10).getTime();
+const running = transitionFocus(
+  emptyFocus(),
+  { type: 'start', minutes: 1 },
+  START,
+  'focus_progress',
+);
+const completed = transitionFocus(running, { type: 'sync' }, START + 60_000);
+
+it.each([
+  ['ready', emptyFocus(), START, 0, '25:00'],
+  ['running', running, START + 30_000, 0.5, '00:30'],
+  [
+    'paused',
+    transitionFocus(
+      running,
+      { type: 'pause', id: 'focus_progress' },
+      START + 30_000,
+    ),
+    START + 120_000,
+    0.5,
+    '00:30',
+  ],
+  ['completed', completed, START + 120_000, 1, '00:00'],
+  [
+    'stopped',
+    transitionFocus(
+      running,
+      { type: 'stop', id: 'focus_progress' },
+      START + 30_000,
+    ),
+    START + 120_000,
+    0,
+    '01:00',
+  ],
+  [
+    'restarted',
+    transitionFocus(
+      completed,
+      { type: 'start', minutes: 1 },
+      START + 120_000,
+      'focus_next',
+    ),
+    START + 120_000,
+    0,
+    '01:00',
+  ],
+] as const)(
+  'shows accurate %s progress without altering saved time',
+  async (_label, state, now, value, remaining) => {
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    const saved = structuredClone(state);
+    const changeFocus = vi.fn(
+      async (_action: FocusAction): Promise<FocusState> => state,
+    );
+    view = await render(
+      createElement(FocusPanel, {
+        repository: { changeFocus },
+        onError: vi.fn(),
+        cards: [],
+        decks: [],
+        pages: [],
+        isOpen: true,
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(view?.get('section').getAttribute('aria-busy')).toBe('false'),
+    );
+    const progress = view.get<HTMLProgressElement>(
+      '[data-deck="focus-progress"]',
+    );
+    expect(progress.value).toBe(value);
+    expect(progress.max).toBe(1);
+    expect(progress.getAttribute('aria-label')).toBe('Focus progress');
+    expect(view.get('[data-deck="focus-countdown"]').textContent).toBe(
+      remaining,
+    );
+    if (_label === 'completed')
+      expect(view.container.textContent).toContain('Focus complete');
+    expect(state).toEqual(saved);
+    expect(changeFocus.mock.calls).toEqual([[{ type: 'sync' }]]);
+  },
+);

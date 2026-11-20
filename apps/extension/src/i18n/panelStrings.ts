@@ -46,6 +46,8 @@ export const panelStrings = {
   focusResume: 'Resume focus',
   focusStop: 'Stop focus',
   focusRemaining: 'Time remaining',
+  focusProgress: 'Focus progress',
+  focusFinished: 'Focus complete',
   focusReady: 'Ready when you are.',
   focusRunning: 'Focus in progress',
   focusPaused: 'Focus paused',
