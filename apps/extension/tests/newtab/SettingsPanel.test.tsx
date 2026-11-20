@@ -356,6 +356,16 @@ describe('SettingsPanel - appearance', () => {
     view.unmount();
   });
 
+  it('saves the optional analog-clock choice without changing other settings', async () => {
+    const { view, onChange } = await mount();
+    await clickAndSettle(view, control<HTMLInputElement>(view, 'Analog clock'));
+    expect(onChange).toHaveBeenCalledExactlyOnceWith({
+      ...SETTINGS_DEFAULTS,
+      showAnalogClock: true,
+    });
+    view.unmount();
+  });
+
   it('clears or recolours the wallpaper and drops its stored palette', async () => {
     const withFile: Settings = {
       ...SETTINGS_DEFAULTS,

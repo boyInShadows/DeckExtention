@@ -42,6 +42,25 @@ const card = {
 };
 
 describe('warm hydration guards', () => {
+  it('defaults old analog-clock settings off and keeps strict hydration/schema parity', () => {
+    const legacy = Object.fromEntries(
+      Object.entries(SETTINGS_DEFAULTS).filter(
+        ([key]) => key !== 'showAnalogClock',
+      ),
+    );
+    expect(SettingsSchema.parse(legacy)).toMatchObject({
+      showAnalogClock: false,
+    });
+    expect(isSettings(legacy)).toBe(true);
+    if (!isSettings(legacy)) throw new Error('Invalid legacy fixture');
+    expect(hydratedSettings(legacy)).toMatchObject({ showAnalogClock: false });
+    for (const value of [true, false, 'yes', 1, null]) {
+      const settings = { ...SETTINGS_DEFAULTS, showAnalogClock: value };
+      const valid = typeof value === 'boolean';
+      expect(isSettings(settings)).toBe(valid);
+      expect(SettingsSchema.safeParse(settings).success).toBe(valid);
+    }
+  });
   it('keeps Shelf off for legacy settings and validates selected deck IDs like Zod', () => {
     const legacy = Object.fromEntries(
       Object.entries(SETTINGS_DEFAULTS).filter(

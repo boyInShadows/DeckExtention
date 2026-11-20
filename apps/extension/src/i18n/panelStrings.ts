@@ -145,6 +145,7 @@ export const panelStrings = {
   themeSystem: 'System',
   yourName: 'Your name',
   showSeconds: 'Show seconds',
+  showAnalogClock: 'Analog clock',
   showDate: 'Show date',
   showWeekNumber: 'Show ISO week number with date',
   use12HourClock: '12-hour clock',

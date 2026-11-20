@@ -36,6 +36,7 @@ import type { FocusEntry } from '../focus/model';
 import { useExternalLinkDrop } from '../capture/useExternalLinkDrop';
 
 const SettingsPanel = lazy(() => import('./SettingsPanel'));
+const AnalogClock = lazy(() => import('./AnalogClock'));
 const HelpOverlay = lazy(() => import('./HelpOverlay'));
 const RecoveryNotice = lazy(() =>
   import('./RecoverySurface').then(({ RecoveryNotice }) => ({
@@ -506,7 +507,17 @@ export function Surface({ initialData }: SurfaceProps) {
             className="deck-clock"
             dateTime={now.toISOString()}
           >
-            {time}
+            <Suspense fallback={time}>
+              {settings.showAnalogClock ? (
+                <AnalogClock
+                  now={now}
+                  label={time}
+                  showSeconds={settings.showSeconds}
+                />
+              ) : (
+                time
+              )}
+            </Suspense>
           </time>
           {settings.showDate && (
             <p

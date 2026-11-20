@@ -50,6 +50,7 @@ const SETTINGS_FIELDS = [
   'fontSize',
   'ownerName',
   'showSeconds',
+  'showAnalogClock',
   'showDate',
   'showWeekNumber',
   'use12HourClock',
@@ -204,6 +205,7 @@ export function isSettings(value: unknown): value is Settings {
     ) &&
     isString(value.ownerName, 80) &&
     typeof value.showSeconds === 'boolean' &&
+    isOptional(value.showAnalogClock, (item) => typeof item === 'boolean') &&
     isOptional(value.showDate, (item) => typeof item === 'boolean') &&
     isOptional(value.showWeekNumber, (item) => typeof item === 'boolean') &&
     isOptional(value.use12HourClock, (item) => typeof item === 'boolean') &&

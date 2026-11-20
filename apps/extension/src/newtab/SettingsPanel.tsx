@@ -442,6 +442,11 @@ export default function SettingsPanel({
             onChange={(showSeconds) => void update({ showSeconds })}
           />
           <Toggle
+            label={strings.showAnalogClock}
+            checked={settings.showAnalogClock}
+            onChange={(showAnalogClock) => void update({ showAnalogClock })}
+          />
+          <Toggle
             label={strings.showDate}
             checked={settings.showDate}
             onChange={(showDate) => void update({ showDate })}

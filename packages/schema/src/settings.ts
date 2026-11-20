@@ -45,6 +45,7 @@ export const SettingsSchema = z.strictObject({
   /** Empty means no greeting line at all - never a placeholder (P1.S3). */
   ownerName: z.string().max(80),
   showSeconds: z.boolean(),
+  showAnalogClock: z.boolean().default(false),
   showDate: z.boolean().default(true),
   showWeekNumber: z.boolean().default(false),
   use12HourClock: z.boolean().default(false),

@@ -30,6 +30,7 @@ export const SETTINGS_DEFAULTS: Settings = Object.freeze({
   fontSize: 'default',
   ownerName: '',
   showSeconds: false,
+  showAnalogClock: false,
   showDate: true,
   showWeekNumber: false,
   use12HourClock: false,

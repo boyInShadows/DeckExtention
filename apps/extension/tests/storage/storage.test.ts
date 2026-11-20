@@ -425,6 +425,7 @@ describe('BackupService', () => {
     await repository.replaceDocument({
       ...populatedDocument(),
       decks: [{ ...deck, note: '# Reading', isCollapsed: true }],
+      settings: { ...SETTINGS_DEFAULTS, showAnalogClock: true },
       cards: [
         {
           ...card,
