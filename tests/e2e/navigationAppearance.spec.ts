@@ -62,7 +62,9 @@ test('navigation stays transparent with distinct icons, hover, focus and selecti
           expect(target?.width).toBeGreaterThanOrEqual(44);
           expect(target?.height).toBeGreaterThanOrEqual(44);
           await button.hover();
-          const label = await button.locator('span').boundingBox();
+          const label = await button
+            .locator('[data-deck="section-label"]')
+            .boundingBox();
           if ((await button.getAttribute('title')) === 'Sessions') {
             await page.screenshot({
               path: testInfo.outputPath(`sessions-hover-${theme}-${width}.png`),

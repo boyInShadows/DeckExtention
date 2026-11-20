@@ -5,11 +5,11 @@ import { panelStrings as strings } from '../i18n/panelStrings';
 import { taskRecords } from '../tasks/taskRecords';
 import { useFocus } from './useFocus';
 import { FocusProgress } from './FocusProgress';
+import { formatFocusCountdown, useFocusNow } from './focusClock';
 import {
   DEFAULT_FOCUS_MINUTES,
   MAX_FOCUS_MINUTES,
   FOCUS_MINUTE_MS,
-  FOCUS_SECOND_MS,
   focusElapsed,
   focusSummary,
   type FocusAction,
@@ -31,11 +31,6 @@ type Controls = {
   isSaving: boolean;
   run: (action: FocusAction) => Promise<void>;
 };
-
-function countdown(milliseconds: number): string {
-  const seconds = Math.ceil(milliseconds / FOCUS_SECOND_MS);
-  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-}
 
 function focusMinutes(milliseconds: number): string {
   return strings.focusMinutes(
@@ -252,7 +247,7 @@ function FocusClock({
         aria-label={strings.focusRemaining}
         aria-live="off"
       >
-        {countdown(remaining)}
+        {formatFocusCountdown(remaining)}
       </output>
       <FocusProgress
         value={active ? elapsed / active.durationMs : isCompleted ? 1 : 0}
@@ -293,16 +288,12 @@ function FocusEditor({
   );
 }
 
-function usePanelClock(isOpen: boolean) {
-  const [now, setNow] = useState(Date.now);
+function usePanelClock(isOpen: boolean, isRunning: boolean) {
+  const now = useFocusNow(isRunning);
   const panel = useRef<HTMLElement>(null);
   useEffect(() => {
     if (isOpen) panel.current?.focus();
   }, [isOpen]);
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), FOCUS_SECOND_MS);
-    return () => window.clearInterval(timer);
-  }, []);
   return { now, panel };
 }
 
@@ -316,7 +307,10 @@ export default function FocusPanel({
 }: FocusProps) {
   const controls = useFocus(repository, onError);
   const { state } = controls;
-  const { now, panel } = usePanelClock(isOpen);
+  const { now, panel } = usePanelClock(
+    isOpen,
+    Boolean(state?.active && state.active.runningSince !== null),
+  );
   return (
     <section
       ref={panel}

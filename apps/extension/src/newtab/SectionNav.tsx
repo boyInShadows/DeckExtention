@@ -28,9 +28,19 @@ export function SectionNav({
           title={label}
           aria-label={strings.openSection(label)}
           aria-current={selectedId === id ? 'page' : undefined}
+          aria-describedby={id === 'focus' ? 'deck-focus-indicator' : undefined}
           onClick={() => onOpen(id)}
         >
-          <Icon name={icon} size={20} />
+          {id === 'focus' ? (
+            <span
+              data-deck="focus-indicator-slot"
+              className="deck-section-nav__focus-icon"
+            >
+              <Icon name={icon} size={20} />
+            </span>
+          ) : (
+            <Icon name={icon} size={20} />
+          )}
           <span data-deck="section-label">{label}</span>
         </button>
       ))}

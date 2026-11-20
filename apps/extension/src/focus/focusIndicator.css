@@ -1,0 +1,23 @@
+@layer components {
+  .deck-focus-indicator {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    align-content: center;
+    gap: 0.125rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .deck-focus-indicator .deck-focus-progress {
+    block-size: 0.1875rem;
+    color: inherit;
+  }
+
+  .deck-focus-indicator .deck-focus-progress::-webkit-progress-bar {
+    background: color-mix(in srgb, currentcolor 25%, transparent);
+  }
+
+  .deck-focus-indicator .deck-focus-progress::-webkit-progress-value {
+    background: currentcolor;
+  }
+}

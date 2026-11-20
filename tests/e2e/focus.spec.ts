@@ -65,9 +65,10 @@ test('focus links a task and preserves paused partial time across two tabs and r
       .getByRole('button', { name: 'Start focus', exact: true })
       .click();
     await expect(page.getByRole('timer')).toHaveText('01:00');
-    await expect(
-      page.getByRole('progressbar', { name: 'Focus progress' }),
-    ).toHaveAttribute('value', '0');
+    await expect(page.locator('[data-deck=focus] progress')).toHaveAttribute(
+      'value',
+      '0',
+    );
     await expect(
       page.getByRole('button', { name: 'Pause focus', exact: true }),
     ).toBeEnabled();
@@ -76,18 +77,20 @@ test('focus links a task and preserves paused partial time across two tabs and r
       .getByRole('button', { name: 'Pause focus', exact: true })
       .click();
     await expect(page.getByRole('timer')).toHaveText('00:40');
-    await expect(
-      page.getByRole('progressbar', { name: 'Focus progress' }),
-    ).toHaveAttribute('value', String(1 / 3));
+    await expect(page.locator('[data-deck=focus] progress')).toHaveAttribute(
+      'value',
+      String(1 / 3),
+    );
     const other = await context.newPage();
     await other.clock.setFixedTime(new Date(START + 120_000));
     await other.goto('chrome://newtab/');
     await other.waitForSelector('html[data-deck-ready="true"]');
     await openFocus(other);
     await expect(other.getByRole('timer')).toHaveText('00:40');
-    await expect(
-      other.getByRole('progressbar', { name: 'Focus progress' }),
-    ).toHaveAttribute('value', String(1 / 3));
+    await expect(other.locator('[data-deck=focus] progress')).toHaveAttribute(
+      'value',
+      String(1 / 3),
+    );
     await other
       .getByRole('button', { name: 'Resume focus', exact: true })
       .click();
@@ -104,9 +107,10 @@ test('focus links a task and preserves paused partial time across two tabs and r
     await expect(
       other.getByRole('button', { name: 'Start focus', exact: true }),
     ).toBeVisible();
-    await expect(
-      other.getByRole('progressbar', { name: 'Focus progress' }),
-    ).toHaveAttribute('value', '0');
+    await expect(other.locator('[data-deck=focus] progress')).toHaveAttribute(
+      'value',
+      '0',
+    );
     await expect(other.locator('[data-deck="focus-history"]')).toContainText(
       '0.5 min',
     );
@@ -167,7 +171,7 @@ test('focus completes while closed, uses its deadline day and announces completi
       .click();
     await expect(returned.getByRole('timer')).toHaveText('00:00');
     await expect(
-      returned.getByRole('progressbar', { name: 'Focus progress' }),
+      returned.locator('[data-deck=focus] progress'),
     ).toHaveAttribute('value', '1');
     await expect(returned.locator('[data-deck="focus-history"]')).toContainText(
       '1 day',
@@ -186,7 +190,7 @@ test('focus completes while closed, uses its deadline day and announces completi
     await returned.waitForSelector('html[data-deck-ready="true"]');
     await openFocus(returned);
     await expect(
-      returned.getByRole('progressbar', { name: 'Focus progress' }),
+      returned.locator('[data-deck=focus] progress'),
     ).toHaveAttribute('value', '1');
     await expect(
       returned.getByRole('button', { name: 'View focus', exact: true }),

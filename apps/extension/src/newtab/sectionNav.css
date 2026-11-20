@@ -38,6 +38,18 @@
     line-height: 1.2;
   }
 
+  .deck-section-nav__focus-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    inline-size: 100%;
+    block-size: 1.25rem;
+  }
+
+  .deck-section-nav__focus-icon:has([data-deck='focus-indicator']) > svg {
+    visibility: hidden;
+  }
+
   .deck-section-nav button:is(:hover, :focus-visible) {
     background: var(--deck-color-nav-hover);
   }
