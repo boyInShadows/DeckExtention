@@ -98,7 +98,9 @@ function SortablePin({
         ) ?? []),
       ];
       const index = tiles.indexOf(event.currentTarget);
-      const next = tiles[index + (event.key === 'ArrowRight' ? 1 : -1)];
+      const direction = document.documentElement.dir === 'rtl' ? -1 : 1;
+      const next =
+        tiles[index + (event.key === 'ArrowRight' ? direction : -direction)];
       if (next) {
         event.preventDefault();
         next.focus();

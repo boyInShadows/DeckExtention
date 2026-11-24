@@ -16,22 +16,30 @@ const IN_CONTEXT_ACCESS = [
   {
     permission: 'tabs',
     name: strings.accessTabs,
-    reason: strings.accessTabsReason,
+    get reason() {
+      return strings.accessTabsReason;
+    },
   },
   {
     permission: 'tabGroups',
     name: strings.accessTabGroups,
-    reason: strings.accessTabGroupsReason,
+    get reason() {
+      return strings.accessTabGroupsReason;
+    },
   },
   {
     permission: 'search',
     name: strings.accessSearch,
-    reason: strings.accessSearchReason,
+    get reason() {
+      return strings.accessSearchReason;
+    },
   },
   {
     permission: 'bookmarks',
     name: strings.bookmarks,
-    reason: strings.bookmarksReason,
+    get reason() {
+      return strings.bookmarksReason;
+    },
   },
 ] as const satisfies readonly {
   permission: chrome.runtime.ManifestOptionalPermission;

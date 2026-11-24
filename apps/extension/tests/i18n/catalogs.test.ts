@@ -14,9 +14,9 @@ import type {
 
 describe('translation catalogs', () => {
   it('keeps English as the default for each loading boundary', () => {
-    expect(strings).toBe(englishSurface);
-    expect(panelStrings).toBe(englishPanels);
-    expect(captureStrings).toBe(englishCapture);
+    expect(strings).toEqual(englishSurface);
+    expect(panelStrings).toEqual(englishPanels);
+    expect(captureStrings).toEqual(englishCapture);
   });
 
   it('includes every shared surface key unchanged in the panel catalog', () => {

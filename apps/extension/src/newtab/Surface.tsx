@@ -17,6 +17,7 @@ import {
 } from 'deck-schema/constants';
 
 import { strings } from '../i18n/strings';
+import { applyDocumentLanguage, getLocale } from '../i18n/language';
 import { WorkspaceDnd } from '../drawer/WorkspaceDnd';
 import type { UndoAction } from '../drawer/UndoAction';
 import type { Notice, NoticeInput } from './ToastStack';
@@ -197,6 +198,7 @@ export function Surface({ initialData }: SurfaceProps) {
     async (next: typeof settings) => {
       try {
         const saved = await initialData.repository.setSettings(next);
+        applyDocumentLanguage(saved.language);
         setSettings(saved);
         document.documentElement.dataset.theme = saved.theme;
         document.documentElement.dataset.accent = saved.accentColor;
@@ -219,6 +221,7 @@ export function Surface({ initialData }: SurfaceProps) {
       initialData.repository.getSettings(),
     ])
       .then(([storedPages, storedDecks, storedCards, storedSettings]) => {
+        applyDocumentLanguage(storedSettings.language);
         setPages(storedPages);
         setDecks(storedDecks);
         setCards(storedCards);
@@ -448,7 +451,7 @@ export function Surface({ initialData }: SurfaceProps) {
     };
   }, [initialData.repository, notifyFailure, settings.wallpaper]);
 
-  const time = now.toLocaleTimeString(undefined, {
+  const time = now.toLocaleTimeString(getLocale(), {
     timeStyle: settings.showSeconds ? 'medium' : 'short',
     hour12: settings.use12HourClock,
   });
@@ -524,11 +527,11 @@ export function Surface({ initialData }: SurfaceProps) {
               data-deck="date"
               title={
                 week
-                  ? now.toLocaleDateString(undefined, { dateStyle: 'full' })
+                  ? now.toLocaleDateString(getLocale(), { dateStyle: 'full' })
                   : undefined
               }
             >
-              {now.toLocaleDateString(undefined, {
+              {now.toLocaleDateString(getLocale(), {
                 dateStyle: week ? 'long' : 'full',
               })}
               {week ? (

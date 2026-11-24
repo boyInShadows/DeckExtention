@@ -70,7 +70,11 @@ describe('Persian catalogs', () => {
     expect(persianPanels.settings).toBe(persian.settings);
     expect(persianCapture.saved).toBe('در ورودی ذخیره شد');
     expect(persianPanels.deckColorNames.slate).toBe('خاکستری');
-    const namesAndKeys = new Set<string>([...english.examples, 'Enter']);
+    const namesAndKeys = new Set<string>([
+      ...english.examples,
+      'Enter',
+      'English',
+    ]);
     for (const text of catalogText([persianPanels, persianCapture])) {
       if (!namesAndKeys.has(text)) expect(text).toMatch(/[\u0621-\u06ff]/u);
     }

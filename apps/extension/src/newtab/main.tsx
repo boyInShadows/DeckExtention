@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { OPEN_SETTINGS_HASH } from 'deck-schema/constants';
 
 import { strings } from '../i18n/strings';
+import { applyDocumentLanguage } from '../i18n/language';
 import { Surface } from './Surface';
 import { hydrateSurface, type SurfaceData } from './bootstrap';
 
@@ -22,6 +23,7 @@ if (!container) {
 const root = createRoot(container);
 
 function renderSurface(surfaceData: SurfaceData): void {
+  applyDocumentLanguage(surfaceData.settings.language);
   document.documentElement.dataset.theme = surfaceData.settings.theme;
   document.documentElement.dataset.accent = surfaceData.settings.accentColor;
   document.documentElement.dataset.density = surfaceData.settings.rowDensity;

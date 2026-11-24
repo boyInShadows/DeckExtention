@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { Snapshot } from 'deck-schema';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { getLocale } from '../i18n/language';
 import { Icon } from './Icon';
 import { BackupService } from '../storage/backup';
 import { openDeckDatabase } from '../storage/database';
@@ -102,7 +103,7 @@ export function RecoverySurface({
           {snapshots.map((snapshot) => (
             <li key={snapshot.id}>
               <time dateTime={new Date(snapshot.ts).toISOString()}>
-                {new Date(snapshot.ts).toLocaleString()}
+                {new Date(snapshot.ts).toLocaleString(getLocale())}
               </time>
               <button
                 type="button"

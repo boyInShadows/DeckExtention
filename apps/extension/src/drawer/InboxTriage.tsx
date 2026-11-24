@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { getLocale } from '../i18n/language';
 import type { SurfaceData } from '../newtab/bootstrap';
 import type { UndoAction } from './UndoAction';
 import { moveCards, openCard, pinCards, trashCards } from './inboxActions';
@@ -44,7 +45,7 @@ function savedAgo(createdAt: number): string {
   const duration =
     unit === 'day' ? DAY_MS : unit === 'hour' ? HOUR_MS : MINUTE_MS;
   return strings.savedAgo(
-    new Intl.RelativeTimeFormat(undefined, { style: 'narrow' }).format(
+    new Intl.RelativeTimeFormat(getLocale(), { style: 'narrow' }).format(
       -Math.floor(elapsed / duration),
       unit,
     ),

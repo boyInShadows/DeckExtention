@@ -6,6 +6,8 @@ import { strings } from './strings';
  */
 export const panelStrings = {
   ...strings,
+  language: 'Language',
+  languageNames: { en: 'English', fa: 'فارسی' },
   rowDensity: 'Row density',
   densityNames: { compact: 'Compact (default)', comfortable: 'Comfortable' },
   fontSize: 'Text size',

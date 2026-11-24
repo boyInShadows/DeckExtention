@@ -23,6 +23,8 @@ import {
 } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { LanguageSetting } from './LanguageSetting';
+import { getLocale } from '../i18n/language';
 import { useDismissable } from '../hooks/useDismissable';
 import { Icon } from './Icon';
 import { BackupService } from '../storage/backup';
@@ -53,9 +55,24 @@ interface SettingsPanelProps {
 }
 
 const THEMES: { value: Theme; label: string }[] = [
-  { value: 'night', label: strings.themeNight },
-  { value: 'day', label: strings.themeDay },
-  { value: 'system', label: strings.themeSystem },
+  {
+    value: 'night',
+    get label() {
+      return strings.themeNight;
+    },
+  },
+  {
+    value: 'day',
+    get label() {
+      return strings.themeDay;
+    },
+  },
+  {
+    value: 'system',
+    get label() {
+      return strings.themeSystem;
+    },
+  },
 ];
 const SEARCH_ENGINES = [
   { name: 'Google', url: 'https://www.google.com/search?q={query}' },
@@ -270,7 +287,9 @@ export default function SettingsPanel({
         kind: 'success',
         text: strings.importedCards(cards),
         action: {
-          label: strings.undo,
+          get label() {
+            return strings.undo;
+          },
           run: async () => {
             await backups.restoreSnapshot(snapshotId);
             onDataChange();
@@ -346,6 +365,7 @@ export default function SettingsPanel({
           </button>
         </header>
         <SettingsGroup title={strings.appearance}>
+          <LanguageSetting settings={settings} update={update} />
           <div
             className="deck-settings__theme"
             role="group"
@@ -594,7 +614,9 @@ export default function SettingsPanel({
           </button>
           <p data-deck="last-backup">
             {snapshots[0]
-              ? strings.lastBackup(new Date(snapshots[0].ts).toLocaleString())
+              ? strings.lastBackup(
+                  new Date(snapshots[0].ts).toLocaleString(getLocale()),
+                )
               : strings.noBackups}
           </p>
           {snapshots.length > 0
@@ -604,7 +626,9 @@ export default function SettingsPanel({
                   data-deck="snapshot"
                   className="deck-settings__snapshot"
                 >
-                  <span>{new Date(snapshot.ts).toLocaleString()}</span>
+                  <span>
+                    {new Date(snapshot.ts).toLocaleString(getLocale())}
+                  </span>
                   <small>{snapshotSummary(snapshot)}</small>
                   <button type="button" onClick={() => void restore(snapshot)}>
                     {strings.restore}

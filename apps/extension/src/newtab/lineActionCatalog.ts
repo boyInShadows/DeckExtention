@@ -18,28 +18,104 @@ export type ActionId =
 
 export const LINE_ACTIONS: { id: ActionId; command: string; label: string }[] =
   [
-    { id: 'blur', command: '>blur', label: strings.actionBlur },
+    {
+      id: 'blur',
+      command: '>blur',
+      get label() {
+        return strings.actionBlur;
+      },
+    },
     {
       id: 'theme-night',
       command: '>theme night',
-      label: strings.actionThemeNight,
+      get label() {
+        return strings.actionThemeNight;
+      },
     },
-    { id: 'theme-day', command: '>theme day', label: strings.actionThemeDay },
+    {
+      id: 'theme-day',
+      command: '>theme day',
+      get label() {
+        return strings.actionThemeDay;
+      },
+    },
     {
       id: 'theme-system',
       command: '>theme system',
-      label: strings.actionThemeSystem,
+      get label() {
+        return strings.actionThemeSystem;
+      },
     },
-    { id: 'export', command: '>export', label: strings.actionExport },
-    { id: 'import', command: '>import', label: strings.actionImport },
-    { id: 'settings', command: '>settings', label: strings.actionSettings },
-    { id: 'new-page', command: '>new page', label: strings.actionNewPage },
-    { id: 'new-deck', command: '>new deck', label: strings.actionNewDeck },
-    { id: 'stash', command: '>stash', label: strings.actionStash },
-    { id: 'tabs', command: '>tabs', label: strings.actionTabs },
-    { id: 'help', command: '>help', label: strings.keyboard },
-    { id: 'keys', command: '>keys', label: strings.keyboard },
-    { id: 'shortcuts', command: '>shortcuts', label: strings.keyboard },
+    {
+      id: 'export',
+      command: '>export',
+      get label() {
+        return strings.actionExport;
+      },
+    },
+    {
+      id: 'import',
+      command: '>import',
+      get label() {
+        return strings.actionImport;
+      },
+    },
+    {
+      id: 'settings',
+      command: '>settings',
+      get label() {
+        return strings.actionSettings;
+      },
+    },
+    {
+      id: 'new-page',
+      command: '>new page',
+      get label() {
+        return strings.actionNewPage;
+      },
+    },
+    {
+      id: 'new-deck',
+      command: '>new deck',
+      get label() {
+        return strings.actionNewDeck;
+      },
+    },
+    {
+      id: 'stash',
+      command: '>stash',
+      get label() {
+        return strings.actionStash;
+      },
+    },
+    {
+      id: 'tabs',
+      command: '>tabs',
+      get label() {
+        return strings.actionTabs;
+      },
+    },
+    {
+      id: 'help',
+      command: '>help',
+      get label() {
+        return strings.keyboard;
+      },
+    },
+    {
+      id: 'keys',
+      command: '>keys',
+      get label() {
+        return strings.keyboard;
+      },
+    },
+    {
+      id: 'shortcuts',
+      command: '>shortcuts',
+      get label() {
+        return strings.keyboard;
+      },
+    },
   ];
 
 export function filterLineActions(query: string, isCommand: boolean) {

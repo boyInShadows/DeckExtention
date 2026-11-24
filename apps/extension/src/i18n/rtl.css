@@ -1,0 +1,10 @@
+@layer components {
+  [dir='rtl'] :is(.deck-pins-drop, [data-deck='drawer-handle']) {
+    transform: translateX(50%);
+  }
+
+  [dir='rtl']
+    :is([data-deck='trash-confirm'], [data-deck='page-delete-sheet']) {
+    transform: translate(50%, -50%);
+  }
+}

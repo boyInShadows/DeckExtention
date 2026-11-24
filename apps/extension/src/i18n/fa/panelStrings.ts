@@ -4,6 +4,8 @@ import { number } from './numbers';
 
 export const panelStrings = {
   ...strings,
+  language: 'زبان',
+  languageNames: { en: 'English', fa: 'فارسی' },
   rowDensity: 'فاصلهٔ ردیف‌ها',
   densityNames: { compact: 'فشرده (پیش‌فرض)', comfortable: 'آزاد' },
   fontSize: 'اندازهٔ نوشته',

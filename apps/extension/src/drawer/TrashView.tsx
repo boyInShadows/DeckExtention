@@ -2,6 +2,7 @@ import type { Card, Deck, Page } from 'deck-schema';
 import { useRef, useState, type KeyboardEvent } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { getLocale } from '../i18n/language';
 import { useDismissable } from '../hooks/useDismissable';
 import type { DeckRepository } from '../storage/repository';
 import { focusOnMount } from '../newtab/focusOnMount';
@@ -111,7 +112,9 @@ export function TrashView(props: TrashViewProps) {
   const [isConfirming, setIsConfirming] = useState(false);
   const groups = new Map<string, TrashItem[]>();
   for (const item of trashItems(props.pages, props.decks, props.cards)) {
-    const day = new Date(item.record.deletedAt ?? 0).toLocaleDateString();
+    const day = new Date(item.record.deletedAt ?? 0).toLocaleDateString(
+      getLocale(),
+    );
     groups.set(day, [...(groups.get(day) ?? []), item]);
   }
 

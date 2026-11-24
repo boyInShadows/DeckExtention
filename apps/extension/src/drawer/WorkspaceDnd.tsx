@@ -17,7 +17,11 @@ import type { ReactNode } from 'react';
 import { strings } from '../i18n/strings';
 
 const accessibility: NonNullable<DndContextProps['accessibility']> = {
-  screenReaderInstructions: { draggable: strings.dragInstructions },
+  screenReaderInstructions: {
+    get draggable() {
+      return strings.dragInstructions;
+    },
+  },
   announcements: {
     onDragStart: ({ active }) => strings.dragPickedUp(active.id),
     onDragOver: ({ active, over }) =>

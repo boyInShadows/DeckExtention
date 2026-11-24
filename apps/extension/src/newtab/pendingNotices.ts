@@ -24,7 +24,9 @@ const OlderSettingsErrorSchema = z
   )
   .nonempty();
 const RELOAD_DECK_ACTION = {
-  label: strings.reloadDeck,
+  get label() {
+    return strings.reloadDeck;
+  },
   run: () => chrome.runtime.reload(),
 };
 
