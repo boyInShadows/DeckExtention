@@ -14,6 +14,7 @@ import type { ComponentChildren } from 'preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { strings } from '../../src/i18n/strings';
+import { MAINTENANCE_MESSAGE } from 'deck-schema/constants';
 import {
   click,
   keyDown,
@@ -238,9 +239,9 @@ type StorageListener = Parameters<
 let storageListeners: StorageListener[] = [];
 let storageGet = vi.fn(() => Promise.resolve<Record<string, unknown>>({}));
 const storageRemove = vi.fn(() => Promise.resolve());
-const runtimeSendMessage = vi.fn<() => Promise<{ error: string | null }>>(() =>
-  Promise.resolve({ error: null }),
-);
+const runtimeSendMessage = vi.fn<
+  (message: { type: string }) => Promise<{ error: string | null }>
+>(() => Promise.resolve({ error: null }));
 const cancelIdle = vi.fn((handle: number) => idles.delete(handle));
 const cancelFrame = vi.fn((handle: number) => frames.delete(handle));
 
@@ -592,9 +593,11 @@ describe('Surface hand-over from Quick Save', () => {
       }),
     );
     stubBrowser();
-    runtimeSendMessage.mockResolvedValue({
-      error: 'old backup failure',
-    });
+    runtimeSendMessage.mockImplementation(({ type }) =>
+      Promise.resolve({
+        error: type === MAINTENANCE_MESSAGE ? 'old backup failure' : null,
+      }),
+    );
     const view = await mount(surfaceData());
     expect(view.container.textContent).toContain('old backup failure');
     expect(view.container.textContent).toContain('distinct drawer failure');

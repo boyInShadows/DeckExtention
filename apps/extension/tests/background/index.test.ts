@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MAINTENANCE_MESSAGE } from 'deck-schema/constants';
 import { TOAST_MESSAGE_TYPE } from '../../src/capture/toastModel';
+import { LANGUAGE_MESSAGE } from '../../src/i18n/language';
 
 const mocks = vi.hoisted(() => ({
   repository: vi.fn(),
@@ -11,6 +12,13 @@ const mocks = vi.hoisted(() => ({
   onStorageChanged: vi.fn(),
   toastDecision: vi.fn(),
   stash: vi.fn(),
+  language: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock('../../src/background/language', () => ({
+  refreshNativeLanguage: mocks.language,
+  MENU_SAVE_PAGE: 'deck-save-page',
+  MENU_SAVE_LINK: 'deck-save-link',
 }));
 
 vi.mock('../../src/storage/repository', () => ({
@@ -83,7 +91,11 @@ describe('background database selection', () => {
 
 describe('background message replies', () => {
   const addListener = vi.fn();
-  const sender = { id: 'deck-test', tab: { id: 1 } };
+  const sender = {
+    id: 'deck-test',
+    url: 'chrome-extension://deck-test/src/newtab/index.html',
+    tab: { id: 1 },
+  };
   const set = vi.fn();
 
   beforeEach(async () => {
@@ -92,6 +104,7 @@ describe('background message replies', () => {
     mocks.maintenance.mockReset().mockResolvedValue(false);
     mocks.toastDecision.mockReset().mockResolvedValue(null);
     mocks.stash.mockReset().mockResolvedValue({ error: null });
+    mocks.language.mockReset().mockResolvedValue(undefined);
     set.mockReset().mockResolvedValue(undefined);
     const event = { addListener: vi.fn() };
     vi.stubGlobal('chrome', {
@@ -101,6 +114,7 @@ describe('background message replies', () => {
       },
       runtime: {
         id: sender.id,
+        getURL: (path: string) => `chrome-extension://deck-test/${path}`,
         onStartup: event,
         onInstalled: event,
         onMessage: { addListener },
@@ -149,6 +163,25 @@ describe('background message replies', () => {
     expect(isAsync).toBe(true);
     await vi.waitFor(() =>
       expect(respond).toHaveBeenCalledExactlyOnceWith({ error: null }),
+    );
+  });
+
+  it('refreshes native language only from a Deck page and reports failure separately from backups', async () => {
+    expect(
+      dispatch(
+        { type: LANGUAGE_MESSAGE },
+        { ...sender, url: 'https://example.com' },
+      ).isAsync,
+    ).toBe(false);
+    mocks.language.mockRejectedValueOnce(new Error('Menu unavailable'));
+    const { isAsync, respond } = dispatch({ type: LANGUAGE_MESSAGE });
+    expect(isAsync).toBe(true);
+    await vi.waitFor(() =>
+      expect(respond).toHaveBeenCalledWith({ error: 'Menu unavailable' }),
+    );
+    const next = dispatch({ type: MAINTENANCE_MESSAGE });
+    await vi.waitFor(() =>
+      expect(next.respond).toHaveBeenCalledWith({ error: null }),
     );
   });
 

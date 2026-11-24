@@ -17,7 +17,11 @@ import {
 } from 'deck-schema/constants';
 
 import { strings } from '../i18n/strings';
-import { applyDocumentLanguage, getLocale } from '../i18n/language';
+import {
+  applyDocumentLanguage,
+  getLocale,
+  LANGUAGE_MESSAGE,
+} from '../i18n/language';
 import { WorkspaceDnd } from '../drawer/WorkspaceDnd';
 import type { UndoAction } from '../drawer/UndoAction';
 import type { Notice, NoticeInput } from './ToastStack';
@@ -211,6 +215,15 @@ export function Surface({ initialData }: SurfaceProps) {
     },
     [initialData.repository, notify, notifyFailure],
   );
+
+  useEffect(() => {
+    void chrome.runtime
+      .sendMessage({ type: LANGUAGE_MESSAGE })
+      .then((reply) => {
+        if (reply?.error) throw new Error(String(reply.error));
+      })
+      .catch(notifyFailure);
+  }, [settings.language, notifyFailure]);
 
   // A bulk write from Settings can also replace appearance and key bindings.
   const reloadWorkspace = useCallback(() => {

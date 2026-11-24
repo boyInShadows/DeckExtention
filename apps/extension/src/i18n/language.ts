@@ -2,6 +2,8 @@ import type { Settings } from 'deck-schema';
 
 let language: Settings['language'] = 'en';
 
+export const LANGUAGE_MESSAGE = 'deck:language';
+
 export const getLanguage = (): Settings['language'] => language;
 export const getLocale = (): string | undefined =>
   language === 'fa' ? 'fa-IR' : undefined;

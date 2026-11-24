@@ -1,7 +1,8 @@
 import type { Card } from 'deck-schema';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { captureStrings } from '../../src/i18n/captureStrings';
+import { setLanguage } from '../../src/i18n/language';
 import { toastStylesheet } from '../../src/capture/toast';
 import {
   buildToastModel,
@@ -10,8 +11,20 @@ import {
 } from '../../src/capture/toastModel';
 
 const card = { id: 'card_1', title: 'A' } as Card;
+afterEach(() => setLanguage('en'));
 
 describe('buildToastModel', () => {
+  it('sends Persian copy and language without translating the saved destination name', () => {
+    setLanguage('fa');
+    const model = buildToastModel(
+      { kind: 'duplicate', card, pageId: 'p1', location: 'Work › Docs' },
+      'day',
+      'css',
+    );
+    expect(model.language).toBe('fa');
+    expect(model.message).toBe(`${captureStrings.duplicate} Work › Docs`);
+    expect(model.labels.openDeck).toBe('باز کردن Deck');
+  });
   it('offers note and undo after a save, for 2.5 s', () => {
     const model = buildToastModel({ kind: 'saved', card }, 'night', 'css');
     expect(model).toMatchObject({

@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DeckRepository } from '../../src/storage/repository';
+import { SETTINGS_DEFAULTS } from 'deck-schema';
+import { setLanguage } from '../../src/i18n/language';
+import { panelStrings as persian } from '../../src/i18n/fa/panelStrings';
 import {
   handleStashMessage,
   runStashCommand,
@@ -7,7 +10,8 @@ import {
 
 const mocks = vi.hoisted(() => ({ stashWindow: vi.fn(), undoStash: vi.fn() }));
 vi.mock('../../src/sessions/stash', () => mocks);
-const repository = {} as DeckRepository;
+const getSettings = vi.fn();
+const repository = { getSettings } as unknown as DeckRepository;
 const URL = 'chrome-extension://deck/src/newtab/index.html';
 const tab = { id: 5, windowId: 7 } as chrome.tabs.Tab;
 const sender = { id: 'deck', url: URL, tab };
@@ -26,6 +30,7 @@ function setup() {
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  getSettings.mockResolvedValue(SETTINGS_DEFAULTS);
   api = setup();
   vi.stubGlobal('chrome', api);
   mocks.stashWindow.mockResolvedValue({
@@ -36,7 +41,27 @@ beforeEach(() => {
   });
   mocks.undoStash.mockResolvedValue(undefined);
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  setLanguage('en');
+  vi.unstubAllGlobals();
+});
+
+it('uses the saved Persian language for durable success and failure notices', async () => {
+  getSettings.mockResolvedValue({ ...SETTINGS_DEFAULTS, language: 'fa' });
+  await runStashCommand(repository, tab);
+  expect(api.storage.local.set).toHaveBeenCalledWith({
+    stashNotice: {
+      kind: 'success',
+      message: persian.stashedTabs(30),
+      deckId: 'session_test',
+    },
+  });
+  mocks.stashWindow.mockRejectedValueOnce(new Error('disk full'));
+  await runStashCommand(repository, tab);
+  expect(api.storage.local.set).toHaveBeenLastCalledWith({
+    stashNotice: { kind: 'error', message: `${persian.stashFailed} disk full` },
+  });
+});
 
 it('opens the in-context permission explanation before accessing tabs', async () => {
   api.permissions.contains.mockResolvedValue(false);

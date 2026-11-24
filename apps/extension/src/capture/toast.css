@@ -6,6 +6,11 @@
 
 :host {
   all: initial;
+  direction: ltr;
+}
+
+:host([dir='rtl']) {
+  direction: rtl;
 }
 
 .toast {

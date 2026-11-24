@@ -26,6 +26,7 @@ import { buildToastModel, TOAST_MESSAGE_TYPE } from '../capture/toastModel';
 import { captureStrings } from '../i18n/captureStrings';
 import type { DeckRepository } from '../storage/repository';
 import tokensCss from '../styles/tokens.css?raw';
+import { loadLanguage } from './language';
 
 /**
  * Quick Save in the service worker (FableTasks P2.S4): hotkey, context menu or
@@ -78,6 +79,7 @@ async function runQuickSave(
       CAPTURE_PERMISSION_DECLINED_KEY,
     );
     if (saved[CAPTURE_PERMISSION_DECLINED_KEY] === true) {
+      await loadLanguage(repository);
       await tellUser(captureStrings.needsPermission);
       return;
     }
@@ -90,10 +92,12 @@ async function runQuickSave(
         await chrome.storage.local.set({
           [CAPTURE_PERMISSION_DECLINED_KEY]: true,
         });
+        await loadLanguage(repository);
         await tellUser(captureStrings.needsPermission);
         return;
       }
     } catch (error) {
+      await loadLanguage(repository);
       await tellUser(
         `${captureStrings.permissionPromptFailed} ${String(error)}`,
       );
@@ -101,6 +105,7 @@ async function runQuickSave(
       return;
     }
   }
+  const settings = await loadLanguage(repository);
   const target = linkUrl
     ? captureTarget(linkUrl, undefined)
     : captureTarget(tab?.url, tab?.title);
@@ -108,10 +113,7 @@ async function runQuickSave(
     await tellUser(captureStrings.unsupportedPage);
     return;
   }
-  const [result, settings] = await Promise.all([
-    saveToInbox(repository, target),
-    repository.getSettings(),
-  ]);
+  const result = await saveToInbox(repository, target);
   const isShown =
     tab?.id !== undefined &&
     (await showToast(

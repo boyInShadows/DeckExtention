@@ -1,6 +1,7 @@
 import type { Theme } from 'deck-schema';
 
 import { captureStrings } from '../i18n/captureStrings';
+import { getLanguage } from '../i18n/language';
 import type { SaveResult } from './quickSave';
 import type { ToastModel } from './toast';
 
@@ -26,6 +27,7 @@ export function buildToastModel(
   return {
     css,
     theme,
+    language: getLanguage(),
     mode: isSaved ? 'saved' : 'duplicate',
     message: isSaved
       ? captureStrings.saved

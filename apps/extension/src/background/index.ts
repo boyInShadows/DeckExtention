@@ -9,9 +9,15 @@
  *   P3.S1  `stash` saves the window atomically before closing its tabs
  */
 
-import { BACKUP_ERROR_KEY } from 'deck-schema';
+import { BACKUP_ERROR_KEY, SETTINGS_NOTICE_KEY } from 'deck-schema';
 import { MAINTENANCE_MESSAGE } from 'deck-schema/constants';
 import { captureStrings } from '../i18n/captureStrings';
+import { LANGUAGE_MESSAGE } from '../i18n/language';
+import {
+  MENU_SAVE_PAGE,
+  MENU_SAVE_LINK,
+  refreshNativeLanguage,
+} from './language';
 import { TOAST_MESSAGE_TYPE } from '../capture/toastModel';
 import { BackupService } from '../storage/backup';
 import { ACTIVE_DATABASE_KEY, openDeckDatabase } from '../storage/database';
@@ -38,6 +44,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     openDeckDatabase(undefined, writeValidation),
   );
   void runBackupMaintenance();
+  void refreshNativeLanguage(repository).catch(reportLanguageFailure);
 });
 
 async function runBackupMaintenance(): Promise<string | null> {
@@ -64,23 +71,17 @@ async function runBackupMaintenance(): Promise<string | null> {
 void runBackupMaintenance();
 chrome.runtime.onStartup.addListener(() => void runBackupMaintenance());
 
-const MENU_SAVE_PAGE = 'deck-save-page';
-const MENU_SAVE_LINK = 'deck-save-link';
-
-chrome.runtime.onInstalled.addListener(() => {
-  void chrome.contextMenus.removeAll().then(() => {
-    chrome.contextMenus.create({
-      id: MENU_SAVE_PAGE,
-      title: captureStrings.menuSavePage,
-      contexts: ['page'],
-    });
-    chrome.contextMenus.create({
-      id: MENU_SAVE_LINK,
-      title: captureStrings.menuSaveLink,
-      contexts: ['link'],
-    });
+async function reportLanguageFailure(error: unknown): Promise<void> {
+  await chrome.storage.local.set({
+    [SETTINGS_NOTICE_KEY]: {
+      kind: 'error',
+      message: `${captureStrings.languageFailed} ${String(error)}`,
+      createdAt: Date.now(),
+    },
   });
-});
+}
+
+void refreshNativeLanguage(repository).catch(reportLanguageFailure);
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === MENU_SAVE_PAGE) void quickSave(repository, tab);
@@ -93,6 +94,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   let response: Promise<unknown>;
   if (message?.type === STASH_MESSAGE || message?.type === UNDO_STASH_MESSAGE) {
     response = handleStashMessage(repository, message, sender);
+  } else if (message?.type === LANGUAGE_MESSAGE) {
+    if (!sender.url?.startsWith(chrome.runtime.getURL('src/newtab/index.html')))
+      return false;
+    response = refreshNativeLanguage(repository).then(() => ({ error: null }));
   } else if (message?.type === MAINTENANCE_MESSAGE) {
     response = runBackupMaintenance().then((error) => ({ error }));
   } else if (message?.type === TOAST_MESSAGE_TYPE) {

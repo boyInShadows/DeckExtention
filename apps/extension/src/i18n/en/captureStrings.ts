@@ -9,6 +9,8 @@
 export const captureStrings = {
   menuSavePage: 'Save to Deck',
   menuSaveLink: 'Save link to Deck',
+  toolbarSave: "Save this page to Deck's Inbox",
+  languageFailed: 'Could not update Deck’s menu language:',
   saved: 'Saved to Inbox',
   savedHint: '↩ add note · ⌫ undo',
   duplicate: 'Already in',

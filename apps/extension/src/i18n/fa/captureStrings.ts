@@ -3,6 +3,8 @@ import type { CaptureCatalog } from '../catalogs';
 export const captureStrings = {
   menuSavePage: 'ذخیره در Deck',
   menuSaveLink: 'ذخیرهٔ پیوند در Deck',
+  toolbarSave: 'ذخیره در Deck',
+  languageFailed: 'زبان فهرست‌های Deck به‌روز نشد:',
   saved: 'در ورودی ذخیره شد',
   savedHint: '↩ افزودن یادداشت · ⌫ واگرد',
   duplicate: 'قبلاً ذخیره شده در',

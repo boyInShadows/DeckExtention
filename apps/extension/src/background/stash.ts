@@ -1,5 +1,6 @@
 import { panelStrings as strings } from '../i18n/panelStrings';
 import type { DeckRepository } from '../storage/repository';
+import { loadLanguage } from './language';
 import { stashWindow, undoStash } from '../sessions/stash';
 import { StashMessageSchema } from '../sessions/messages';
 import {
@@ -18,6 +19,7 @@ export async function runStashCommand(
 ): Promise<void> {
   let windowId = tab?.windowId;
   try {
+    await loadLanguage(repository);
     windowId ??= (
       await chrome.tabs.query({ active: true, currentWindow: true })
     )[0]?.windowId;

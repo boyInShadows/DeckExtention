@@ -110,6 +110,19 @@ afterEach(() => {
 });
 
 describe('showCaptureToast: rendering', () => {
+  it.each(['en', 'fa'] as const)(
+    'isolates %s language and direction from the page',
+    (language) => {
+      document.documentElement.dir = language === 'fa' ? 'ltr' : 'rtl';
+      void show({ ...MODEL, language });
+      expect(host()?.lang).toBe(language);
+      expect(host()?.dir).toBe(language === 'fa' ? 'rtl' : 'ltr');
+      expect(document.documentElement.dir).toBe(
+        language === 'fa' ? 'ltr' : 'rtl',
+      );
+    },
+  );
+
   it('mounts one labelled status toast with note and undo when saved', () => {
     void show();
     const root = shadowRoot();

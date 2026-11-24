@@ -23,6 +23,7 @@ export interface ToastModel {
   /** tokens.css (with `:root` rewritten to `:host`) followed by toast.css. */
   css: string;
   theme: 'night' | 'day' | 'system';
+  language?: 'en' | 'fa';
   /** `saved` offers note + undo; `duplicate` offers open. */
   mode: 'saved' | 'duplicate';
   message: string;
@@ -71,6 +72,8 @@ export function showCaptureToast(
   document.getElementById(HOST_ID)?.remove();
   const host = document.createElement('div');
   host.id = HOST_ID;
+  host.lang = model.language ?? 'en';
+  host.dir = host.lang === 'fa' ? 'rtl' : 'ltr';
   const root = host.attachShadow({ mode: 'closed' });
   const style = document.createElement('style');
   style.textContent = model.css;
