@@ -425,7 +425,7 @@ describe('BackupService', () => {
     await repository.replaceDocument({
       ...populatedDocument(),
       decks: [{ ...deck, note: '# Reading', isCollapsed: true }],
-      settings: { ...SETTINGS_DEFAULTS, showAnalogClock: true },
+      settings: { ...SETTINGS_DEFAULTS, showAnalogClock: true, language: 'fa' },
       cards: [
         {
           ...card,
@@ -437,11 +437,13 @@ describe('BackupService', () => {
       ],
     });
     const original = await backups.exportData();
+    expect(original.document.settings.language).toBe('fa');
 
     await repository.replaceDocument(emptyDocument());
     await backups.importData(JSON.parse(original.json) as unknown, 'replace');
 
     expect((await backups.exportData()).document).toEqual(original.document);
+    expect((await repository.getSettings()).language).toBe('fa');
     await repository.close();
     (await database).close();
   });

@@ -15,46 +15,54 @@ import {
 } from '../../packages/schema/src/constants';
 import { launchExtension } from './extension';
 
-test('reload repairs an older backup validator and preserves saved data', async () => {
-  const testInfo = test.info();
-  const { context, worker } = await launchOlderWorker(testInfo);
-  try {
-    const page = await context.newPage();
-    await page.goto('chrome://newtab/');
-    await page.waitForSelector('html[data-deck-ready="true"]');
-    const before = await readSavedData(page, true);
-    expect(before.records[2]).not.toHaveLength(0);
-    const failed = await page.evaluate(
-      (type) => chrome.runtime.sendMessage({ type }),
-      MAINTENANCE_MESSAGE,
-    );
-    expect(JSON.parse(failed.error)).toEqual([
-      {
-        code: 'unrecognized_keys',
-        keys: ['showGoogleSuggestions'],
-        path: ['settings'],
-        message: 'Unrecognized key: "showGoogleSuggestions"',
-      },
-    ]);
-    await page.reload();
-    await reloadFromNotice(page, worker, context, testInfo);
-    const fresh = await context.newPage();
-    await fresh.goto('chrome://newtab/');
-    await fresh.waitForSelector('html[data-deck-ready="true"]');
-    await expectRecoveredBackup(fresh);
-    expect(await readSavedData(fresh)).toEqual(before);
-    await expect(
-      fresh.locator('[data-deck="toast"][data-kind="error"]'),
-    ).toHaveCount(0);
-  } finally {
-    await context.close();
-  }
-});
+for (const field of ['showGoogleSuggestions', 'language'] as const) {
+  test(`reload repairs an older ${field} validator and preserves saved data`, async () => {
+    const testInfo = test.info();
+    const { context, worker } = await launchOlderWorker(testInfo, field);
+    try {
+      const page = await context.newPage();
+      await page.goto('chrome://newtab/');
+      await page.waitForSelector('html[data-deck-ready="true"]');
+      const before = await readSavedData(page, true);
+      expect(before.records[2]).not.toHaveLength(0);
+      const failed = await page.evaluate(
+        (type) => chrome.runtime.sendMessage({ type }),
+        MAINTENANCE_MESSAGE,
+      );
+      expect(JSON.parse(failed.error)).toEqual([
+        {
+          code: 'unrecognized_keys',
+          keys: [field],
+          path: ['settings'],
+          message: `Unrecognized key: "${field}"`,
+        },
+      ]);
+      await page.reload();
+      await reloadFromNotice(page, worker, context, testInfo);
+      const fresh = await context.newPage();
+      await fresh.goto('chrome://newtab/');
+      await fresh.waitForSelector('html[data-deck-ready="true"]');
+      await expectRecoveredBackup(fresh);
+      expect(await readSavedData(fresh)).toEqual(before);
+      await expect(
+        fresh.locator('[data-deck="toast"][data-kind="error"]'),
+      ).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+}
 
-async function launchOlderWorker(testInfo: TestInfo) {
+async function launchOlderWorker(
+  testInfo: TestInfo,
+  field: 'showGoogleSuggestions' | 'language',
+) {
   const extension = testInfo.outputPath('older-worker');
   await cp(resolve('apps/extension/dist'), extension, { recursive: true });
-  const setting = /showGoogleSuggestions:\s*\w+\(\)\.default\((?:!0|true)\),?/g;
+  const setting =
+    field === 'language'
+      ? /language:\s*[\w.]+\([^)]*\)\.default\((?:`en`|'en'|"en")\),?/g
+      : /showGoogleSuggestions:\s*\w+\(\)\.default\((?:!0|true)\),?/g;
   const assets = await Promise.all(
     (await readdir(`${extension}/assets`))
       .filter((name) => name.endsWith('.js'))
@@ -91,7 +99,7 @@ async function launchOlderWorker(testInfo: TestInfo) {
               .backupMaintenanceError?.message,
         ),
       )
-      .toContain('showGoogleSuggestions');
+      .toContain(field);
     // The old worker keeps its imported validator while new tabs read current files.
     await writeFile(path, current);
     return { context, worker };
@@ -110,8 +118,7 @@ async function reloadFromNotice(
   const errors = page.locator('[data-deck="toast"][data-kind="error"]');
   await expect(errors).toHaveCount(1);
   const reload = errors.getByRole('button', {
-    name: 'Reload Deck',
-    exact: true,
+    name: /^(Reload Deck|بارگذاری دوبارهٔ Deck)$/u,
   });
   await expect(reload).toBeVisible();
   await page.setViewportSize({ width: 375, height: 812 });
@@ -143,9 +150,15 @@ async function expectRecoveredBackup(page: Page) {
       failure: stored.backupMaintenanceError ?? null,
       enabled: JSON.parse(stored.deckLatestSnapshot.blob).settings
         .showGoogleSuggestions,
+      language: JSON.parse(stored.deckLatestSnapshot.blob).settings.language,
     };
   }, MAINTENANCE_MESSAGE);
-  expect(outcome).toEqual({ error: null, failure: null, enabled: false });
+  expect(outcome).toEqual({
+    error: null,
+    failure: null,
+    enabled: false,
+    language: 'fa',
+  });
 }
 
 async function readSavedData(page: Page, shouldSetOff = false) {
@@ -169,6 +182,7 @@ async function readSavedData(page: Page, shouldSetOff = false) {
               value: {
                 ...(settingsRequest.result?.value ?? defaults),
                 showGoogleSuggestions: false,
+                language: 'fa',
               },
             });
         };
@@ -183,7 +197,7 @@ async function readSavedData(page: Page, shouldSetOff = false) {
           records: records.map((request) => request.result),
           settings: {
             ...(settingsRequest.result?.value ?? defaults),
-            ...(setOff ? { showGoogleSuggestions: false } : {}),
+            ...(setOff ? { showGoogleSuggestions: false, language: 'fa' } : {}),
           },
         };
       } finally {

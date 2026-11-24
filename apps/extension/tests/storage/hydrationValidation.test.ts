@@ -42,6 +42,26 @@ const card = {
 };
 
 describe('warm hydration guards', () => {
+  it('defaults old records to English and validates only supported languages', () => {
+    const legacy = Object.fromEntries(
+      Object.entries(SETTINGS_DEFAULTS).filter(([key]) => key !== 'language'),
+    );
+    expect(SettingsSchema.parse(legacy).language).toBe('en');
+    expect(isSettings(legacy)).toBe(true);
+    if (!isSettings(legacy)) throw new Error('Invalid legacy fixture');
+    expect(hydratedSettings(legacy).language).toBe('en');
+    for (const language of ['en', 'fa']) {
+      const value = { ...SETTINGS_DEFAULTS, language };
+      expect(SettingsSchema.parse(value).language).toBe(language);
+      expect(isSettings(value)).toBe(true);
+    }
+    for (const language of ['ar', '', null, 1]) {
+      const value = { ...SETTINGS_DEFAULTS, language };
+      expect(SettingsSchema.safeParse(value).success).toBe(false);
+      expect(isSettings(value)).toBe(false);
+    }
+  });
+
   it('defaults old analog-clock settings off and keeps strict hydration/schema parity', () => {
     const legacy = Object.fromEntries(
       Object.entries(SETTINGS_DEFAULTS).filter(

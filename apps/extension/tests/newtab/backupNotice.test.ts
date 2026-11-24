@@ -135,6 +135,16 @@ it('offers extension reload for the older settings validator without clearing ev
   expect(remove).not.toHaveBeenCalled();
 });
 
+it.each([['language'], ['language', 'showGoogleSuggestions']])(
+  'offers the same explicit reload for older language validators: %s',
+  (...keys) => {
+    const message = JSON.stringify([
+      { code: 'unrecognized_keys', keys, path: ['settings'] },
+    ]);
+    expect(backupFailureNotice(message).action?.label).toBe('Reload Deck');
+  },
+);
+
 it.each([
   'disk full',
   '[invalid JSON',

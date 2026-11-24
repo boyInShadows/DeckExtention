@@ -8,6 +8,7 @@ import {
 import {
   ACCENT_COLORS,
   FONT_SIZES,
+  LANGUAGES,
   ROW_DENSITIES,
   WALLPAPER_DIM_MAX,
 } from './constants';
@@ -42,6 +43,7 @@ export const SettingsSchema = z.strictObject({
   accentColor: z.enum(ACCENT_COLORS).default('warm'),
   rowDensity: z.enum(ROW_DENSITIES).default('compact'),
   fontSize: z.enum(FONT_SIZES).default('default'),
+  language: z.enum(LANGUAGES).default('en'),
   /** Empty means no greeting line at all - never a placeholder (P1.S3). */
   ownerName: z.string().max(80),
   showSeconds: z.boolean(),

@@ -18,7 +18,7 @@ const OlderSettingsErrorSchema = z
   .array(
     z.object({
       code: z.literal('unrecognized_keys'),
-      keys: z.tuple([z.literal('showGoogleSuggestions')]),
+      keys: z.array(z.enum(['showGoogleSuggestions', 'language'])).nonempty(),
       path: z.tuple([z.literal('settings')]),
     }),
   )

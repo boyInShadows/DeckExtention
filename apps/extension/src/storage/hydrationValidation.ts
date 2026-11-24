@@ -2,6 +2,7 @@ import {
   ACCENT_COLORS,
   ROW_DENSITIES,
   FONT_SIZES,
+  LANGUAGES,
   CUSTOM_CSS_MAX_LENGTH,
   HOSTNAME_MAX_LENGTH,
   NOTE_MAX_LENGTH,
@@ -48,6 +49,7 @@ const SETTINGS_FIELDS = [
   'accentColor',
   'rowDensity',
   'fontSize',
+  'language',
   'ownerName',
   'showSeconds',
   'showAnalogClock',
@@ -202,6 +204,9 @@ export function isSettings(value: unknown): value is Settings {
     ) &&
     isOptional(value.fontSize, (item) =>
       FONT_SIZES.some((size) => size === item),
+    ) &&
+    isOptional(value.language, (item) =>
+      LANGUAGES.some((language) => language === item),
     ) &&
     isString(value.ownerName, 80) &&
     typeof value.showSeconds === 'boolean' &&
