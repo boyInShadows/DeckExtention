@@ -24,3 +24,18 @@ To reproduce
 
 The unicode-range in global.css is copied verbatim from the package's wght.css
 latin block, so the subset the browser is told about matches the subset shipped.
+
+Vazirmatn - self-hosted Persian/Arabic variable font
+===================================================
+
+File      vazirmatn-variable.woff2
+Source    https://github.com/rastikerdar/vazirmatn/releases/tag/v33.003
+Commit    83629f877e8f084cc07b47030b5d3a0ff06c76ec (peeled v33.003 tag)
+Path      fonts/webfonts/Vazirmatn[wght].woff2
+SHA-256   4e3fa217d38fdafc1fea4414ceb58ca5e662cf0ab5fa735a8c8c20e8b42cad92
+Size      111,152 bytes
+Licence   SIL Open Font License 1.1 - see LICENSE-Vazirmatn.txt
+
+Downloaded once at authoring time from the pinned upstream commit. The extension
+will serve the bundled file locally; no CDN, runtime download or dependency is
+needed. The font's upstream licence is separate from Deck's undecided licence.
