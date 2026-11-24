@@ -238,7 +238,7 @@ test('pregranted fixture: real tab groups exceed 60 links; Restore keeps or reco
     expect([...groups][0]).toBeGreaterThanOrEqual(0);
     await closeTabs();
 
-    await page.getByRole('button', { name: 'Sessions', exact: true }).click();
+    await page.getByRole('button', { name: /^Sessions(?:\s+\d+)?$/ }).click();
     const session = page.locator('[data-deck-id="deck_open_session"]');
     await session
       .getByRole('button', { name: 'Deck menu', exact: true })
@@ -279,7 +279,7 @@ test('pregranted fixture: real tab groups exceed 60 links; Restore keeps or reco
       .filter({ hasText: 'Research session' })
       .getByRole('button', { name: 'Restore', exact: true })
       .click();
-    await page.getByRole('button', { name: 'Sessions', exact: true }).click();
+    await page.getByRole('button', { name: /^Sessions(?:\s+\d+)?$/ }).click();
     await expect(session.locator('[data-deck="card"]')).toHaveCount(2);
     const stamps = await page.evaluate(async () => {
       const request = indexedDB.open('deck');

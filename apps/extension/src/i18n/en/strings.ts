@@ -5,6 +5,7 @@
  * (AGENTS.md section 3.3). A translation adds a sibling of each file.
  */
 export const strings = {
+  count: (value: number) => String(value),
   isoWeek: (year: number, week: number) =>
     `${year}-W${String(week).padStart(2, '0')}`,
   isoWeekLabel: (year: number, week: number) => `ISO week ${week}, ${year}`,

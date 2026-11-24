@@ -44,6 +44,7 @@ import { WORKSPACE_DROP_EVENT } from '../../src/drawer/WorkspaceDnd';
 const dnd = vi.hoisted(() => ({
   draggingId: null as string | null,
   overId: null as string | null,
+  keyDown: vi.fn(),
 }));
 
 vi.mock('@dnd-kit/core', async (importOriginal) => ({
@@ -62,7 +63,7 @@ vi.mock('@dnd-kit/sortable', async (importOriginal) => ({
   SortableContext: ({ children }: { children: ComponentChildren }) => children,
   useSortable: ({ id }: { id: string }) => ({
     attributes: { 'aria-roledescription': 'sortable' },
-    listeners: {},
+    listeners: { onKeyDown: dnd.keyDown },
     setNodeRef: () => undefined,
     transform: null,
     transition: undefined,
@@ -236,7 +237,9 @@ function selectedTitle(view: RenderResult): string | undefined {
 }
 
 function inboxButton(view: RenderResult): HTMLElement {
-  return view.getByLabel(strings.inbox);
+  return view.get(
+    `[data-deck="drawer-sections"] [data-system][aria-label^="${strings.inbox}"]`,
+  );
 }
 
 async function press(
@@ -284,6 +287,9 @@ describe('Drawer - loading', () => {
   it('counts the live Inbox cards on the Inbox stop', async () => {
     const { view } = await mount();
     expect(inboxButton(view).querySelector('small')?.textContent).toBe('2');
+    expect(inboxButton(view).getAttribute('aria-label')).toBe(
+      `${strings.inbox} 2`,
+    );
     view.unmount();
   });
 
@@ -842,7 +848,10 @@ describe('Drawer - keys', () => {
       strings.trash,
     ]) {
       expect((await press(view, ']')).defaultPrevented).toBe(true);
-      expect(view.getByLabel(label).dataset.selected).toBe('true');
+      expect(
+        view.get(`[data-deck="drawer-sections"] button[aria-label^="${label}"]`)
+          .dataset.selected,
+      ).toBe('true');
     }
     await press(view, ']');
     expect(selectedTitle(view)).toBe('Home');
@@ -856,7 +865,10 @@ describe('Drawer - keys', () => {
       strings.tasks,
     ]) {
       await press(view, '[');
-      expect(view.getByLabel(label).dataset.selected).toBe('true');
+      expect(
+        view.get(`[data-deck="drawer-sections"] button[aria-label^="${label}"]`)
+          .dataset.selected,
+      ).toBe('true');
     }
     await press(view, '[');
     expect(selectedTitle(view)).toBe('Work');

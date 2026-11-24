@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { panelStrings as strings } from '../../src/i18n/panelStrings';
 import { click, render, type RenderResult } from '../../src/testing/render';
 import { GrantedAccess } from '../../src/newtab/GrantedAccess';
+import { setLanguage } from '../../src/i18n/language';
 
 function stubPermissions(granted: chrome.permissions.Permissions) {
   const permissions = {
@@ -45,11 +46,28 @@ function nth<T>(items: readonly T[], index = 0): T {
 }
 
 afterEach(() => {
+  setLanguage('en');
   vi.unstubAllGlobals();
   document.body.replaceChildren();
 });
 
 describe('GrantedAccess', () => {
+  it('reads translated permission names after the language changes', async () => {
+    setLanguage('fa');
+    stubPermissions({
+      permissions: ['tabs', 'tabGroups', 'search', 'bookmarks'],
+    });
+    const view = await render(<GrantedAccess onError={vi.fn()} />);
+    await settle(view);
+    expect(rows(view)).toEqual([
+      strings.accessTabs,
+      strings.accessTabGroups,
+      strings.accessSearch,
+      strings.bookmarks,
+    ]);
+    view.unmount();
+  });
+
   it('lists, revokes and enables retry for optional tab group access', async () => {
     const permissions = stubPermissions({ permissions: ['tabGroups'] });
     permissions.storage.local.get.mockResolvedValue({

@@ -161,7 +161,7 @@ test('phase 2 journey: quick save, triage, drag, export', async ({
     await expect(decks).toHaveCount(2);
 
     // Triage: the saved page is in the Inbox; m, type, Enter.
-    await page.getByRole('button', { name: 'Inbox', exact: true }).click();
+    await page.getByRole('button', { name: /^Inbox(?:\s+\d+)?$/ }).click();
     const inbox = page.getByRole('listbox', { name: 'Inbox' });
     await expect(inbox.getByRole('option')).toHaveCount(1);
     await expect(inbox).toContainText(ARTICLE_TITLE);

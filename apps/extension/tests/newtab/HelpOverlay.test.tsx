@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { panelStrings as strings } from '../../src/i18n/panelStrings';
 import { click, keyDown, render } from '../../src/testing/render';
 import HelpOverlay from '../../src/newtab/HelpOverlay';
+import { setLanguage } from '../../src/i18n/language';
 
 function stubCommands(getAll: () => Promise<chrome.commands.Command[]>) {
   vi.stubGlobal('chrome', {
@@ -13,12 +14,51 @@ function stubCommands(getAll: () => Promise<chrome.commands.Command[]>) {
 }
 
 afterEach(() => {
+  setLanguage('en');
   vi.unstubAllGlobals();
   localStorage.clear();
   document.body.replaceChildren();
 });
 
 describe('HelpOverlay', () => {
+  it('translates Deck browser command labels even when Chrome returns English metadata', async () => {
+    setLanguage('fa');
+    stubCommands(() =>
+      Promise.resolve([
+        {
+          name: 'quick-save',
+          description: 'Save the current page',
+          shortcut: 'Ctrl+Shift+S',
+        },
+        {
+          name: 'stash',
+          description: 'Stash every tab',
+          shortcut: 'Ctrl+Shift+D',
+        },
+        {
+          name: 'toggle-drawer',
+          description: 'Open or close the drawer',
+          shortcut: 'Ctrl+J',
+        },
+      ]),
+    );
+    const view = await render(
+      <HelpOverlay keymapOverrides={[]} onClose={vi.fn()} />,
+    );
+    await view.act(async () => {});
+    const text = view.container.textContent ?? '';
+    for (const label of [
+      strings.quickSave,
+      strings.actionStash,
+      strings.drawer,
+    ])
+      expect(text).toContain(label);
+    expect(text).not.toContain('Save the current page');
+    expect(text).not.toContain('Stash every tab');
+    expect(text).not.toContain('Open or close the drawer');
+    view.unmount();
+  });
+
   it('lists the browser shortcuts Chrome reports, marking unset ones', async () => {
     stubCommands(() =>
       Promise.resolve([

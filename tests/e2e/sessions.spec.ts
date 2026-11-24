@@ -125,7 +125,7 @@ test('stash saves 30 tabs, preserves pinned/internal tabs, offers Undo, and keep
     );
     await expect(summary.locator('[data-deck="card"]')).toHaveCount(TAB_COUNT);
     await expect(
-      summary.getByRole('button', { name: 'Sessions', exact: true }),
+      summary.getByRole('button', { name: /^Sessions(?:\s+\d+)?$/ }),
     ).toContainText('1');
     expect(pinned.isClosed()).toBe(false);
     expect(internal.isClosed()).toBe(false);

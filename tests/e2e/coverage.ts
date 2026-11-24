@@ -11,14 +11,20 @@ import { E2E_REPORT_OPTIONS } from '../../tools/test-coverage/options.mjs';
 const IS_COVERAGE_RUN = process.env.DECK_COVERAGE === '1';
 
 const report = new CoverageReport(E2E_REPORT_OPTIONS);
+type CoverageStart = { error: unknown } | null;
 
 /** Every page's coverage starts as it opens, before its first navigation. */
-function trackPages(context: BrowserContext): Map<Page, Promise<void>> {
-  const started = new Map<Page, Promise<void>>();
+function trackPages(
+  context: BrowserContext,
+): Map<Page, Promise<CoverageStart>> {
+  const started = new Map<Page, Promise<CoverageStart>>();
   context.on('page', (page) => {
     started.set(
       page,
-      page.coverage.startJSCoverage({ resetOnNavigation: false }),
+      page.coverage.startJSCoverage({ resetOnNavigation: false }).then(
+        () => null,
+        (error: unknown) => ({ error }),
+      ),
     );
   });
   return started;
@@ -26,12 +32,27 @@ function trackPages(context: BrowserContext): Map<Page, Promise<void>> {
 
 async function collect(
   page: Page,
-  started: Map<Page, Promise<void>>,
+  started: Map<Page, Promise<CoverageStart>>,
 ): Promise<void> {
   const start = started.get(page);
   started.delete(page);
-  if (!start || page.isClosed()) return;
-  await start;
+  if (!start) return;
+  const result = await start;
+  if (result) {
+    if (
+      !page.isClosed() ||
+      !(result.error instanceof Error) ||
+      !result.error.message.includes(
+        'Target page, context or browser has been closed',
+      )
+    )
+      throw result.error;
+    test
+      .info()
+      .annotations.push({ type: 'closed V8 capture', description: page.url() });
+    return;
+  }
+  if (page.isClosed()) return;
   const entries = await page.coverage.stopJSCoverage();
   if (entries.length === 0) {
     test.info().annotations.push({
@@ -83,7 +104,8 @@ export function withCoverage(context: BrowserContext): BrowserContext {
     pages: () => context.pages().map(coveredPage),
     newPage: async () => {
       const page = await context.newPage();
-      await started.get(page);
+      const result = await started.get(page);
+      if (result) throw result.error;
       return coveredPage(page);
     },
     close: async (...args: Parameters<BrowserContext['close']>) => {

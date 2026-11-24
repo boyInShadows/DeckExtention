@@ -1,13 +1,20 @@
 // @vitest-environment happy-dom
 import 'fake-indexeddb/auto';
 import { deleteDB } from 'idb';
+import { render as renderPreact } from 'preact';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Card } from 'deck-schema';
 import PinMenu from '../../src/newtab/PinMenu';
 import { panelStrings as strings } from '../../src/i18n/panelStrings';
 import { DeckRepository } from '../../src/storage/repository';
 import { openDeckDatabase } from '../../src/storage/database';
-import { click, render, type RenderResult } from '../../src/testing/render';
+import {
+  click,
+  keyDown,
+  render,
+  type RenderResult,
+} from '../../src/testing/render';
+import { setLanguage } from '../../src/i18n/language';
 
 const NOW = 1_900_000_000_000;
 const CARD: Card = {
@@ -45,6 +52,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  setLanguage('en');
   view?.unmount();
   view = undefined;
   anchor.remove();
@@ -53,6 +61,43 @@ afterEach(async () => {
   await repository.close();
   await deleteDB(name);
 });
+
+it.each(['en', 'fa'] as const)(
+  'focuses the %s menu at commit so an immediate End key works',
+  (language) => {
+    setLanguage(language);
+    const container = document.createElement('div');
+    document.body.append(container);
+    anchor.focus();
+    try {
+      renderPreact(
+        <PinMenu
+          card={CARD}
+          anchor={anchor}
+          repository={repository}
+          onOpened={vi.fn()}
+          onError={vi.fn()}
+          onClose={vi.fn()}
+          onUpdate={vi.fn()}
+        />,
+        container,
+      );
+      const items = [
+        ...container.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+      ];
+      const first = items[0];
+      if (!first) throw new Error('Missing menu items');
+      expect(document.activeElement).toBe(first);
+      keyDown(first, 'End');
+      expect(document.activeElement).toBe(items.at(-1));
+      keyDown(items.at(-1) ?? first, 'Home');
+      expect(document.activeElement).toBe(first);
+    } finally {
+      renderPreact(null, container);
+      container.remove();
+    }
+  },
+);
 
 async function openMenu() {
   const onOpened = vi.fn();

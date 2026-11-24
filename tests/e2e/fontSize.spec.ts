@@ -414,7 +414,7 @@ test('extra large and comfortable keep Shelf, Inbox and Trash controls reachable
     await page.keyboard.press('Control+J');
     await settledDrawer(page);
     const drawer = page.locator('[data-deck="drawer"]');
-    await drawer.getByRole('button', { name: 'Inbox', exact: true }).click();
+    await drawer.getByRole('button', { name: /^Inbox(?:\s+\d+)?$/ }).click();
     await bounds(
       page,
       page.locator('[data-deck="inbox"]').getByRole('listbox'),

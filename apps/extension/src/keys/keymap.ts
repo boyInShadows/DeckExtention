@@ -161,11 +161,17 @@ export function actionForChord(
   keymap: Keymap,
   scope: KeyScope,
   chord: string,
+  isRtl = false,
 ): KeyActionId | null {
   const bound = KEY_ACTIONS.find(
     ({ id, scopes }) => scopes.includes(scope) && keymap[id] === chord,
   );
-  return bound?.id ?? ARROW_ALIASES[scope][chord] ?? null;
+  if (bound) return bound.id;
+  if (scope === 'drawer' && isRtl) {
+    if (chord === 'ArrowLeft') return 'nextDeck';
+    if (chord === 'ArrowRight') return 'previousDeck';
+  }
+  return ARROW_ALIASES[scope][chord] ?? null;
 }
 
 export type BindingProblem =

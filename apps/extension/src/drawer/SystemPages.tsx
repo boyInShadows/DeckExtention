@@ -45,7 +45,7 @@ export function SystemPages({
           type="button"
           data-deck={icon === 'links' ? 'links-page' : 'page'}
           data-system={icon !== 'links' || undefined}
-          aria-label={label}
+          aria-label={count ? `${label} ${strings.count(count)}` : label}
           aria-current={
             icon === 'links' && selectedId === id ? 'page' : undefined
           }
@@ -53,8 +53,8 @@ export function SystemPages({
           data-selected={(icon !== 'links' && selectedId === id) || undefined}
         >
           <Icon name={icon} />
-          <span className="deck-pages__label">{label}</span>
-          {count ? <small>{count}</small> : null}
+          <span className="deck-pages__label">{label}</span>{' '}
+          {count ? <small>{strings.count(count)}</small> : null}
         </button>
       ))}
     </nav>

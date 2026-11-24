@@ -361,7 +361,7 @@ for (const density of ['compact', 'comfortable']) {
       );
       await page.keyboard.press('Control+J');
       const drawer = page.locator('[data-deck="drawer"]');
-      await drawer.getByRole('button', { name: 'Inbox', exact: true }).click();
+      await drawer.getByRole('button', { name: /^Inbox(?:\s+\d+)?$/ }).click();
       await expect(
         page.locator('[data-deck="inbox"] [data-deck="card"]').first(),
       ).toHaveCSS(

@@ -560,7 +560,7 @@ function DeckColumn({
                 visibleCards.filter((card) => card.done).length,
                 visibleCards.length,
               )
-            : visibleCards.length}
+            : strings.count(visibleCards.length)}
         </small>
         {deck.kind === 'session' && deck.expiresAt === undefined ? (
           <small data-deck="session-kept">{strings.sessionKeptLabel}</small>

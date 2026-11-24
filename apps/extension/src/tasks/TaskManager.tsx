@@ -137,7 +137,9 @@ export function TaskManager({
           >
             {completed ? strings.completedTasks : strings.openTasks}{' '}
             <span data-deck="task-count">
-              {tasks.filter((card) => Boolean(card.done) === completed).length}
+              {strings.count(
+                tasks.filter((card) => Boolean(card.done) === completed).length,
+              )}
             </span>
           </button>
         ))}

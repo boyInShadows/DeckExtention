@@ -323,7 +323,7 @@ test('Sessions filter reveals collapsed matches without saving collapse or query
     await page.keyboard.press('Control+J');
     await page
       .locator('[data-deck="drawer"]')
-      .getByRole('button', { name: 'Sessions', exact: true })
+      .getByRole('button', { name: /^Sessions(?:\s+\d+)?$/ })
       .click();
     await expect(page.locator(DECK)).toBeVisible();
     const before = await records(page);

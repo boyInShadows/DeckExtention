@@ -2,6 +2,7 @@ import type { SurfaceCatalog } from '../catalogs';
 import { number } from './numbers';
 
 export const strings = {
+  count: number,
   isoWeek: (year, week) => `${number(year)}-W${number(week).padStart(2, '۰')}`,
   isoWeekLabel: (year, week) =>
     `هفتهٔ ${number(week)} سال ${number(year)} بر پایهٔ ISO`,

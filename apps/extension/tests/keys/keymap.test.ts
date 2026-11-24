@@ -44,6 +44,28 @@ describe('chordFromEvent', () => {
 });
 
 describe('resolveKeymap and actionForChord', () => {
+  it('mirrors only the drawer physical arrow aliases in RTL', () => {
+    const keymap = resolveKeymap([]);
+    expect(actionForChord(keymap, 'drawer', 'ArrowLeft', true)).toBe(
+      'nextDeck',
+    );
+    expect(actionForChord(keymap, 'drawer', 'ArrowRight', true)).toBe(
+      'previousDeck',
+    );
+    expect(actionForChord(keymap, 'drawer', 'l', true)).toBe('nextDeck');
+    expect(actionForChord(keymap, 'drawer', 'h', true)).toBe('previousDeck');
+    expect(actionForChord(keymap, 'inbox', 'ArrowRight', true)).toBe('move');
+    expect(actionForChord(keymap, 'surface', 'ArrowLeft', true)).toBeNull();
+    expect(
+      actionForChord(
+        resolveKeymap([{ action: 'trash', chord: 'ArrowLeft' }]),
+        'drawer',
+        'ArrowLeft',
+        true,
+      ),
+    ).toBe('trash');
+  });
+
   it('uses defaults, then overrides', () => {
     const keymap = resolveKeymap([{ action: 'trash', chord: 'Delete' }]);
     expect(keymap.next).toBe('j');

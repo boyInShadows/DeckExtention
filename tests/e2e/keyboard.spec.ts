@@ -129,7 +129,9 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
     for (const section of ['Tasks', 'Inbox', 'Sessions', 'Focus', 'Trash']) {
       await keys.press(']');
       await expect(
-        page.getByRole('button', { name: section, exact: true }),
+        page.getByRole('button', {
+          name: new RegExp(`^${section}(?:\\s+\\d+)?$`),
+        }),
       ).toHaveAttribute('data-selected', 'true');
     }
     await keys.press('[');
@@ -138,7 +140,7 @@ test('a mouse-less session: create, note, pin, move, trash, switch page, open, e
     ).toHaveAttribute('data-selected', 'true');
     await keys.press('[');
     await expect(
-      page.getByRole('button', { name: 'Sessions', exact: true }),
+      page.getByRole('button', { name: /^Sessions(?:\s+\d+)?$/ }),
     ).toHaveAttribute('data-selected', 'true');
     await keys.press('[');
     await expect(

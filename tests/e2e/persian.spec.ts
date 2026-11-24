@@ -91,6 +91,19 @@ async function reorderRtlPins(page: Page) {
     .toEqual([...beforeOrder].reverse());
 }
 
+async function checkRtlPinMenu(page: Page) {
+  const pin = page.locator('[data-deck="pin"]').first();
+  await pin.press('ContextMenu');
+  const items = page.locator('[data-deck="pin-menu"]').getByRole('menuitem');
+  await expect(items.first()).toBeFocused();
+  await page.keyboard.press('End');
+  await expect(items.last()).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(items.first()).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(pin).toBeFocused();
+}
+
 test('Persian saved settings render local fonts, translated panels and physical RTL pin keys', async () => {
   const testInfo = test.info();
   const context = await launchExtension();
@@ -107,6 +120,7 @@ test('Persian saved settings render local fonts, translated panels and physical 
     );
     await expectLocalFont(page);
     await reorderRtlPins(page);
+    await checkRtlPinMenu(page);
     await page.screenshot({ path: testInfo.outputPath('surface-fa.png') });
     await page.locator('[data-deck="settings-toggle"]').click();
     await expect(

@@ -38,6 +38,9 @@ working build, without a Chrome Web Store release or public rating claim.
 
 ## Features
 
+- **Language:** English is the default. Choose فارسی in Settings → Appearance
+  for Persian text and a right-to-left workspace. Vazirmatn is bundled locally;
+  the language choice also follows JSON backup/restore and Quick Save notices.
 - **The Line:** Enter searches the web; Arrow Down or a click selects a saved result.
   Typed URLs open directly, `>` runs commands, and `?query` also searches the web.
   Shift+Enter opens in a new tab. Open-tab search asks for optional access.

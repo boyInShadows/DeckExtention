@@ -10,11 +10,13 @@ import {
   type DragEndEvent,
   type CollisionDetection,
   type DndContextProps,
+  type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import type { ReactNode } from 'react';
 
 import { strings } from '../i18n/strings';
+import { parseDragId } from './dragIdentity';
 
 const accessibility: NonNullable<DndContextProps['accessibility']> = {
   screenReaderInstructions: {
@@ -48,9 +50,40 @@ const KEYBOARD_DRAG_CODES = {
   end: ['Space', 'Enter'],
 };
 
+const keyboardCoordinates: KeyboardCoordinateGetter = (event, arguments_) => {
+  const entity = parseDragId(arguments_.context.active?.id ?? '')?.entity;
+  if (entity !== 'deck' && entity !== 'page')
+    return sortableKeyboardCoordinates(event, arguments_);
+  // Nested cards must not become keyboard destinations for a whole deck.
+  const droppableRects = new Map(
+    [...arguments_.context.droppableRects].filter(
+      ([id]) => parseDragId(id)?.entity === entity,
+    ),
+  );
+  return sortableKeyboardCoordinates(event, {
+    ...arguments_,
+    context: { ...arguments_.context, droppableRects },
+  });
+};
+
 const collisionDetection: CollisionDetection = (arguments_) => {
-  const pointerCollisions = pointerWithin(arguments_);
-  const rectangleCollisions = rectIntersection(arguments_);
+  const entity = parseDragId(arguments_.active.id)?.entity;
+  const candidates =
+    entity === 'page' || entity === 'deck'
+      ? {
+          ...arguments_,
+          droppableContainers: arguments_.droppableContainers.filter(
+            ({ id }) => {
+              const target = parseDragId(id)?.entity;
+              return (
+                target === 'page' || (entity === 'deck' && target === 'deck')
+              );
+            },
+          ),
+        }
+      : arguments_;
+  const pointerCollisions = pointerWithin(candidates);
+  const rectangleCollisions = rectIntersection(candidates);
   const pinCollision = pointerCollisions
     .concat(rectangleCollisions)
     .find((item) => item.id === 'pin:drawer');
@@ -65,7 +98,7 @@ export function WorkspaceDnd({ children }: { children: ReactNode }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
+      coordinateGetter: keyboardCoordinates,
       keyboardCodes: KEYBOARD_DRAG_CODES,
     }),
   );

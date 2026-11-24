@@ -15,28 +15,36 @@ import { panelStrings as strings } from '../i18n/panelStrings';
 const IN_CONTEXT_ACCESS = [
   {
     permission: 'tabs',
-    name: strings.accessTabs,
+    get name() {
+      return strings.accessTabs;
+    },
     get reason() {
       return strings.accessTabsReason;
     },
   },
   {
     permission: 'tabGroups',
-    name: strings.accessTabGroups,
+    get name() {
+      return strings.accessTabGroups;
+    },
     get reason() {
       return strings.accessTabGroupsReason;
     },
   },
   {
     permission: 'search',
-    name: strings.accessSearch,
+    get name() {
+      return strings.accessSearch;
+    },
     get reason() {
       return strings.accessSearchReason;
     },
   },
   {
     permission: 'bookmarks',
-    name: strings.bookmarks,
+    get name() {
+      return strings.bookmarks;
+    },
     get reason() {
       return strings.bookmarksReason;
     },

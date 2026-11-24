@@ -52,6 +52,8 @@ describe('Persian catalogs', () => {
   });
 
   it('renders Persian counts and keeps user text intact', () => {
+    expect(persian.count(12)).toBe('۱۲');
+    expect(english.count(12)).toBe('12');
     expect(persian.pinRange(7, 12, 12)).toBe('۷–۱۲ از ۱۲');
     expect(persian.isoWeek(2026, 1)).toBe('۲۰۲۶-W۰۱');
     expect(persian.openSection('Work / کار')).toContain('Work / کار');

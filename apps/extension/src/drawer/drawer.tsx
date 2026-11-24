@@ -126,24 +126,27 @@ function SortablePage({
       data-selected={isSelected || undefined}
       data-dragging={isDragging || undefined}
       data-drag-over={isOver || undefined}
+      {...attributes}
+      {...listeners}
       onClick={onSelect}
       onDoubleClick={onRename}
       onKeyDown={(event) => {
         if (event.key === 'F2') {
           event.preventDefault();
           onRename();
+          return;
         }
         if (event.key === 'Delete') {
           event.preventDefault();
           onDelete();
+          return;
         }
+        listeners?.onKeyDown?.(event);
       }}
       onContextMenu={(event) => {
         event.preventDefault();
         onDelete();
       }}
-      {...attributes}
-      {...listeners}
     >
       <span className="deck-pages__label">{page.title}</span>
     </button>

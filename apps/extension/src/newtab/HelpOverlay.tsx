@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import { panelStrings as strings } from '../i18n/panelStrings';
+import { getLanguage } from '../i18n/language';
 import {
   formatChord,
   KEY_ACTIONS,
@@ -118,7 +119,19 @@ export default function HelpOverlay({
     {
       title: strings.keysBrowser,
       rows: commands.map(
-        ({ description, shortcut }) => [shortcut, description] as const,
+        ({ name, description, shortcut }) =>
+          [
+            shortcut,
+            getLanguage() === 'en'
+              ? description
+              : name === 'quick-save'
+                ? strings.quickSave
+                : name === 'stash'
+                  ? strings.actionStash
+                  : name === 'toggle-drawer'
+                    ? strings.drawer
+                    : description,
+          ] as const,
       ),
     },
   ];

@@ -1,6 +1,6 @@
 import type { Card } from 'deck-schema';
 import {
-  useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -59,7 +59,7 @@ export default function PinMenu({
     overflowY: 'auto',
   } satisfies CSSProperties;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
   }, [editing]);
   useDismissable(ref, onClose, anchor);

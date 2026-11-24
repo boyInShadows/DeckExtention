@@ -205,7 +205,14 @@ export function useWorkspaceKeys(options: WorkspaceKeysOptions): void {
       // A card mid keyboard-drag owns the keys until it is dropped.
       if (!isInGrid || main.querySelector('[data-dragging]')) return;
       const chord = chordFromEvent(event);
-      const action = chord ? actionForChord(keymap, 'drawer', chord) : null;
+      const action = chord
+        ? actionForChord(
+            keymap,
+            'drawer',
+            chord,
+            document.documentElement.dir === 'rtl',
+          )
+        : null;
       const grid = readGrid(main);
       const cardId =
         document.activeElement?.closest<HTMLElement>('[data-deck="card"]')

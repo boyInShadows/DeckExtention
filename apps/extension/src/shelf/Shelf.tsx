@@ -133,7 +133,7 @@ function ShelfDeck({
             data-deck="shelf-count"
             aria-label={strings.shelfCount(cards.length)}
           >
-            {cards.length}
+            {strings.count(cards.length)}
           </small>
         </button>
       </h2>
