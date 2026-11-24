@@ -45,7 +45,7 @@ export const strings = {
   backupFailed: 'Backup failed.',
   saved: 'Saved',
   undo: 'Undo',
-  openDrawer: 'Open Deck drawer',
+  openDrawer: 'Open Deck drawer: Deck · Space',
   inbox: 'Inbox',
   newPage: 'New page',
   newDeck: 'New deck',

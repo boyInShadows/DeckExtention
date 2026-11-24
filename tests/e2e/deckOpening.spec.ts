@@ -76,7 +76,10 @@ async function seed(page: Page, siteOrigin: string) {
   await page.reload();
   await page.waitForSelector(READY);
   await page
-    .getByRole('button', { name: 'Open Deck drawer', exact: true })
+    .getByRole('button', {
+      name: 'Open Deck drawer: Deck · Space',
+      exact: true,
+    })
     .click();
   await page.getByRole('button', { name: 'Opening', exact: true }).click();
 }

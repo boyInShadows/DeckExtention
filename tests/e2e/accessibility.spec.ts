@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 
 import { launchExtension } from './extension';
 
-test('surface, drawer, Settings, and help have no serious accessibility violations', async () => {
+test('surface, drawer, Settings, and help have no serious violations or label mismatches', async () => {
   test.setTimeout(120_000);
   const context = await launchExtension();
   try {
@@ -13,11 +13,16 @@ test('surface, drawer, Settings, and help have no serious accessibility violatio
     const findings: string[] = [];
     const scan = async (screen: string) => {
       const { violations } = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
         .analyze();
       findings.push(
         ...violations
-          .filter(({ impact }) => impact === 'serious' || impact === 'critical')
+          .filter(
+            ({ impact, id }) =>
+              impact === 'serious' ||
+              impact === 'critical' ||
+              id === 'label-content-name-mismatch',
+          )
           .map(
             ({ id, nodes }) =>
               `${screen}: ${id} (${nodes.map(({ target }) => target.join(' ')).join(', ')})`,

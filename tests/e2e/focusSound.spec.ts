@@ -154,7 +154,9 @@ test('completion shows a persistent popup and plays the real local chime once, w
       await page.locator('[data-deck="settings-toggle"]').click();
       await expect(page.locator('[data-deck="settings"]')).toBeVisible();
       await page.getByLabel('Close settings', { exact: true }).click();
-      await page.getByLabel('Open Deck drawer', { exact: true }).click();
+      await page
+        .getByLabel('Open Deck drawer: Deck · Space', { exact: true })
+        .click();
       await expect(
         page.locator('[data-deck="drawer"][data-open]'),
       ).toBeVisible();

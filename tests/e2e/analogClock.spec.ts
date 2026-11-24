@@ -282,7 +282,9 @@ for (const theme of ['Day', 'Night']) {
           path: testInfo.outputPath(`analog-${theme}-${name}.png`),
           animations: 'disabled',
         });
-        await page.getByLabel('Open Deck drawer', { exact: true }).click();
+        await page
+          .getByLabel('Open Deck drawer: Deck · Space', { exact: true })
+          .click();
         if (name === 'short') await expect(dial).toBeHidden();
         else await expect(dial).toBeInViewport();
         await expect(page.locator('[data-deck="clock"]')).toHaveCSS(

@@ -185,7 +185,10 @@ test('stash saves 30 tabs, preserves pinned/internal tabs, offers Undo, and keep
     await summary.reload();
     await summary.waitForSelector('html[data-deck-ready="true"]');
     await summary
-      .getByRole('button', { name: 'Open Deck drawer', exact: true })
+      .getByRole('button', {
+        name: 'Open Deck drawer: Deck · Space',
+        exact: true,
+      })
       .click();
     await expect(summary.locator('[data-deck="session-kept"]')).toHaveText(
       'Kept',
