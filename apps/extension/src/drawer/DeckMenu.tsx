@@ -224,8 +224,8 @@ export function DeckMenu({
                 type="button"
                 role="menuitem"
                 data-color={color}
-                aria-label={color}
-                title={color}
+                aria-label={strings.deckColorNames[color]}
+                title={strings.deckColorNames[color]}
                 aria-current={deck.color === color}
                 onClick={() => choose({ color })}
               />

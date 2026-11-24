@@ -62,7 +62,10 @@ function SortablePin({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: dragId('pin', card.id) });
+  } = useSortable({
+    id: dragId('pin', card.id),
+    attributes: { roleDescription: strings.sortable },
+  });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,

@@ -39,6 +39,7 @@ export function CardRow({
     isDragging,
   } = useSortable({
     id: dragId('card', card.id),
+    attributes: { roleDescription: strings.sortable },
     transition: { duration: DROP_SETTLE_MS, easing: DROP_SETTLE_EASING },
   });
   const isOver = useDropHighlight(dragId('card', card.id));

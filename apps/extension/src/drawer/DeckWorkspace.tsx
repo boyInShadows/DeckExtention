@@ -327,6 +327,7 @@ function DeckColumn({
     isDragging,
   } = useSortable({
     id: dragId('deck', deck.id),
+    attributes: { roleDescription: strings.sortable },
     transition: { duration: DROP_SETTLE_MS, easing: DROP_SETTLE_EASING },
   });
   const isOver = useDropHighlight(dragId('deck', deck.id));

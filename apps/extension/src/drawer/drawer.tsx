@@ -95,7 +95,10 @@ function SortablePage({
     transition,
     isDragging,
     isOver,
-  } = useSortable({ id: dragId('page', page.id) });
+  } = useSortable({
+    id: dragId('page', page.id),
+    attributes: { roleDescription: strings.sortable },
+  });
   if (isEditing)
     return (
       <input

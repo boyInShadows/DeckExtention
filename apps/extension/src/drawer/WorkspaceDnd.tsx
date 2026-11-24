@@ -9,9 +9,23 @@ import {
   useSensors,
   type DragEndEvent,
   type CollisionDetection,
+  type DndContextProps,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import type { ReactNode } from 'react';
+
+import { strings } from '../i18n/strings';
+
+const accessibility: NonNullable<DndContextProps['accessibility']> = {
+  screenReaderInstructions: { draggable: strings.dragInstructions },
+  announcements: {
+    onDragStart: ({ active }) => strings.dragPickedUp(active.id),
+    onDragOver: ({ active, over }) =>
+      over ? strings.dragOver(active.id, over.id) : strings.dragLeft(active.id),
+    onDragEnd: ({ active, over }) => strings.dragDropped(active.id, over?.id),
+    onDragCancel: ({ active }) => strings.dragCancelled(active.id),
+  },
+};
 
 export const WORKSPACE_DROP_EVENT = 'deck:drop';
 
@@ -61,6 +75,7 @@ export function WorkspaceDnd({ children }: { children: ReactNode }) {
   };
   return (
     <DndContext
+      accessibility={accessibility}
       sensors={sensors}
       collisionDetection={collisionDetection}
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
